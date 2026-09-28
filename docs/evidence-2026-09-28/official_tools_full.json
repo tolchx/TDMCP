@@ -1,0 +1,1246 @@
+[
+  {
+    "name": "execute_code",
+    "description": "Execute Python code in TouchDesigner. Supports multi-line code blocks. Globals: op(), ops(), td, project, root, parent, absTime, setattr, getattr, hasattr. Prefer dedicated tools when one fits \u2014 edit_operator (rename/copy/reposition/flags/color), delete_operator, reposition_operators (batch moves), edit_custom_parameters (custom pars), annotation (network boxes). Use execute_code only when no dedicated tool covers the action.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Python code to execute in TouchDesigner"
+        }
+      },
+      "required": [
+        "code"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "get_docs",
+    "description": "Look up TouchDesigner documentation: the Python API (class members/methods) and conceptual operator articles. Use BEFORE writing execute_code against an unfamiliar TD Python method (the most hallucination-prone surface), or for concepts beyond what get_help's parameter listings cover. Don't guess Python members.\nquery: an opType ('noiseTOP'), a class/base page ('TOP_Class', 'OP_Class'), an explicit page name ('Movie_File_In_TOP'), or free text. kind: 'python' = class API (default for opTypes), 'concept' = the article, 'auto'. A class page inlines its FULL inheritance (~10K tokens); the default returns only operator-specific members/methods + the inheritance chain. Drill deeper by re-calling with `section` (e.g. fetch query='TOP_Class', section='Members'). The response lists `sections_available`. Reads local docs when installed (the bundled offline-help mirror), else the live docs.derivative.ca wiki.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "opType, class/base page name, explicit page name, or free text"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "python",
+            "concept"
+          ],
+          "default": "auto",
+          "description": "'python' = class API members/methods; 'concept' = operator article; 'auto' prefers python for opTypes"
+        },
+        "section": {
+          "type": "string",
+          "description": "Drill into one section from a prior call's `sections_available` (e.g. 'Members', 'Methods', 'Parameters - Common Page')"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_cook_performance",
+    "description": "Get cook time performance data for operators. Scans children and returns cook times sorted by highest cost. Each entry includes budgetPct \u2014 cook time as a percent of the frame budget (1000/cookRate ms) \u2014 to spot ops eating the frame. Set include_memory=true for memory stats and cook counts per operator.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "/",
+          "description": "Root path to scan, all children included (default: '/', the whole project tree)"
+        },
+        "top_n": {
+          "type": "integer",
+          "default": 20,
+          "description": "Number of top results to return"
+        },
+        "sort": {
+          "type": "string",
+          "default": "cook",
+          "description": "Sort by: 'cook' (total), 'cpu', 'gpu', 'memory', 'cooks' (cook count)"
+        },
+        "include_memory": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include cpuMemory, gpuMemory, totalCooks, cookedThisFrame, and COMP aggregate times"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_dat_content",
+    "description": "Read the content of a DAT operator. Returns text for text DATs, or rows for table DATs. For large tables, page with offset/limit.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full path to a DAT operator"
+        },
+        "offset": {
+          "type": "integer",
+          "default": 0,
+          "description": "Table DATs: first row to return (0-based). Ignored for text DATs."
+        },
+        "limit": {
+          "type": "integer",
+          "default": 0,
+          "description": "Table DATs: max rows to return from offset (0 = all)."
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "set_dat_content",
+    "description": "Write or edit DAT content. Use `text` for text DATs, `rows` for table DATs. Use `old_string`+`new_string` to edit existing content in-place (like a diff \u2014 only sends the changed part). Use `file_content` to write to an external file and sync the DAT to it. Edit mode auto-detects file-synced DATs.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full path to a DAT operator"
+        },
+        "text": {
+          "type": "string",
+          "description": "Text content to write (for text DATs)"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "Table rows to write (for table DATs)"
+        },
+        "file_content": {
+          "type": "string",
+          "description": "Write content to external file + sync DAT to it. For shaders/scripts that should live on disk."
+        },
+        "file_type": {
+          "type": "string",
+          "default": "glsl",
+          "description": "File type when using file_content: 'glsl', 'py', or 'dat'"
+        },
+        "file_path": {
+          "type": "string",
+          "description": "Override auto-generated file path (relative to project folder) when using file_content"
+        },
+        "old_string": {
+          "type": "string",
+          "description": "Edit mode: text to find and replace in existing content (must be unique unless replace_all=true)"
+        },
+        "new_string": {
+          "type": "string",
+          "description": "Edit mode: replacement text (use with old_string)"
+        },
+        "replace_all": {
+          "type": "boolean",
+          "default": false,
+          "description": "Edit mode: replace all occurrences of old_string (default: first match only)"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "inspect_values",
+    "description": "Inspect runtime values of an operator. Auto-detects family. CHOP: channel names and current values (set include_samples=true for full numpy arrays on multi-sample CHOPs; set record_seconds=N to record a future time window into a trailCHOP and return the series async \u2014 returns a job_id, call again with that job_id after waitTime; pair with pre_pulses to fire triggers same-tick so the capture window frames a triggered event instead of missing it to MCP latency). TOP: resolution, pixel format, optional single-pixel sample OR sample_grid for a downsampled NxN RGBA overview with per-channel stats \u2014 much cheaper than view_operator for debugging. SOP: point/prim/vertex counts. DAT: row/col counts. POP: point count, attribute names/types/values (sampled), and which attributes changed in this operator.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path. Not needed when retrieving a record job."
+        },
+        "sample_x": {
+          "type": "number",
+          "description": "TOP pixel sample X coordinate (normalized 0-1)"
+        },
+        "sample_y": {
+          "type": "number",
+          "description": "TOP pixel sample Y coordinate (normalized 0-1)"
+        },
+        "sample_grid": {
+          "type": "integer",
+          "default": 0,
+          "description": "TOP: return downsampled NxN RGBA grid (e.g., 8 gives 8x8=64 samples) with per-channel min/max/mean stats. Useful for debugging without view_operator token cost."
+        },
+        "channel": {
+          "type": "string",
+          "description": "CHOP channel name to read (omit for all channels). In record mode, filters the trail to only this channel."
+        },
+        "include_samples": {
+          "type": "boolean",
+          "default": false,
+          "description": "CHOP: return full sample arrays via numpyArray() for multi-sample CHOPs instead of single eval() values. Can be large for high-sample-count CHOPs."
+        },
+        "record_seconds": {
+          "type": "number",
+          "description": "CHOP: record the next N seconds of samples into a trailCHOP and return the series async. Returns {status:'capturing', job_id, waitTime}; call again with job_id to collect. Clamped to [0.1, 60] seconds. Useful for verifying whether a CHOP actually ticks per-frame, is smooth/quantized, or fires on every change."
+        },
+        "job_id": {
+          "type": "string",
+          "description": "Retrieve a completed record_seconds capture by job ID. Returned by record_seconds calls."
+        },
+        "pre_pulses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Full path to the operator whose par will be pulsed"
+              },
+              "par": {
+                "type": "string",
+                "description": "Parameter name to pulse (typically a Pulse-type par like 'start', 'initialize', 'resetpulse')"
+              }
+            },
+            "required": [
+              "path",
+              "par"
+            ]
+          },
+          "description": "Only honored with record_seconds. List of pulses to fire in the same server tick as the capture window opens \u2014 eliminates MCP round-trip latency between trigger and capture start. Pulses fire in list order; if any target/par is missing, no pulses fire and no capture starts. Capture target does not have to match pulse target (e.g., pulse timer1.start, record downstream null_anim)."
+        },
+        "max_points": {
+          "type": "integer",
+          "default": 100,
+          "description": "POP: max number of point values to return per attribute. Even-spaced sampling when numPoints exceeds this. Hard ceiling 10000."
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "POP: optional list of attribute names to return (e.g., ['P','Cd']). Omit for all attributes."
+        },
+        "preview_rows": {
+          "type": "integer",
+          "default": 0,
+          "description": "DAT: include the first N rows of a table DAT as a preview (0 = none)."
+        }
+      },
+      "required": []
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "annotation",
+    "description": "Create or edit a network box annotation. Provide `parent_path` to create a new annotation, or `path` to edit an existing one.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parent_path": {
+          "type": "string",
+          "description": "Create mode: parent COMP to create annotation in (e.g., '/project1')"
+        },
+        "path": {
+          "type": "string",
+          "description": "Edit mode: full path to existing annotateCOMP (e.g., '/project1/annotate1')"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Text label for the network box (required for create)"
+        },
+        "nodeX": {
+          "type": "integer",
+          "default": 0,
+          "description": "X position"
+        },
+        "nodeY": {
+          "type": "integer",
+          "default": 0,
+          "description": "Y position"
+        },
+        "width": {
+          "type": "integer",
+          "default": 400,
+          "description": "Box width"
+        },
+        "height": {
+          "type": "integer",
+          "default": 200,
+          "description": "Box height"
+        },
+        "color": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "RGB color as [r, g, b] with values 0-1"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "view_operator",
+    "description": "Capture an operator's visual output as a PNG image (returned inline as base64). For pixel-value debugging, prefer inspect_values(sample_grid=N) \u2014 much cheaper than a full image capture. Use view_operator for final visual checks; default resolution=tiny, bump to low/high only when spatial detail truly matters. Works for any family: TOPs render directly, non-TOPs (COMP, SOP, POP, CHOP, MAT) use the operator viewer. For animated operators, set frames>1 to capture a grid of frames over time \u2014 returns a job_id; call again with that job_id after waitTime to retrieve the image. Use delay_frames to wait N frames before capture begins (useful when you just triggered an animation and want it to develop first). Pair with pre_pulses to fire triggers in the same server tick as the capture starts \u2014 useful for feedback-reset captures and triggered animations, where separate tool calls would miss the event to MCP round-trip latency.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path (e.g., '/project1/render1'). Not needed when retrieving a grid job."
+        },
+        "resolution": {
+          "type": "string",
+          "default": "tiny",
+          "description": "Resolution preset, as a pixel budget: 'tiny' (~128x128), 'low' (~640x360), 'high' (~1280x720). The capture keeps the source's aspect ratio, so the returned width/height may differ from the preset. For grid mode, this is per-cell resolution."
+        },
+        "frames": {
+          "type": "integer",
+          "default": 1,
+          "description": "Number of frames to capture. 1=single snapshot (default). >1=grid of frames over time (max 9)."
+        },
+        "step": {
+          "type": "integer",
+          "default": 10,
+          "description": "Frames to skip between captures in grid mode. Higher=more time between snapshots."
+        },
+        "delay_frames": {
+          "type": "integer",
+          "default": 0,
+          "description": "Wait N frames before capture begins. Use after triggering an animation/pulse so the capture lands when the action is mid-flight (e.g., delay_frames=60 to start capturing 1 second after triggering at 60fps)."
+        },
+        "job_id": {
+          "type": "string",
+          "description": "Retrieve a completed grid capture by job ID. Returned by frames>1 calls."
+        },
+        "pre_pulses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Full path to the operator whose par will be pulsed"
+              },
+              "par": {
+                "type": "string",
+                "description": "Parameter name to pulse (typically a Pulse-type par like 'resetpulse', 'start', 'trigger')"
+              }
+            },
+            "required": [
+              "path",
+              "par"
+            ]
+          },
+          "description": "List of pulses to fire in the same server tick as the capture starts \u2014 eliminates MCP round-trip latency between trigger and capture. Pulses fire in list order; if any target/par is missing, no pulses fire and no capture runs. Applies to all capture paths (single frame, delay_frames, grid). Capture target does not have to match pulse target (e.g., pulse feedback1.resetpulse, capture downstream composite)."
+        }
+      },
+      "required": []
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_parameters",
+    "description": "Get parameter values from one or more operators. Single-operator mode: provide `path`. Returns non-default params by default; use `names` for specific params, `pattern` for glob matching, `include_defaults` for all. Response includes `sequences` with current block counts. Batch mode: provide `parent_path` + `batch` dict of {opName: {names?, pattern?, include_defaults?, include_menus?}} to fetch from multiple operators in one call; per-op filters override top-level defaults. Search mode: use `search` dict to find parameters matching criteria across children of `path`.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path (e.g., '/project1/noise1'). In search mode, this is the root to scan from. Not needed in batch mode."
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Specific parameter names to retrieve"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Glob pattern to filter parameter names (e.g., 'resolution*')"
+        },
+        "include_defaults": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include parameters at their default values"
+        },
+        "include_menus": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include menuNames and menuLabels for Menu-type parameters (live from operator)"
+        },
+        "parent_path": {
+          "type": "string",
+          "description": "Batch mode: parent COMP path. Operator names in `batch` are resolved as children of this path."
+        },
+        "batch": {
+          "type": "object",
+          "description": "Batch mode: fetch parameters from multiple operators in one call. Keys are operator names (children of parent_path), values are filter dicts {names?, pattern?, include_defaults?, include_menus?}. Empty {} per op uses top-level filter args. Example: {'noise1': {}, 'level1': {'pattern': '*opacity*'}}"
+        },
+        "search": {
+          "type": "object",
+          "description": "Search mode: find parameters matching criteria across children of `path`. Returns matching params with operator paths.",
+          "properties": {
+            "value": {
+              "type": "string",
+              "description": "Glob pattern matched against str(evaluated value). E.g. '*myOp*', '1920'"
+            },
+            "name": {
+              "type": "string",
+              "description": "Glob pattern for parameter names. E.g. 'res*', 'file'"
+            },
+            "expr": {
+              "type": "string",
+              "description": "Glob pattern for expressions. E.g. '*absTime*', '*/project1/*' to find absolute paths"
+            },
+            "op_type": {
+              "type": "string",
+              "description": "Only scan operators of this type. E.g. 'noiseTOP'"
+            },
+            "depth": {
+              "type": "integer",
+              "default": 1,
+              "description": "Max recursion depth for child scan (default 1)"
+            },
+            "limit": {
+              "type": "integer",
+              "default": 100,
+              "description": "Max results to return (default 100)"
+            },
+            "include_defaults": {
+              "type": "boolean",
+              "default": false,
+              "description": "Include parameters at their default values"
+            }
+          }
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "set_parameters",
+    "description": "Set parameter values on one or more operators. Call get_help first to verify parameter names \u2014 TD uses unpredictable abbreviations (e.g., resolutionw not width). Single-operator mode: provide `path` + `values` dict. Use {'expr': '...'} for expressions, {'reset': true} to restore a parameter's default, {'unbind': true} to freeze the current value and drop its expr/bind. Sequence parameters start with 1 block \u2014 setting a higher-index value (e.g., `const5name`) auto-expands numBlocks; set `sequences` explicitly to adjust block counts up front. Batch mode: provide `parent_path` + `batch` dict of {opName: {param: value}} to set parameters on multiple operators in one call.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path (e.g., '/project1/noise1'). Not needed in batch mode."
+        },
+        "values": {
+          "type": "object",
+          "description": "Parameter values to set. Use {'expr': '...'} for an expression, {'reset': true} to restore the default (clears any expr/bind), {'unbind': true} to drop an expr/bind while keeping the current value as a constant. Examples: {'resolutionw': 1920}, {'tx': {'expr': 'absTime.seconds'}}, {'tx': {'reset': true}}"
+        },
+        "sequences": {
+          "type": "object",
+          "description": "Set sequence numBlocks. Keys are sequence names, values are block counts. Example: {'createattribs': 3, 'vec4const': 2}"
+        },
+        "parent_path": {
+          "type": "string",
+          "description": "Batch mode: parent COMP path. Operator names in `batch` are resolved as children of this path."
+        },
+        "batch": {
+          "type": "object",
+          "description": "Batch mode: set parameters on multiple operators in one call. Keys are operator names (children of parent_path), values are {param: value} dicts. Example: {'noise1': {'resolutionw': 1920}, 'level1': {'opacity': 0.5}}"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "pulse_parameter",
+    "description": "Pulse a pulse-type parameter on an operator. Essential for triggering actions like reinitextensions, initializepulse, startpulse, cook, etc.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path (e.g., '/project1/myComp')"
+        },
+        "parameter": {
+          "type": "string",
+          "description": "Parameter name to pulse (e.g., 'reinitextensions', 'initializepulse')"
+        }
+      },
+      "required": [
+        "path",
+        "parameter"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "edit_custom_parameters",
+    "description": "Add, edit, delete, sort, and rename custom parameters on a COMP. All operations are optional \u2014 combine as needed in one call. Supports types: Float, Int, Str, Toggle, Menu, Pulse, Header, OP, COMP, TOP, CHOP, SOP, DAT, MAT, File, Folder, XY, XYZ, XYZW, RGB, RGBA.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full path to a COMP operator"
+        },
+        "page": {
+          "type": "string",
+          "description": "Custom parameter page name (found or created)"
+        },
+        "add": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Parameter name (e.g., 'Speed')"
+              },
+              "type": {
+                "type": "string",
+                "description": "Parameter type: Float, Int, Str, Toggle, Menu, Pulse, Header, OP, COMP, TOP, CHOP, SOP, DAT, MAT, File, Folder, XY, XYZ, XYZW, RGB, RGBA"
+              },
+              "label": {
+                "type": "string",
+                "description": "Display label (defaults to name)"
+              },
+              "default": {
+                "description": "Default value"
+              },
+              "min": {
+                "type": "number",
+                "description": "Minimum value (Float/Int only)"
+              },
+              "max": {
+                "type": "number",
+                "description": "Maximum value (Float/Int only)"
+              },
+              "clampMin": {
+                "type": "boolean",
+                "description": "Clamp at minimum (default: true when min is set)"
+              },
+              "clampMax": {
+                "type": "boolean",
+                "description": "Clamp at maximum (default: true when max is set)"
+              },
+              "normMin": {
+                "type": "number",
+                "description": "Slider range minimum (Float/Int only)"
+              },
+              "normMax": {
+                "type": "number",
+                "description": "Slider range maximum (Float/Int only)"
+              },
+              "menuNames": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Menu option values (Menu type only)"
+              },
+              "menuLabels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Menu option labels (Menu type only)"
+              },
+              "size": {
+                "type": "integer",
+                "description": "Number of values (Float/Int, default 1)"
+              },
+              "section": {
+                "type": "boolean",
+                "description": "Start a new section before this parameter"
+              }
+            },
+            "required": [
+              "name",
+              "type"
+            ]
+          },
+          "description": "Parameters to add to the page"
+        },
+        "edit": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Existing parameter name to modify"
+              },
+              "label": {
+                "type": "string",
+                "description": "New display label"
+              },
+              "default": {
+                "description": "New default value"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "clampMin": {
+                "type": "boolean"
+              },
+              "clampMax": {
+                "type": "boolean"
+              },
+              "normMin": {
+                "type": "number"
+              },
+              "normMax": {
+                "type": "number"
+              },
+              "menuNames": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "menuLabels": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "section": {
+                "type": "boolean",
+                "description": "Start a new section before this parameter"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "description": "Existing parameters to modify"
+        },
+        "delete": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Parameter names to delete (must be custom)"
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Parameter names in desired order (on the page)"
+        },
+        "rename": {
+          "type": "string",
+          "description": "Rename the page to this name"
+        },
+        "delete_page": {
+          "type": "boolean",
+          "description": "Delete the entire page and all its parameters"
+        }
+      },
+      "required": [
+        "path",
+        "page"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_help",
+    "description": "Look up parameter names, types, and menu options for operator types. IMPORTANT: Call this before setting parameters \u2014 TD abbreviates unpredictably and guessing causes silent failures. Batch multiple types per call. Use pattern to filter results. Also lists operator types by family. Only use verbose=true when you need descriptions.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Operator types to look up (e.g., ['noiseTOP', 'lfoCHOP'])"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Comma-separated filter for parameter names (e.g., 'tx,ty,resolution'). Supports wildcards (e.g., 't*,res*')"
+        },
+        "family": {
+          "type": "string",
+          "description": "List all operator types in a family (e.g., 'TOP', 'CHOP', 'SOP', 'DAT', 'COMP', 'MAT'). Use without 'types' to browse available operators"
+        },
+        "verbose": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include parameter descriptions. Default compact mode returns only names, types, labels, and menus."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "project_info",
+    "description": "Get TouchDesigner project and server information: name, folder, FPS, build version, root COMP path and parent shortcut, all open panes (type, owner, viewport position/zoom, selected operators), perform mode, plus server version and transport details.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "save_project",
+    "description": "Save the current TouchDesigner project file. Saves over the currently open file unless an explicit path is given. Returns the project name and the file path actually written.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Optional absolute path to save to. Defaults to the currently open project file."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_errors",
+    "description": "Get cooking errors and warnings across the project or for a specific operator and its children.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Optional path to scope error check (checks all children too)"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "list_operators",
+    "description": "List child operators at a path. Use depth=1 for immediate children, higher for recursive listing. Returns operator names, paths, types (noiseTOP, baseCOMP, etc.), family (TOP, CHOP, SOP, DAT, COMP, MAT), position (nodeX, nodeY), size (nodeWidth, nodeHeight), and connection counts.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "/project1",
+          "description": "Operator path to list (e.g., '/project1' or '/project1/myComp')"
+        },
+        "depth": {
+          "type": "integer",
+          "default": 1,
+          "description": "How deep to recurse (1=immediate children only)"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_operator_info",
+    "description": "Get detailed information about a specific operator including its type, position (nodeX, nodeY), size (nodeWidth, nodeHeight), non-default parameters, connections, flags, and errors. For COMPs also returns child count. Set include_extensions=true to also get extension classes with method signatures, clone source, and config COMP info.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path (e.g., '/project1/noise1')"
+        },
+        "include_extensions": {
+          "type": "boolean",
+          "default": false,
+          "description": "COMPs: include extension classes with method signatures, clone source, and config COMP children"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_connections",
+    "description": "Get input and output connections for an operator, showing the full wiring topology. Set graph=true to get a topological sort of all signal flow within a COMP \u2014 returns all children in execution order with full adjacency info and cycle detection.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path. For graph mode, this should be a COMP path."
+        },
+        "graph": {
+          "type": "boolean",
+          "default": false,
+          "description": "Graph mode: treat path as a COMP and return topological sort of all children's signal flow with execution order, adjacency, and cycle detection"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "create_operator",
+    "description": "Create a new operator with optional positioning and initial parameters in one call. Leave viewer=true (the default) so the operator viewer renders in the network \u2014 only pass false for headless utility ops. Call get_help first to verify parameter names for unfamiliar operator types. If a same-type operator with the requested name already exists it is reused and the requested parameters are re-applied (`already_existed: true`); a different-type name collision is an `operator_type_mismatch` error. `success` is false when any parameter fails to apply \u2014 see `param_errors`.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parent_path": {
+          "type": "string",
+          "description": "Path of parent operator (e.g., '/project1')"
+        },
+        "type": {
+          "type": "string",
+          "description": "Operator type (e.g., 'noiseTOP', 'blurTOP', 'baseCOMP')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name for the new operator (auto-generated if omitted)"
+        },
+        "nodeX": {
+          "type": "integer",
+          "default": 0,
+          "description": "Horizontal position"
+        },
+        "nodeY": {
+          "type": "integer",
+          "default": 0,
+          "description": "Vertical position"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Initial parameter values to set (e.g., {'resolutionw': 1920})"
+        },
+        "viewer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show operator viewer (default: true)"
+        }
+      },
+      "required": [
+        "parent_path",
+        "type"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "wiring",
+    "description": "Connect or disconnect operators. Provide `from_path` and `to_path` to connect. Set `disconnect=true` with `to_path` to disconnect an input instead.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from_path": {
+          "type": "string",
+          "description": "Path of source operator output (connect mode)"
+        },
+        "to_path": {
+          "type": "string",
+          "description": "Path of destination operator input (connect and disconnect)"
+        },
+        "from_index": {
+          "type": "integer",
+          "default": 0,
+          "description": "Output connector index on source"
+        },
+        "to_index": {
+          "type": "integer",
+          "default": 0,
+          "description": "Input connector index on destination"
+        },
+        "disconnect": {
+          "type": "boolean",
+          "default": false,
+          "description": "Disconnect to_path's input at to_index instead of connecting"
+        }
+      },
+      "required": [
+        "to_path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "search_operators",
+    "description": "Find operators matching criteria across the project. Filter by type, family, or name pattern.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "root_path": {
+          "type": "string",
+          "default": "/",
+          "description": "Root path to search from"
+        },
+        "type": {
+          "type": "string",
+          "description": "Filter by operator type (e.g., 'glslTOP', 'noiseTOP')"
+        },
+        "family": {
+          "type": "string",
+          "description": "Filter by family (TOP, CHOP, SOP, DAT, COMP, MAT)"
+        },
+        "name_pattern": {
+          "type": "string",
+          "description": "Glob pattern for operator name (e.g., 'noise*')"
+        },
+        "depth": {
+          "type": "integer",
+          "default": 10,
+          "description": "How deep to search"
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "build_network",
+    "description": "Create multiple operators and wire them in a single call. Provide a list of operators (each with type, name, position, and optional parameters) and a list of connections. Much more efficient than individual create_operator + wiring calls. Leave viewer=true (default) per operator so viewers render. Call get_help first to verify parameter names for operator types you haven't looked up yet. `success` is false when ANY suboperation failed: a failed connection (`failed` array with from/to/from_index/to_index/error context), a failed or type-mismatched operator (`failed_ops`, with structured `details` on type conflicts), or a per-operator parameter error (`param_errors` on `created` entries) \u2014 successful work still lands, so inspect those fields rather than assuming a connection failed. Operators created before any error persist; retry is safe: same-name same-type operators are reused and their requested parameters re-applied (a different-type name collision is refused, and connections to refused names are not wired). Pass auto_layout=true to auto-position nodes by dependency instead of supplying nodeX/nodeY.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parent_path": {
+          "type": "string",
+          "description": "Path of parent operator (e.g., '/project1')"
+        },
+        "operators": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Operator type (e.g., 'noiseTOP')"
+              },
+              "name": {
+                "type": "string",
+                "description": "Operator name"
+              },
+              "nodeX": {
+                "type": "integer",
+                "default": 0
+              },
+              "nodeY": {
+                "type": "integer",
+                "default": 0
+              },
+              "parameters": {
+                "type": "object",
+                "description": "Initial parameter values"
+              },
+              "viewer": {
+                "type": "boolean",
+                "description": "Show in viewer"
+              }
+            },
+            "required": [
+              "type",
+              "name"
+            ]
+          },
+          "description": "List of operators to create"
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "Source operator name (as defined in operators list)"
+              },
+              "to": {
+                "type": "string",
+                "description": "Destination operator name"
+              },
+              "from_index": {
+                "type": "integer",
+                "default": 0
+              },
+              "to_index": {
+                "type": "integer",
+                "default": 0
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ]
+          },
+          "description": "List of connections to make (using operator names from the operators list)"
+        },
+        "auto_layout": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-position all operators left-to-right by dependency (X=col*175, Y=row*125), overriding any per-operator nodeX/nodeY. Use instead of hand-placing nodes. Already-existing operators are not moved."
+        }
+      },
+      "required": [
+        "parent_path",
+        "operators"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "edit_operator",
+    "description": "Edit operator properties: rename, copy, move, change type, reposition, set flags, or change color. Covers all operator-level changes that aren't parameter values. Use delete_operator to remove operators.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path (e.g., '/project1/geo1')"
+        },
+        "copy_to": {
+          "type": "string",
+          "description": "Copy operator to this parent path. Other properties (nodeX, nodeY, name, flags) apply to the copy."
+        },
+        "move_to": {
+          "type": "string",
+          "description": "Move operator to this parent path (copy + delete source). Other properties apply to the moved op at its new location."
+        },
+        "change_type": {
+          "type": "string",
+          "description": "Change operator to a different type (e.g., 'containerCOMP'). TD only allows conversion within compatible families."
+        },
+        "name": {
+          "type": "string",
+          "description": "Rename the operator (or the copy/moved op if copy_to/move_to is set)."
+        },
+        "nodeX": {
+          "type": "integer",
+          "description": "Horizontal position"
+        },
+        "nodeY": {
+          "type": "integer",
+          "description": "Vertical position"
+        },
+        "color": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Operator color as [r, g, b] with values 0-1"
+        },
+        "display": {
+          "type": "boolean",
+          "description": "Display flag"
+        },
+        "render": {
+          "type": "boolean",
+          "description": "Render flag"
+        },
+        "viewer": {
+          "type": "boolean",
+          "description": "Viewer flag"
+        },
+        "bypass": {
+          "type": "boolean",
+          "description": "Bypass flag \u2014 operator passes input through unchanged"
+        },
+        "lock": {
+          "type": "boolean",
+          "description": "Lock flag \u2014 prevents cooking (output frozen at current state)"
+        },
+        "cloneImmune": {
+          "type": "boolean",
+          "description": "Clone immune flag \u2014 operator ignores clone master updates"
+        },
+        "allowCooking": {
+          "type": "boolean",
+          "description": "Allow cooking flag (COMPs only) \u2014 when false, COMP's internal network is suspended"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "delete_operator",
+    "description": "Delete an operator. Shows a confirmation dialog with options to delete, bypass instead, or keep unchanged. Dialog is skipped when Yolo mode is enabled.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path to delete (e.g., '/project1/noise1')"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "reposition_operators",
+    "description": "Batch reposition multiple operators in one call. More efficient than individual edit_operator calls for layout operations. Docked companion operators (a glslTOP's *_pixel/_info/_compute DATs, a scriptTOP's *_callbacks, etc.) follow their host by the same delta \u2014 matching TouchDesigner's interactive drag \u2014 so move only the host, not its docks. Set include_docked=false to move only the named operators.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parent_path": {
+          "type": "string",
+          "description": "Parent COMP path (e.g., '/project1/myComp')"
+        },
+        "positions": {
+          "type": "object",
+          "description": "Dict mapping operator names to [nodeX, nodeY] arrays. E.g. {'box1': [0, 0], 'null1': [175, 0]}"
+        },
+        "include_docked": {
+          "type": "boolean",
+          "description": "Move each operator's docked companion DATs (e.g. *_pixel/_info/_compute, *_callbacks) along with it by the same delta, matching interactive dragging. Default true. Set false to move only the named operators.",
+          "default": true
+        }
+      },
+      "required": [
+        "parent_path",
+        "positions"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  }
+]

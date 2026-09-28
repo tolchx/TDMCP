@@ -1,0 +1,243 @@
+### 1. td_status
+
+==========================================================================
+### status
+{
+ "td_up": true,
+ "url": "http://127.0.0.1:13316/mcp",
+ "project": "TDMCP.1.toe",
+ "folder": "<user-home>/Documents/AI_Code/TDMCP/TDMCP-1.1.55",
+ "saveBuild": "2025.32460",
+ "cookRate": 60.0,
+ "serverVersion": "1.1.55",
+ "performMode": false
+}
+
+### 2. setup del sandbox
+{"ok": true, "ops": ["a", "b", "c", "k", "tbl", "code"]}
+
+### 3. find_in_ops (texto en un DAT)
+
+==========================================================================
+### MAGIC_TOKEN
+[
+ true,
+ {
+  "query": "MAGIC_TOKEN",
+  "root": "/hermes_live",
+  "matches": [
+   {
+    "op": "/hermes_live/code",
+    "where": "dat",
+    "line": 2,
+    "text": "MAGIC_TOKEN aca"
+   }
+  ],
+  "scanned": 7,
+  "truncated": false
+ }
+]
+
+### 4. find_in_ops (expresión de parámetro)
+
+==========================================================================
+### absTime
+[
+ true,
+ {
+  "query": "absTime",
+  "root": "/hermes_live",
+  "matches": [
+   {
+    "op": "/hermes_live/b",
+    "where": "expr",
+    "text": "brightness1 = absTime.seconds % 2",
+    "expr": "absTime.seconds % 2"
+   }
+  ],
+  "scanned": 7,
+  "truncated": false
+ }
+]
+
+### 5. auto_layout dry_run (debería ordenar por capas)
+
+==========================================================================
+### dry_run
+{
+ "ok": true,
+ "dry_run": true,
+ "parent": "/hermes_live",
+ "nodes": 6,
+ "levels": 3,
+ "positions": {
+  "k": [
+   0,
+   0
+  ],
+  "a": [
+   0,
+   130
+  ],
+  "code": [
+   0,
+   260
+  ],
+  "tbl": [
+   0,
+   390
+  ],
+  "b": [
+   175,
+   0
+  ],
+  "c": [
+   350,
+   0
+  ]
+ },
+ "moved": [
+  "a",
+  "code",
+  "tbl",
+  "b",
+  "c"
+ ]
+}
+
+### 6. auto_layout real + verificación de posiciones
+
+==========================================================================
+### apply
+{
+ "ok": true,
+ "parent": "/hermes_live",
+ "nodes": 6,
+ "levels": 3,
+ "moved": 5,
+ "result": {
+  "success": true,
+  "moved": 6
+ }
+}
+posiciones tras el layout: {"a": [0, 130], "b": [175, 0], "c": [350, 0], "k": [0, 0], "tbl": [0, 390], "code": [0, 260]}
+
+### 7. smart_connect b -> c (auto)
+
+==========================================================================
+### smart_connect TOP->TOP
+{
+ "from": "/hermes_live/b (levelTOP/TOP)",
+ "to": "/hermes_live/c (compositeTOP/TOP)",
+ "to_index": 0,
+ "reasoning": [
+  "compositeTOP acepta ['TOP', 'COMP', 'MAT'] (docs del build) → índice 0"
+ ],
+ "kb_inputs": [
+  "TOP",
+  "COMP",
+  "MAT"
+ ],
+ "ok": true,
+ "result": {
+  "success": true,
+  "from": "/hermes_live/b",
+  "to": "/hermes_live/c",
+  "from_index": 0,
+  "to_index": 0
+ }
+}
+
+### 8. smart_connect NEGATIVO (un CHOP a un input de TOP)
+
+==========================================================================
+### negativo
+{
+ "from": "/hermes_live/k (constantCHOP/CHOP)",
+ "to": "/hermes_live/c (compositeTOP/TOP)",
+ "to_index": 0,
+ "reasoning": [
+  "sin certeza de la familia esperada por compositeTOP (según docs del build: ['TOP', 'COMP', 'MAT'])"
+ ],
+ "kb_inputs": [
+  "TOP",
+  "COMP",
+  "MAT"
+ ],
+ "ok": false,
+ "error": {
+  "error": "Invalid number or type of arguments. See help for details. Value:type:Connector path:/hermes_live/k index:0 direction:output Type:<class 'td.Connector'>.",
+  "details": {
+   "code": "internal_error"
+  }
+ },
+ "kb_inputs_text": "{\"page\": \"compositeTOP Class\", \"source\": \"local\", \"kind\": \"python\", \"matched\": \"class-derive\", \"sections_available\": [\"Members (compositeTOP Class)\", \"Methods (compositeTOP Class)\", \"TOP Class\", \"Members (TOP Class)\", \"Methods (TOP Class)\", \"OP Class\", \"Members (OP Class)\", \"  General (OP Class)\", \"  Parameters (OP Clas
+
+### 9. tdn_export v1 (sin contenido de DATs)
+
+==========================================================================
+### export1
+{
+ "ok": true,
+ "network_path": "/hermes_live",
+ "operators": 6,
+ "with_dat_content": false,
+ "td_build": "2025.32460",
+ "file": "<user-home>\\AppData\\Local\\Temp\\hermes_live_v1.tdn",
+ "bytes": 2452
+}
+
+### 10. cambio + tdn_export v2 (un op nuevo y un par cambiado)
+
+==========================================================================
+### export2
+{
+ "ok": true,
+ "network_path": "/hermes_live",
+ "operators": 7,
+ "with_dat_content": true,
+ "td_build": "2025.32460",
+ "file": "<user-home>\\AppData\\Local\\Temp\\hermes_live_v2.tdn",
+ "bytes": 2753
+}
+
+### 11. tdn_diff (offline)
+
+==========================================================================
+### diff
+{
+ "ok": true,
+ "a": "<user-home>\\AppData\\Local\\Temp\\hermes_live_v1.tdn",
+ "b": "<user-home>\\AppData\\Local\\Temp\\hermes_live_v2.tdn",
+ "network": {
+  "a": "/hermes_live",
+  "b": "/hermes_live"
+ },
+ "operators": {
+  "a": 6,
+  "b": 7
+ },
+ "added": [
+  "/nuevo"
+ ],
+ "removed": [],
+ "changed": {
+  "/a": {
+   "parameters": {
+    "seed": {
+     "a": 7.0,
+     "b": 99.0
+    }
+   }
+  }
+ },
+ "summary": {
+  "added": 1,
+  "removed": 0,
+  "changed": 1
+ }
+}
+
+### 12. cleanup
+{"success": true, "path": "/hermes_live", "action": "deleted hermes_live"}
+temporales borrados

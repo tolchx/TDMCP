@@ -1,0 +1,3187 @@
+[
+  {
+    "name": "td_pops_query",
+    "title": "Query POPs Knowledge Base",
+    "description": "Search the local POPs knowledge base or fetch a specific operator doc by page slug (e.g. Particle_POP).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "type": "string",
+          "description": "Search string"
+        },
+        "page_slug": {
+          "type": "string",
+          "description": "Exact page slug (e.g. Particle_POP)"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Max results"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_ops_query",
+    "title": "Query Operator Knowledge Base (TOP/CHOP/SOP/DAT)",
+    "description": "Search the local operator knowledge base (TOP/CHOP/SOP/DAT) or fetch a specific operator doc by family+page slug (e.g. TOP + Noise_TOP).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "type": "string",
+          "description": "Search string"
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "TOP",
+            "CHOP",
+            "SOP",
+            "DAT",
+            "POP",
+            "COMP",
+            "MAT"
+          ],
+          "description": "Operator family: TOP|CHOP|SOP|DAT"
+        },
+        "page_slug": {
+          "type": "string",
+          "description": "Exact page slug (e.g. Noise_TOP)"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Max results"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_templates_query",
+    "title": "Query Project Templates",
+    "description": "Search reusable patterns and project-specific markdown templates inside Toe_Expand documentation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "search": {
+          "type": "string",
+          "description": "Search phrase"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project filter"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Max results"
+        }
+      },
+      "required": [
+        "search"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_alias_resolve",
+    "title": "Resolve Semantic Aliases",
+    "description": "Resolve prompt vocabulary like feedback loop, life, size, cd or direction into canonical TouchDesigner parameters, attributes and family hints.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Natural language text or prompt"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_param_help",
+    "title": "Get Parameter Help",
+    "description": "Look up the available parameters for a TouchDesigner operator type (e.g. 'noiseTOP') from the local knowledge base.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Operator type to look up (e.g. 'noiseTOP', 'constantCHOP', 'mergeSOP', 'textDAT')"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_search_official_docs",
+    "title": "Search Official TD Docs",
+    "description": "Search TouchDesigner's built-in offline help for operator documentation, parameter info, and usage summaries.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query (operator name or keyword)"
+        },
+        "limit": {
+          "type": "number",
+          "default": 5,
+          "description": "Max results"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_export_network",
+    "title": "Export Network as Python Code, Diff, or JSON",
+    "description": "Generate Python code, a simplified git-diff, or a JSON snapshot that captures the structure of a TouchDesigner network. Introspects the children of a container operator and produces output in the requested format.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Container operator path to export (e.g. '/project1/myContainer')"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "python",
+            "diff",
+            "json"
+          ],
+          "default": "python",
+          "description": "Output format: 'python' (default) for recreatable Python code, 'diff' for a compact git-diff-style summary, 'json' for the full network structure as JSON"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_list_tutorials",
+    "title": "List Tutorials",
+    "description": "List available TouchDesigner tutorials. Filter by category (audio, glow, feedback, particles, shader) and/or difficulty (beginner, intermediate, advanced).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Filter by category (e.g. audio, glow, feedback, particles, shader)"
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Filter by difficulty (beginner, intermediate, advanced)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_tutorial",
+    "title": "Get Tutorial Content",
+    "description": "Get the full markdown content of a tutorial by its name (filename without .md extension). Use td_list_tutorials to find available tutorials.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tutorial name (filename without .md, e.g. 'audio-reactive', 'bloom-effect')"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_list_workflows",
+    "title": "List Workflows",
+    "description": "List available reusable TouchDesigner workflow patterns. Filter by category (color, blur, keying, feedback, audio, transform, analyze) and/or difficulty (beginner, intermediate, advanced).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Filter by category (e.g. color, blur, keying, feedback, audio, transform, analyze)"
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Filter by difficulty (beginner, intermediate, advanced)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_workflow",
+    "title": "Get Workflow Content",
+    "description": "Get the full markdown content of a workflow by its name (filename without .md extension). Use td_list_workflows to find available workflows.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Workflow name (filename without .md, e.g. 'color-correction', 'motion-blur')"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_td_classes",
+    "title": "List TD Operator Classes",
+    "description": "List all TouchDesigner operator classes from the local knowledge base, organized by family (TOP, CHOP, SOP, DAT, POP, COMP). Each class includes its page title, slug, URL, and optional tdOpTypeGuess.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string",
+          "description": "Filter by family: TOP, CHOP, SOP, DAT, POP, or COMP"
+        },
+        "search": {
+          "type": "string",
+          "description": "Search within class names and descriptions"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Max results per family (default 50)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_module_help",
+    "title": "Get Operator Documentation",
+    "description": "Look up detailed documentation for a specific TouchDesigner operator by its page slug or tdOpTypeGuess. Searches both the main operator index (TOP/CHOP/SOP/DAT) and POPs index (POP). Returns parameter details, inputs, attributes, and usage examples.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Operator page slug (e.g. 'Noise_TOP') or tdOpTypeGuess (e.g. 'noiseTOP')"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_compare_mcps",
+    "title": "Compare MCP Servers (vs TWOZERO & co.)",
+    "description": "Compare this TouchDesigner MCP against other existing MCPs and tools like TWOZERO. Returns a hardcoded comparison table of features, capabilities, and scope. Optionally filter by a specific server name.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "Filter by server name (e.g. 'TWOZERO', 'hermes', 'this_mcp')"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_run_prompt",
+    "title": "Run Master Prompt",
+    "description": "Retrieve a master prompt by its ID. Master prompts are Markdown files with YAML frontmatter stored in the prompts/ directory. They define project types, complexity levels, performance budgets, and validation criteria. Optional params object allows variable substitution in the prompt content using {{variable}} placeholders.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt_id": {
+          "type": "string",
+          "description": "Prompt ID (matches a .md file inside prompts/master/, e.g. 'particles-experto-feedback-sim')"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Optional key-value pairs for {{variable}} substitution in the prompt content"
+        }
+      },
+      "required": [
+        "prompt_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_create_operator",
+    "title": "Create Operator",
+    "description": "Create a new operator in TouchDesigner. Specify the opType (e.g. noiseTOP, constantTOP, nullCHOP) and optional name, parent path, and position. For GLSL POPs (glslPOP, glslCreatePOP, etc.), outputattrs is auto-set to 'P' and numelems to 100 unless overridden \u2014 these are required for P[id]/Cd[id] writes to compile.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The TD opType to create (e.g. 'noiseTOP', 'constantCHOP', 'nullSOP')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional name for the new operator"
+        },
+        "path": {
+          "type": "string",
+          "default": "/",
+          "description": "Parent operator path (default: '/')"
+        },
+        "position_x": {
+          "type": "number",
+          "description": "X position in the network editor"
+        },
+        "position_y": {
+          "type": "number",
+          "description": "Y position in the network editor"
+        },
+        "replace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Destroy an existing operator with the same name first (docs/MCP_REAL_CASES.md F6). Without this, TD silently renames the new op (noise1 -> noise1) and later wiring targets a name that does not exist."
+        },
+        "outputattrs": {
+          "type": "string",
+          "description": "Output attributes for GLSL POPs (e.g. 'P', 'P Cd', 'P Cd N'). Auto-set to 'P' for glslPOP/glslCreatePOP/glslAdvancedPOP (NOT glslcopyPOP \u2014 it has no outputattrs; use td_glsl_apply with pop_kind='copy'). Set to empty string to skip auto-configuration."
+        },
+        "numelems": {
+          "type": "number",
+          "description": "Number of elements for GLSL POPs. Auto-set to 100 for glslPOP/glslCreatePOP/glslAdvancedPOP. Set to 0 to skip auto-configuration."
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_delete_operator",
+    "title": "Delete Operator",
+    "description": "Delete a TouchDesigner operator by its full path.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Full operator path to delete (e.g. '/project1/noise1')"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_connect_nodes",
+    "title": "Connect Nodes",
+    "description": "Connect two TouchDesigner operators by wiring an output to an input.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source_path": {
+          "type": "string",
+          "description": "Source operator path (output node)"
+        },
+        "target_path": {
+          "type": "string",
+          "description": "Target operator path (input node)"
+        },
+        "source_output": {
+          "type": "string",
+          "default": "output",
+          "description": "Source output name (default: 'output')"
+        },
+        "target_input": {
+          "type": "number",
+          "default": 0,
+          "description": "Target input index (default: 0)"
+        }
+      },
+      "required": [
+        "source_path",
+        "target_path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_disconnect",
+    "title": "Disconnect Nodes",
+    "description": "Disconnect an input of a TouchDesigner operator from its source.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "input_index": {
+          "type": "number",
+          "default": 0,
+          "description": "Input index to disconnect"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_copy_node",
+    "title": "Copy Node",
+    "description": "Duplicate a TouchDesigner operator. If destination is omitted, copies to the same parent.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Source operator path"
+        },
+        "destination": {
+          "type": "string",
+          "description": "Destination parent path"
+        },
+        "name": {
+          "type": "string",
+          "description": "New name for the copy"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_pars_get",
+    "title": "Get Parameters",
+    "description": "Read current parameters from a TouchDesigner operator, including values, expressions, styles and menus.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of parameter names"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_pars_set",
+    "title": "Set Parameters",
+    "description": "Set TouchDesigner parameters transactionally. Supports plain values and expressions, with rollback on failure.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "transactional": {
+          "type": "boolean",
+          "description": "Rollback all changes if any update fails"
+        },
+        "updates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "value": {},
+              "expr": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "path",
+        "updates"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_set_operator_pars",
+    "title": "Set Operator Parameters",
+    "description": "Set parameters on a TouchDesigner operator with a cleaner interface. Supports transactional rollback on failure.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "updates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Parameter name"
+              },
+              "value": {
+                "description": "Value to set"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Array of parameter updates"
+        },
+        "transactional": {
+          "type": "boolean",
+          "default": true,
+          "description": "Rollback all changes if any update fails (default: true)"
+        }
+      },
+      "required": [
+        "path",
+        "updates"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_pulse_param",
+    "title": "Pulse Parameter",
+    "description": "Pulse a parameter on a TouchDesigner operator (e.g. Cook, Reset, Save).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "name": {
+          "type": "string",
+          "description": "Parameter name to pulse"
+        }
+      },
+      "required": [
+        "path",
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_custom_parameters",
+    "title": "Create Custom Parameters",
+    "description": "Create or update custom parameter pages on a TouchDesigner operator declaratively.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "page": {
+          "type": "string",
+          "description": "Custom page name"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "default": "float"
+              },
+              "default": {
+                "type": "number"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Parameter definitions"
+        }
+      },
+      "required": [
+        "path",
+        "page",
+        "params"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_pane",
+    "title": "Get Pane State",
+    "description": "Get the current network editor pane state including the network path, position (x, y), and zoom level.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_selection",
+    "title": "Get Selection",
+    "description": "Get the currently selected operators in the network editor. Returns operator info including path, name, type, and family.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_operators",
+    "title": "List Operators",
+    "description": "List all child operators at the specified path. Returns operator info including name, type, and opType.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path (default: '/')"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_find",
+    "title": "Find Operators",
+    "description": "Find operators by query, name, family or operator type within a network path.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Base path"
+        },
+        "query": {
+          "type": "string",
+          "description": "Free text query"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name substring"
+        },
+        "family": {
+          "type": "string",
+          "description": "Family filter"
+        },
+        "opType": {
+          "type": "string",
+          "description": "Operator type substring"
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Search descendants recursively"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Max results"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_connections",
+    "title": "Inspect Connections",
+    "description": "Inspect real input/output connections for an operator or a whole network subtree.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator or container path"
+        },
+        "recurse": {
+          "type": "boolean",
+          "description": "Include descendants recursively"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_errors",
+    "title": "Get Errors",
+    "description": "Get errors and warnings from a TouchDesigner operator or entire network. Reads errors WITHOUT cooking (non-mutating); pass forceCook=true to materialize fresh errors (mutates the network by cooking).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path to inspect"
+        },
+        "recurse": {
+          "type": "boolean",
+          "default": true,
+          "description": "Recurse into child operators (default: true)"
+        },
+        "forceCook": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in: force-cook each operator to materialize fresh errors (MUTATES the network; default false = read-only)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_healthcheck",
+    "title": "Healthcheck Network",
+    "description": "Validate a TouchDesigner operator/network, reporting errors, warnings and per-operator issues. Non-mutating by default (reads errors without cooking); pass forceCook=true to opt into force-cooking (mutates the network).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "recurse": {
+          "type": "boolean",
+          "default": false,
+          "description": "Validate descendants recursively (default: false)"
+        },
+        "forceCook": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt-in: force-cook each operator to materialize fresh errors (MUTATES the network; default false = read-only)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_node_detail",
+    "title": "Get Node Detail",
+    "description": "Get detailed information about a TouchDesigner operator: parameters, inputs, flags, and optionally recursive children.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path"
+        },
+        "recurse": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include children recursively"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_hints",
+    "title": "Get Operator Hints",
+    "description": "Get hints and wiring guidance for a specific TouchDesigner operator type.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "node_type": {
+          "type": "string",
+          "description": "Operator type (e.g. 'noiseTOP')"
+        }
+      },
+      "required": [
+        "node_type"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_info",
+    "title": "Get TD Info",
+    "description": "Get TouchDesigner environment info: build version, date, commercial status, platform.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_focus",
+    "title": "Get Focus",
+    "description": "Get the current user focus in TouchDesigner: which network is open, selected operators, current operator.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_perf",
+    "title": "Get Performance",
+    "description": "Get performance data from TouchDesigner: FPS, cook budget, GPU memory, and slowest operators sorted by cook time.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to profile (default: '/')"
+        },
+        "top": {
+          "type": "number",
+          "default": 20,
+          "description": "Number of slowest operators to return"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_pop_inspect",
+    "title": "Inspect POP Data",
+    "description": "Read particle data from a POP operator: point/prim/vert counts, attribute list (via pointAttributes), and numeric samples of the attributes you name. Custom GLSL attributes are CPU-readable here once the POP cooked. Default samples: P/ID at indices 0,1,2.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "POP operator path to inspect"
+        },
+        "attrs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attribute names to sample numerically (default ['P','ID'])"
+        },
+        "sample_indices": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Element indices to sample (default [0,1,2])"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_build_compatibility",
+    "title": "Check Build Compatibility",
+    "description": "Check if a specific operator type exists in current TD build.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "op_type": {
+          "type": "string",
+          "description": "Operator type to check"
+        }
+      },
+      "required": [
+        "op_type"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_release_delta",
+    "title": "Get Release Delta",
+    "description": "Get information about what changed between TouchDesigner builds.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "build_from": {
+          "type": "string",
+          "description": "Source build version"
+        },
+        "build_to": {
+          "type": "string",
+          "description": "Target build version (default: current)"
+        }
+      },
+      "required": [
+        "build_from"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_spatial_context",
+    "title": "Spatial Context",
+    "description": "Get the current spatial context in TouchDesigner for resolving *here and *this markers. Returns: the active network path (*here), current operator (*this), parent path, selected operators, sibling operators, and all open panes. Use this when the user says *here, *this, or refers to their current view/selection.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_explore_project",
+    "title": "Explore Project",
+    "description": "Get a comprehensive guided tour of a TouchDesigner project: operator count, family breakdown, type distribution, errors, performance hotspots, GLSL shaders, extensions, and custom parameters. Use this to understand an unknown project before making changes. Equivalent to TWOZERO's 'Study this project'. Exploring '/' walks the whole project: prefer the container you care about (guardrails bound the wait anyway).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "/",
+          "description": "Root path to explore (default: '/'). Prefer a specific container: exploring '/' walks the entire project and can make TD busy for seconds."
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_compare_networks",
+    "title": "Compare Two Networks",
+    "description": "Compare two container operators side-by-side: structure (operators present), parameters (non-default values), and connections. Returns a structured diff showing operators only in A, only in B, and shared operators with parameter or connection differences. Introspects every child of both containers: on huge COMPs it can keep TD busy (guardrails bound the wait anyway).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path_a": {
+          "type": "string",
+          "description": "First container path (e.g. '/project1/compA')"
+        },
+        "path_b": {
+          "type": "string",
+          "description": "Second container path (e.g. '/project1/compB')"
+        }
+      },
+      "required": [
+        "path_a",
+        "path_b"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_execute",
+    "title": "Execute Python",
+    "description": "Execute Python code in TouchDesigner. The code runs in TD's Python environment with access to all TD modules (op, ui, etc.). Use 'me' to reference the context operator specified by from_op.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Python code to execute"
+        },
+        "from_op": {
+          "type": "string",
+          "description": "Context operator path (default: '/')"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_network_plan",
+    "title": "Plan Or Apply Network (Graph-based)",
+    "description": "Create a topology-aware network plan from a prompt. Understands multi-input nodes, branching, and feedback loops. Uses LLM for complex planning with deterministic fallback. Connections include proper input indices (not just linear chains).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language instruction"
+        },
+        "target_path": {
+          "type": "string",
+          "description": "Container path where the system should be created"
+        },
+        "container_name": {
+          "type": "string",
+          "description": "Name of the generated container"
+        },
+        "apply": {
+          "type": "boolean",
+          "description": "Apply the generated plan inside TouchDesigner"
+        },
+        "use_llm": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use LLM for smarter planning (false = deterministic only)"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_screenshot",
+    "title": "Screenshot Operator",
+    "description": "Take a screenshot of an operator's output. Returns a base64-encoded PNG image.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path to screenshot (default: current active pane)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_screenshots",
+    "title": "Get Screenshots (Batch)",
+    "description": "Get screenshots of multiple operators in one batch. Returns base64-encoded PNG images for each operator.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of full operator paths to screenshot"
+        },
+        "max_size": {
+          "type": "number",
+          "description": "Max pixel size for longer side"
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_navigate_to",
+    "title": "Navigate To",
+    "description": "Navigate the TouchDesigner Network Editor viewport to show a specific operator. Opens the parent network and centers the view.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the operator to navigate to"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_read_textport",
+    "title": "Read Textport",
+    "description": "Read the last N lines from the TouchDesigner textport (console output). Use to see errors, warnings and print output.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "number",
+          "default": 20,
+          "description": "Number of recent lines to return"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_clear_textport",
+    "title": "Clear Textport",
+    "description": "Clear the textport log buffer. Use before starting a debug session to keep output focused.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_search",
+    "title": "Search Inside TD",
+    "description": "Search for text across all code (DAT scripts), parameter expressions, and string parameter values in the TD project. On large networks an unbounded sweep can keep TD busy for seconds: keep the root as narrow as possible (guardrails clamp the wait and the result budget anyway).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query"
+        },
+        "root": {
+          "type": "string",
+          "description": "Root path to search from (default /project1). Prefer a narrow path: sweeping a large network can make TD busy for seconds."
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "all",
+            "code",
+            "expressions",
+            "parameters"
+          ],
+          "default": "all",
+          "description": "What to search"
+        },
+        "case_sensitive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Case-sensitive matching"
+        },
+        "max_results": {
+          "type": "number",
+          "default": 50,
+          "description": "Max results (default 50, hard cap 500)"
+        },
+        "count_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "Return only count"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_reinit_extension",
+    "title": "Reinit Extension",
+    "description": "Reinitialize an extension on a COMP. Call after finishing code edits to apply changes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the COMP with the extension"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_auto_layout",
+    "title": "Auto-Layout Network",
+    "description": "Auto-arrange operators in a container using topological-sort layout. Sources on the left, outputs on the right, organized as a clean grid. Supports all operator families including POPs.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "/project1",
+          "description": "Path to the container to auto-layout"
+        },
+        "spacingX": {
+          "type": "number",
+          "default": 250,
+          "description": "Horizontal spacing between nodes in pixels"
+        },
+        "spacingY": {
+          "type": "number",
+          "default": 80,
+          "description": "Vertical spacing between nodes in pixels"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_smart_connect",
+    "title": "Smart Connect",
+    "description": "Create an operator between two existing operators with auto-detected type compatibility. Auto-positions and wires the new operator. Either source or destination may be omitted, but at least one is required.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Path to the source operator (its output feeds the new op)"
+        },
+        "destination": {
+          "type": "string",
+          "description": "Path to the destination operator (the new op feeds its first input)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Optional forced operator type (e.g. 'blurTOP', 'nullCHOP'). If omitted, a compatible null* type is auto-detected from the source/destination family."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional custom name for the new operator"
+        }
+      },
+      "required": [
+        "source",
+        "destination"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_read_dat",
+    "title": "Read DAT",
+    "description": "Read the text content of a DAT operator in TouchDesigner. Returns content with line numbers.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the DAT operator"
+        },
+        "start_line": {
+          "type": "number",
+          "description": "Start line (1-based)"
+        },
+        "end_line": {
+          "type": "number",
+          "description": "End line (inclusive)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_write_dat",
+    "title": "Write DAT",
+    "description": "Write or patch text content of a DAT operator. Can do full replacement or StrReplace-style patching.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the DAT operator"
+        },
+        "text": {
+          "type": "string",
+          "description": "Full replacement text"
+        },
+        "old_text": {
+          "type": "string",
+          "description": "Text to find and replace"
+        },
+        "new_text": {
+          "type": "string",
+          "description": "Replacement text"
+        },
+        "replace_all": {
+          "type": "boolean",
+          "default": false,
+          "description": "Replace all occurrences"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_read_chop",
+    "title": "Read CHOP",
+    "description": "Read CHOP channel sample data. Returns channel values as arrays.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the CHOP operator"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Channel names to read"
+        },
+        "start": {
+          "type": "number",
+          "description": "Start sample index (0-based)"
+        },
+        "end": {
+          "type": "number",
+          "description": "End sample index (inclusive)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_project_lifecycle",
+    "title": "Project Lifecycle",
+    "description": "Control TouchDesigner project lifecycle: save, load, undo, redo, start/end undo block, or clear undo history.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "save",
+            "load",
+            "undo",
+            "redo",
+            "start_undo_block",
+            "end_undo_block",
+            "clear_undo"
+          ],
+          "description": "Lifecycle action to perform"
+        },
+        "path": {
+          "type": "string",
+          "description": "File path for save/load actions"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_snapshot_scene",
+    "title": "Snapshot Scene",
+    "description": "Save a snapshot of an operator's state (all par values, modes, expressions) to a JSON structure. Useful before destructive changes. Snapshotting '/' recurses the whole project: prefer the specific COMP (guardrails bound the wait anyway).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "/",
+          "description": "Root operator path for snapshot. Prefer a specific COMP: snapshotting '/' walks the entire project and can make TD busy for seconds."
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_memory_save",
+    "title": "Save Memory",
+    "description": "Save a persistent memory entry with key, content, and optional tags. Memories survive across sessions.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Unique memory key"
+        },
+        "content": {
+          "type": "string",
+          "description": "Memory content"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional tags for categorization"
+        }
+      },
+      "required": [
+        "key",
+        "content"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_memory_recall",
+    "title": "Recall Memory",
+    "description": "Search saved memories by query text. Returns scored results from persistent memory store.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query"
+        },
+        "limit": {
+          "type": "number",
+          "default": 5,
+          "description": "Max results"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "tool_batch",
+    "title": "Batch Tools",
+    "description": "Execute multiple tool calls in a single batch. Runs tools sequentially and returns all results together. Max 8 tools per batch.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Tool name (e.g. 'getNodeDetail', 'execute')"
+              },
+              "args": {
+                "type": "object",
+                "additionalProperties": {},
+                "default": {},
+                "description": "Named arguments object for the tool"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 8,
+          "description": "Array of tool calls to batch"
+        }
+      },
+      "required": [
+        "tools"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_knowledge_query",
+    "title": "Query POP Knowledge Base",
+    "description": "Search across the comprehensive POP knowledge base (Docs/110-118) for relevant documentation on TouchDesigner POPs. Covers fundamentals, GLSL, forces, physics, rendering, workflows, new features, operator parameters, troubleshooting, and more. Returns the most relevant document sections matching the query.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query describing what POP knowledge you need (e.g. 'GLSL particle shader', 'boids flocking', 'Particle POP parameters')"
+        },
+        "doc": {
+          "type": "integer",
+          "minimum": 110,
+          "maximum": 118,
+          "description": "Optional specific document number (110-118) to search within. If omitted, searches all documents."
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "default": 3,
+          "description": "Max number of document sections to return."
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_history_list",
+    "title": "List Change History",
+    "description": "List the last N recorded changes (history entries) stored in memory. Each entry shows the operator path, action, and timestamp. Does NOT call into TouchDesigner.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20,
+          "description": "Max entries to return (1-100, default 20)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_history_undo",
+    "title": "Undo Last Change",
+    "description": "Revert the most recent recorded change by restoring the operator's parameters from its pre-change snapshot. Only affects in-memory history; uses snapshot_scene + setParameters.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_history_clear",
+    "title": "Clear Change History",
+    "description": "Clear all in-memory history entries. This does NOT affect TouchDesigner \u2014 only discards the local undo log.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_watch",
+    "title": "Watch Performance",
+    "description": "Start or stop real-time performance monitoring in TouchDesigner. When started, polls getPerf() every `interval` seconds, accumulates samples in a circular buffer, and alerts when any operator exceeds `threshold` ms cook time. Call without arguments to get the current snapshot of the running watch.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "/",
+          "description": "Operator path to monitor (default: '/')"
+        },
+        "interval": {
+          "type": "number",
+          "default": 5,
+          "description": "Polling interval in seconds (minimum 1, default 5)"
+        },
+        "threshold": {
+          "type": "number",
+          "default": 50,
+          "description": "Cook time threshold in ms to trigger an alert (default: 50)"
+        },
+        "max_samples": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 60,
+          "description": "Max samples in circular history buffer (default: 60)"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "start",
+            "stop",
+            "snapshot"
+          ],
+          "default": "snapshot",
+          "description": "'start' begins monitoring, 'stop' ends it, 'snapshot' returns current state (default: snapshot)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_run_test",
+    "title": "Run Legacy Test",
+    "description": "Execute a legacy TouchDesigner MCP test script from the mcp/tests/ directory. Runs `node mcp/tests/<name>.mjs` with optional arguments and returns stdout, stderr, and the exit code. Timeout is 60 seconds. Use this to validate systems, run CI checks, or debug test failures.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Test file name (without .mjs extension), e.g. 'legacy_test_30systems'"
+        },
+        "args": {
+          "type": "string",
+          "description": "Optional command-line arguments passed to the test script"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_validate",
+    "title": "Validate & Auto-Fix",
+    "description": "Validate a TouchDesigner operator/network: force-cook, detect errors, classify issues by category (expression_error, cook_loop, missing_file, glsl_error, needs_manual), auto-fix common expression issues (bare sin\u2192math.sin, log\u2192math.log, etc.), check GLSL compilation, and re-validate. Returns errors found, fixes applied, issue classifications with suggested actions, and final status.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path to validate (e.g. '/project1/Pathtracer')"
+        },
+        "recurse": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate descendants recursively (default: true)"
+        },
+        "auto_fix": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-fix common expression errors like bare sin/cos/log (default: true)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_perf_budget",
+    "title": "Performance Budget Check",
+    "description": "Check performance of operators against configurable budgets. Monitors cook time, point count, resolution, and recook frequency. Returns violations sorted by severity with actionable fix suggestions. Tier 4 validation from the mcp_td_v2 testing protocols.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Root path to profile (e.g. '/project1/mySystem')"
+        },
+        "max_cook_time_ms": {
+          "type": "number",
+          "default": 16.67,
+          "description": "Max cook time per operator in ms (default: 16.67 = 60fps budget)"
+        },
+        "max_point_count": {
+          "type": "number",
+          "default": 1000000,
+          "description": "Max point count per POP operator (default: 1,000,000)"
+        },
+        "max_resolution": {
+          "type": "number",
+          "default": 4096,
+          "description": "Max total pixel count (width*height) for TOP operators (default: 4096)"
+        },
+        "max_recook_hz": {
+          "type": "number",
+          "default": 120,
+          "description": "Max expected recook frequency in Hz (default: 120)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_smoke_test",
+    "title": "Functional Smoke Test",
+    "description": "Run functional smoke tests on a TouchDesigner network after building. Verifies: (1) operators exist at expected paths, (2) connections are wired correctly, (3) feedback loops are intact, (4) mandatory attributes are present. Returns a structured report with pass/fail per tier and fix suggestions.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Root path of the network to test (e.g. '/project1/mySystem')"
+        },
+        "expected_operators": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of operator paths that must exist (e.g. ['/project1/mySystem/noise1', '/project1/mySystem/null1'])"
+        },
+        "expected_connections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "description": "Source operator path"
+              },
+              "target": {
+                "type": "string",
+                "description": "Target operator path"
+              },
+              "input": {
+                "type": "number",
+                "default": 0,
+                "description": "Input index (default 0)"
+              }
+            },
+            "required": [
+              "source",
+              "target"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Connections that must be wired"
+        },
+        "check_feedback_loops": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Operator paths where feedback loops should exist (e.g. feedback POPs, nullPOP feedback targets)"
+        },
+        "check_attributes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Operator path"
+              },
+              "attribute": {
+                "type": "string",
+                "description": "Attribute name (e.g. 'P', 'Cd', 'PartVel')"
+              }
+            },
+            "required": [
+              "path",
+              "attribute"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Mandatory attributes that must be present on operators"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_syntactic_check",
+    "title": "Pre-Execution Syntactic Check",
+    "description": "Validate Python code, TD paths, JSON, and environment dependencies BEFORE sending to TD. Catches: bare math functions (sin\u2192math.sin), unclosed strings, path injection risks, markdown-wrapped JSON, TD version compatibility, connection status, and cross-family connection errors (POP\u2192SOP, POP\u2192TOP without adapter). Run this before td_execute or td_network_plan to prevent runtime errors.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Python code to validate before execution"
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "TD operator paths to validate for safety"
+        },
+        "json_strings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "JSON strings to validate for structural integrity"
+        },
+        "check_dependencies": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also verify TD connection and version (requires live TD)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_tdn_export",
+    "title": "Export Network to TDN",
+    "description": "Export a TouchDesigner operator/network to a .tdn (TouchDesigner Network) JSON file. Captures operator structure, non-default parameters, connections, DAT content, flags, tags, positions, colors, custom parameters, and annotations. Compacts by extracting type defaults and parameter templates. The .tdn format enables git-friendly version control of .toe networks.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Root COMP path to export (e.g. '/project1/mySystem')"
+        },
+        "output_file": {
+          "type": "string",
+          "description": "Output file path for the .tdn file (e.g. 'networks/mySystem.tdn')"
+        },
+        "include_dat_content": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include DAT text/table content (default: true)"
+        },
+        "include_storage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include operator storage entries (default: true)"
+        }
+      },
+      "required": [
+        "path",
+        "output_file"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_tdn_import",
+    "title": "Import Network from TDN",
+    "description": "Import a .tdn (TouchDesigner Network) JSON file into TouchDesigner. Recreates operators with correct types, parameters, connections, DAT content, flags, positions, colors, and custom parameters. Best-effort: failures on individual operators don't abort the import.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "tdn_file": {
+          "type": "string",
+          "description": "Path to the .tdn file to import"
+        },
+        "target_path": {
+          "type": "string",
+          "description": "Target COMP path to import into (e.g. '/project1')"
+        }
+      },
+      "required": [
+        "tdn_file",
+        "target_path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_tdn_diff",
+    "title": "Diff Network vs TDN File",
+    "description": "Compare a live TouchDesigner network against a saved .tdn file. Detects operators only in live, operators only in saved, parameter differences, and connection differences. Returns a structured diff report. Volatile headers (build, timestamp) are ignored.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Live network path to compare (e.g. '/project1/mySystem')"
+        },
+        "tdn_file": {
+          "type": "string",
+          "description": "Path to the saved .tdn file to compare against"
+        }
+      },
+      "required": [
+        "path",
+        "tdn_file"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_tdn_git_setup",
+    "title": "Setup Git for TDN",
+    "description": "Auto-configure git for TouchDesigner Network (.tdn) version control. Creates .gitattributes with '*.tdn diff=tdn' and configures the git textconv driver that strips volatile headers (build, timestamp, TD version) from diffs so `git diff` shows only semantic network changes. Also adds *.tdn to .gitignore if requested. Works on the local filesystem \u2014 no TouchDesigner connection required.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "repo_path": {
+          "type": "string",
+          "description": "Path to the git repository root. Defaults to the MCP server's working directory."
+        },
+        "textconv_path": {
+          "type": "string",
+          "description": "Path to textconv.py relative to repo root. Defaults to 'mcp/src/tdn/textconv.py'."
+        },
+        "add_to_gitignore": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also add *.tdn to .gitignore (default: false \u2014 .tdn files should be tracked)."
+        },
+        "global": {
+          "type": "boolean",
+          "default": false,
+          "description": "Configure git globally (--global flag) instead of per-repo."
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_safe_plan",
+    "title": "Safe Plan (Diagnose First)",
+    "description": "Safe mode workflow: diagnose the current TD state before making changes. Combines spatial context (*here/*this resolution) + healthcheck + error classification in a single call. Returns the resolved paths, current issues, and a recommended plan. ALWAYS call this tool BEFORE making any modifications to TD when the user uses *here, *this, or refers to their current view/selection. This prevents accidental changes to the wrong operators.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Specific path to diagnose. If omitted, uses *here (current network) automatically."
+        },
+        "include_children": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include child operators in healthcheck (default: true)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_resolve_operator",
+    "title": "Resolve Operator Type",
+    "description": "Convert natural language descriptions to exact TouchDesigner operator types. 200+ synonyms: 'webcam'\u2192videodeviceinTOP, 'blur'\u2192blurTOP, 'particles'\u2192particlePOP, etc. Also returns best-guess family and matching templates/recipes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description (e.g., 'noisy webcam with blur')"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3,
+          "description": "Max operator matches"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_template",
+    "title": "Get Network Template",
+    "description": "Get a pre-built network template with exact port-level wiring, parameters, and Python builder code. 8 templates: generative-art-feedback, audio-reactive-spectrum, particle-system-basic, glow-bloom, glsl-shader-pipeline, chroma-key-composite, kaleidoscope, edge-detect.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Template name (use 'list' to see all names)"
+        },
+        "search": {
+          "type": "string",
+          "description": "Search templates by keyword"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_list_templates",
+    "title": "List Templates",
+    "description": "List all available network templates with tags and summaries.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "description": "Filter by tag (e.g., 'particles', 'audio', 'glsl')"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_recipe",
+    "title": "Get Builder Recipe",
+    "description": "Get a production-ready builder recipe with paste-ready Python code, gotchas, and wiring. 5 recipes: feedback-loop-top, particle-system-pop, glsl-top-shader, audio-reactive-spectrum, render-scene-3d. Each recipe includes known gotchas to prevent common mistakes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Recipe name (use 'list' to see all)"
+        },
+        "search": {
+          "type": "string",
+          "description": "Search recipes by keyword"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_search_knowledge",
+    "title": "Search Knowledge Brain",
+    "description": "Full-text search across all TouchDesigner operator documentation (FTS5 + BM25 ranking). Returns ranked results with snippet highlighting. Use this when you need deep operator knowledge.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query"
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "TOP",
+            "CHOP",
+            "SOP",
+            "DAT",
+            "POP",
+            "COMP",
+            "MAT"
+          ],
+          "description": "Filter by operator family"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Max results"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_catalog",
+    "title": "Browse Operator Catalog",
+    "description": "Browse the operator catalog: list by family, search by name, get creation defaults. 7 families supported: TOP, CHOP, SOP, DAT, POP, COMP, MAT.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "search",
+            "get",
+            "stats"
+          ],
+          "description": "Action: list (by family), search (by query), get (specific op), stats (counts)"
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "TOP",
+            "CHOP",
+            "SOP",
+            "DAT",
+            "POP",
+            "COMP",
+            "MAT"
+          ],
+          "description": "Filter by family (for 'list' action)"
+        },
+        "query": {
+          "type": "string",
+          "description": "Search query (for 'search' action)"
+        },
+        "opType": {
+          "type": "string",
+          "description": "Operator type (for 'get' action, e.g. 'particlePOP')"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_get_family_hints",
+    "title": "Get Family Hints",
+    "description": "Get family inference hints: which TD operator family (TOP/CHOP/SOP/POP/etc.) matches your keywords. Useful for narrowing down operator choices before building.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description or keywords"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_patch_plan",
+    "title": "Plan Patch (Complex System)",
+    "description": "Plan a complex network patch with pre-turn context injection. Auto-detects complexity (basic/standard/pro tier) and enriches the prompt with knowledge base hits, templates, recipes, and resolved operators.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description of what to build"
+        },
+        "target_path": {
+          "type": "string",
+          "description": "Container path"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "default": true,
+          "description": "Dry run: plan + preview only, no TD changes"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_patch_preview",
+    "title": "Preview Patch",
+    "description": "Preview exactly what nodes will be created and how they'll be connected. Shows risk level, warnings, and estimated node count.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description of what to build"
+        },
+        "target_path": {
+          "type": "string",
+          "description": "Container path"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_patch_apply",
+    "title": "Apply Patch (with Rollback)",
+    "description": "Apply a planned patch with automatic undo-block wrapping and rollback on failure. Snapshots errors before/after \u2014 if errors increase, auto-rolls back. Runs post-build validation with auto-fix.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description of what to build"
+        },
+        "target_path": {
+          "type": "string",
+          "description": "Container path"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_patch_variations",
+    "title": "Patch Variations",
+    "description": "Generate alternative approaches for a patch (Minimal, Alternative operators, Parallel chains). Useful when the first approach didn't work or you want to explore options.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description of what to build"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "default": 3,
+          "description": "Number of variations"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_complexity_check",
+    "title": "Check Complexity",
+    "description": "Analyze a prompt for complexity: returns tier (basic/standard/pro), complexity score (0-100), detected triggers, and recommended approach.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description to analyze"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "wt_generate_op",
+    "title": "Generate WebToe Operator Spec",
+    "description": "Generates a complete WebToe OpSpec for any TouchDesigner operator type. Uses our research knowledge base (106 POPs, TOPs, CHOPs, etc.) to produce parameter schemas, input/output topology, and GLSL/WGSL shaders for TOPs. This fills the gaps in WebToe's operator coverage (currently 62.3% \u2192 targets 90%+).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "op_type": {
+          "type": "string",
+          "description": "TD operator type (e.g., 'particlePOP', 'blurTOP', 'noisePOP')"
+        },
+        "family": {
+          "type": "string",
+          "enum": [
+            "TOP",
+            "CHOP",
+            "SOP",
+            "DAT",
+            "POP",
+            "COMP",
+            "MAT"
+          ],
+          "description": "Override family detection"
+        },
+        "with_shaders": {
+          "type": "boolean",
+          "default": true,
+          "description": "Generate GLSL/WGSL shaders (TOP only)"
+        },
+        "webtoe_format": {
+          "type": "boolean",
+          "default": true,
+          "description": "Output in WebToe OpSpec format (vs raw TD data)"
+        }
+      },
+      "required": [
+        "op_type"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "wt_build_network",
+    "title": "Build WebToe Network",
+    "description": "Convert a natural language description into a complete .webtoe.json file. Uses 200+ operator synonyms, topology-aware wiring, and parameter defaults from 96 real TD projects. Output is ready to load into WebToe.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description (e.g., 'feedback trail with noise and blur')"
+        },
+        "title": {
+          "type": "string",
+          "description": "Project title"
+        },
+        "output_format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "download"
+          ],
+          "default": "json",
+          "description": "'json' returns the data; 'download' returns a filename to save"
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "wt_list_gaps",
+    "title": "List WebToe Coverage Gaps",
+    "description": "List operators in our TD research corpus that WebToe doesn't yet implement. Grouped by family. Each gap includes: parameter schemas, shader templates (TOP only), connection patterns, and HOW-TO notes for implementation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "family": {
+          "type": "string",
+          "enum": [
+            "TOP",
+            "CHOP",
+            "SOP",
+            "DAT",
+            "POP",
+            "COMP",
+            "MAT"
+          ],
+          "description": "Filter by family"
+        },
+        "implementable_only": {
+          "type": "boolean",
+          "default": true,
+          "description": "Only show ops that CAN be implemented (TOP/CHOP/SOP/DAT)"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 50,
+          "default": 20
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "wt_resolve_prompt",
+    "title": "Resolve WebToe Operators",
+    "description": "Convert natural language to WebToe operator types. Shows the WebToe type key (e.g., 'top:noise') and which family it belongs to. Useful before building networks to verify the right operators are used.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "Natural language description"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 5
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_pop_validate",
+    "title": "POP Network Validation",
+    "description": "Validate a POP (Particle Operator) network for common errors: feedback loop integrity, input requirements, attribute alignment, cross-family connection safety, and performance constraints. Checks particlePOP feedback targets, noisePOP input requirements, glslPOP attribute declarations, neighborPOP performance limits, copyPOP/blendPOP dual-input needs, and POP\u2192SOP/TOP/CHOP/DAT connection validity. Returns structured violations with fix suggestions.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Root path of the POP network to validate (e.g. '/project1/mySystem')"
+        },
+        "check_cross_family": {
+          "type": "boolean",
+          "default": true,
+          "description": "Also check for invalid cross-family connections (POP\u2192SOP, etc.)"
+        },
+        "check_attributes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Verify that required attributes (P, Vel, Cd) are present"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_import_toe_dir",
+    "title": "Import Toe_Expand .toe.dir network",
+    "description": "Rebuild a TouchDesigner network from an expanded Toe_Expand .toe.dir (plain-text dump). Parses *.n/*.parm in the chosen scope, generates one /exec batch that creates the container + operators, wires them with the verified recipe (src.outputConnectors[0].connect(dst)), sets params defensively (missing params \u2192 drift log), cooks everything and verifies each node against the dump (presence, position, inputs, clean cook, geometry). Requires a live TD connection.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "toe_dir": {
+          "type": "string",
+          "description": "Absolute path to the .toe.dir directory (e.g. C:/.../Facet.toe.dir)"
+        },
+        "scope": {
+          "type": "string",
+          "default": "project1",
+          "description": "Subdirectory of the .toe.dir to import (network name), e.g. 'project1'"
+        },
+        "container_name": {
+          "type": "string",
+          "description": "Name of the baseCOMP container to create. Default: <scope>_imported_<timestamp>"
+        },
+        "parent_path": {
+          "type": "string",
+          "default": "/project1",
+          "description": "Where to create the import container"
+        }
+      },
+      "required": [
+        "toe_dir"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_glsl_analyze",
+    "title": "Analyze GLSL POP Shader",
+    "description": "Statically analyze a GLSL POP shader against the verified rules (docs/GLSL_POP_RULES.md): output reads (R1), missing TDIndex/TDNumElements guard (R2), attributes needing Create Attributes with the exact params (R3), and outputaccess='readwrite' needs (R4). No TouchDesigner needed.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "shader": {
+          "type": "string",
+          "description": "Full GLSL shader source to analyze"
+        }
+      },
+      "required": [
+        "shader"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_glsl_apply",
+    "title": "Apply GLSL POP",
+    "description": "Create a glslPOP that COMPILES: pre-validates the shader (rejects output reads with the fix \u2014 R1), writes the shader to a textDAT, creates the glslPOP, auto-creates the attributes it writes via Create Attributes (attr0name='Custom' + attr0customname + attr0numcomps \u2014 R3), sets outputaccess='readwrite' when needed (R4), optionally wires a source POP, cooks, and on compile failure returns the real compiler log from the infoDAT <name>_info (R5).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "parent_path": {
+          "type": "string",
+          "description": "Parent COMP path (e.g. /project1)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name for the glslPOP"
+        },
+        "shader": {
+          "type": "string",
+          "description": "Full GLSL shader source"
+        },
+        "source_path": {
+          "type": "string",
+          "description": "Optional POP source to wire into input 0 (GLSL POP needs an input to produce data)"
+        },
+        "outputattrs": {
+          "type": "string",
+          "description": "Override outputattrs (default 'P' \u2014 only input-existing attrs, R3)"
+        },
+        "pop_kind": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "copy"
+          ],
+          "default": "basic",
+          "description": "'basic' creates a glslPOP; 'copy' creates a glslcopyPOP for per-copy shaders (Phyllotaxis/Hairy-Banana style). The copy POP uses ptcomputedat/ptoutputattrs and the TDNumPoints/TDCopyIndex/TDTemplate_* builtin family \u2014 write the shader for that family, NOT TDIndex()/TDNumElements()."
+        }
+      },
+      "required": [
+        "parent_path",
+        "name",
+        "shader"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_glsl_top_analyze",
+    "title": "Analyze GLSL TOP Shader",
+    "description": "Statically analyze a GLSL TOP (pixel) shader against the verified rules (docs/GLSL_TOP_RULES.md): missing `layout(location=0) out vec4 fragColor` (T1), invalid vUV swizzles like .uv/.uv1/.texcoord with the .st/.xy fix (T2), POP-style uniform0name in creation code with the real vec0*/const0* mechanism (T4), missing void main, and the infoDAT <name>_info pointer for compile failures (T9). No TouchDesigner needed.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "shader": {
+          "type": "string",
+          "description": "Full GLSL TOP pixel shader source"
+        },
+        "creation_code": {
+          "type": "string",
+          "description": "Optional Python creation code (from buildGlslTopRecipeCode or hand-written) \u2014 enables the T4 uniform0name check"
+        }
+      },
+      "required": [
+        "shader"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_glsl_top_recipe",
+    "title": "Apply GLSL TOP Recipe",
+    "description": "Create one of the verified GLSL TOP visual recipes (Book of Shaders concepts in TouchDesigner idioms): top-circle-sdf, top-value-noise, top-fbm-layers, top-grid-pattern, top-uv-ripple, top-feedback-trails, top-reaction-diffusion. Pre-validates the shader through the TOP safety net (rejects vUV.uv and POP-only uniform params before TD sees them), then builds the node in TD with a single /exec and reports compile status incl. the infoDAT log on failure (T9). Feedback recipes note the scripted-cook buffer limitation (T10).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "recipe_id": {
+          "type": "string",
+          "description": "One of: top-circle-sdf, top-value-noise, top-fbm-layers, top-grid-pattern, top-uv-ripple, top-feedback-trails, top-reaction-diffusion"
+        },
+        "parent_path": {
+          "type": "string",
+          "default": "/project1",
+          "description": "Parent COMP path (default /project1)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name for the glslTOP (default <recipe_id> sanitized)"
+        }
+      },
+      "required": [
+        "recipe_id"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_glsl_curriculum",
+    "title": "GLSL Curriculum (BoS + td-edu)",
+    "description": "Query the GLSL visual curriculum knowledge base (offline, no TD): action \"list\" shows every entry (id, title, family, prereqs); \"get\" returns one entry with its TD-idiom shader reference, verified node params and cited source; \"path\" suggests an ordered learning path for a goal like \"visuales org\u00e1nicos\", \"efectos de imagen\" or \"formas b\u00e1sicas\".",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "get",
+            "path"
+          ],
+          "description": "What to query from the curriculum"
+        },
+        "id": {
+          "type": "string",
+          "description": "Entry id (action=get)"
+        },
+        "goal": {
+          "type": "string",
+          "description": "Short natural-language goal (action=path)"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_undo",
+    "title": "Undo Last Bridge Write",
+    "description": "Revert the most recent bridge write request (parameters/set, create, delete, connect, disconnect) via POST /undo. Each undo reverts ONE complete request. /exec code is NOT recorded. A new write clears the redo branch. History is capped at 50 entries, FIFO. Returns success:false with a hint when there is nothing to undo.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_redo",
+    "title": "Redo Undone Bridge Write",
+    "description": "Re-apply the most recently undone bridge write via POST /redo. Only available immediately after td_undo (any new write discards the redo branch). Returns success:false with a hint when there is nothing to redo.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_history",
+    "title": "List Bridge Undo History",
+    "description": "List the bridge's reversible write operations via GET /history: one-line description per entry plus kind (parameters|ops|wiring). Shape: {maxDepth, canUndo, canRedo, undo[], redo[]}. Use td_undo to revert the newest entry.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_verify_wiring",
+    "title": "Verify Wiring",
+    "description": "Post-build wiring check (AGENTS.md rule 16): verify a freshly built network's real TouchDesigner wiring via GET /connections instead of trusting build output. Expected edges are compared as a set of (from, to, input); missing wires, missing outputs and wrong input indices are all reported by name.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Container path whose children's wiring is checked (e.g. /project1/my_net)"
+        },
+        "expect": {
+          "type": "string",
+          "description": "Expected edges as \"from->to:input\" pairs: \"srcA->nz:0,nz->mg:0,srcB->mg:1,mg->out:0\" (names are matched against the edge from/to fields)"
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "input": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "input"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Alternative structured form of the expected edges"
+        },
+        "recurse": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include nested container wiring (default true, matches /connections?recurse=1)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_measure",
+    "title": "Measure Signal Magnitudes",
+    "description": "Sample the REAL magnitude of a signal BEFORE choosing any scalar (scale/gain/offset/threshold). Use this instead of guessing: a CHOP buffer tells you the range it actually swings through (min/max/mean/last, whether it is already 0..1 or -1..1, whether it is constant) and returns the scale/offset that would map it to 0..1 plus a plain-language interpretation. Read-only, never mutates the network. For TOPs it reports resolution/aspect, for POPs point/prim counts and attributes, for DATs rows/columns. Do NOT sample by taking screenshots or by reading a DAT and doing the math yourself \u2014 call this tool.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Operator path to measure (a CHOP, TOP, POP, DAT...)"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "CHOP only: restrict to these channel names"
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "description": "Max samples per channel to summarise (default 1000, cap 5000)"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_healthchain",
+    "title": "Chain Health Check",
+    "description": "LIVE end-to-end verdict of the TD chain: bridge transport, a real operator read, network errors at scope, and cooking state. Call this FIRST when a call fails unexpectedly, when the user says 'it doesn't connect', or at the start of a working session \u2014 instead of asking the user for a screenshot. Returns verdict OK | DEGRADED | DOWN plus the evidence (last successful call, recent call log) needed to report a problem.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Scope to check (default '/')"
+        },
+        "recurse": {
+          "type": "boolean",
+          "description": "Recurse into the scope when checking errors"
+        },
+        "include_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "description": "How many recent client calls to include (default 8)"
+        }
+      },
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "td_report_bug",
+    "title": "Build Bug Report",
+    "description": "Assemble a complete bug report with evidence: TD build, bridge/API version, health verdict, the last successful call, the recent call log and the log file path. Use when the user asks how to report a problem, or after a failure that needs the maintainer to see what happened.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "symptoms": {
+          "type": "string",
+          "description": "What the user observed, in their words (they can be vague)"
+        },
+        "path": {
+          "type": "string",
+          "description": "Scope involved (default '/')"
+        },
+        "expected": {
+          "type": "string",
+          "description": "What was expected to happen"
+        }
+      },
+      "required": [
+        "symptoms"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  }
+]

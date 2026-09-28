@@ -1,3 +1,7 @@
+> **Nota de layout (2026-09-28).** La instalación `AI_Code\TDMCP\TDMCP-1.1.55` se retiró:
+> ahora TODO vive en este repo — `knowledge/` (código + KB), `component/` (el `.tox` oficial),
+> `skills-hermes/`, `tools/` y `docs/`. Las rutas viejas que aparezcan abajo son históricas.
+
 # TDMCP oficial (Derivative) vs. TDMCP propio — informe de testeo en vivo
 
 **Fecha:** 2026-09-28 · **TD abierto:** 2025.32460, `.toe` = `TDMCP.1.toe` (demo oficial) · **Puerto oficial:** 13316
@@ -165,7 +169,7 @@ Por qué:
 
 ## 10. Anexo — Cómo reconectar la evidencia
 
-> Copias canónicas y mantenidas de estos scripts: `C:\Users\<user>\Documents\AI_Code\TDMCP\TDMCP-1.1.55\extras\scripts-testeo\`
+> Copias canónicas de estos scripts: `tools/` (en este repo).
 > (ahí también está `adapt_td_skills.py`, que re-adapta las skills oficiales a Hermes, y
 > `restore_config_comments.py`, que restaura los comentarios del `config.yaml`).
 > Estado de la migración y pitfalls: `extras\README.md`.
@@ -189,7 +193,7 @@ python tmp/official_config.py             # config de las páginas MCP/Tune
   **`mcp_tdmcp_<tool>`** en **sesiones nuevas** (no hay hot-reload).
 * **19 skills `td-*`** adaptadas a Hermes (description `Use when …` + banner con el prefijo
   `mcp_tdmcp_`) → `~/AppData/Local/hermes/skills/touchdesigner/td-*`.
-* **Todo consolidado en** `AI_Code\TDMCP\TDMCP-1.1.55\extras\` (README, skills, clone con
+* **Todo consolidado en** este repo: `knowledge/`, `component/`, `skills-hermes/`, `tools/`, `docs/` (README, skills, clone con
   `.git` de TDMCPSkills, reportes + evidencia, scripts de testeo).
 * **Pitfall de Hermes detectado**: `hermes config set` borra **todos** los comentarios del
   `config.yaml` (4896 → 2978 bytes) — restaurar desde el backup con inserción de texto, y

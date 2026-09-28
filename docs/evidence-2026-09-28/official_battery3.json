@@ -1,0 +1,309 @@
+[
+  {
+    "test": "B1. crear sandbox limpio",
+    "tool": "create_operator",
+    "args": {
+      "parent_path": "/",
+      "type": "baseCOMP",
+      "name": "hermes_hp",
+      "nodeX": 500,
+      "nodeY": -150
+    },
+    "ms": 20.1,
+    "response": "{\n  \"success\": true,\n  \"path\": \"/hermes_hp\",\n  \"name\": \"hermes_hp\",\n  \"type\": \"baseCOMP\"\n}"
+  },
+  {
+    "test": "B2. BUG-FIX? build_network with from/to names + auto_layout",
+    "tool": "build_network",
+    "args": {
+      "parent_path": "/hermes_hp",
+      "operators": [
+        {
+          "type": "noiseTOP",
+          "name": "src"
+        },
+        {
+          "type": "levelTOP",
+          "name": "lvl"
+        },
+        {
+          "type": "nullTOP",
+          "name": "out1"
+        }
+      ],
+      "connections": [
+        {
+          "from": "src",
+          "to": "lvl"
+        },
+        {
+          "from": "lvl",
+          "to": "out1"
+        }
+      ],
+      "auto_layout": true
+    },
+    "ms": 32.3,
+    "response": "{\n  \"success\": true,\n  \"parent_path\": \"/hermes_hp\",\n  \"created\": [\n    {\n      \"name\": \"src\",\n      \"path\": \"/hermes_hp/src\",\n      \"type\": \"noiseTOP\"\n    },\n    {\n      \"name\": \"lvl\",\n      \"path\": \"/hermes_hp/lvl\",\n      \"type\": \"levelTOP\"\n    },\n    {\n      \"name\": \"out1\",\n      \"path\": \"/hermes_hp/out1\",\n      \"type\": \"nullTOP\"\n    }\n  ],\n  \"connected\": [\n    {\n      \"from\": \"src\",\n      \"to\": \"lvl\",\n      \"from_index\": 0,\n      \"to_index\": 0\n    },\n    {\n      \"from\": \"lvl\",\n      \"to\": \"out1\",\n      \"from_index\": 0,\n      \"to_index\": 0\n    }\n  ]\n}"
+  },
+  {
+    "test": "B3. verificar error posterior (deberia estar limpio)",
+    "tool": "get_errors",
+    "args": {
+      "path": "/hermes_hp"
+    },
+    "ms": 93.7,
+    "response": "{\n  \"items\": [],\n  \"count\": 0\n}"
+  },
+  {
+    "test": "B4. get_connections graph=true en el COMP",
+    "tool": "get_connections",
+    "args": {
+      "path": "/hermes_hp",
+      "graph": true
+    },
+    "ms": 11.0,
+    "response": "{\n  \"path\": \"/hermes_hp\",\n  \"nodeCount\": 3,\n  \"connectionCount\": 2,\n  \"hasCycles\": false,\n  \"order\": [\n    {\n      \"name\": \"src\",\n      \"type\": \"noiseTOP\",\n      \"outputs\": [\n        {\n          \"target\": \"lvl\",\n          \"inputIndex\": 0\n        }\n      ],\n      \"inputs\": []\n    },\n    {\n      \"name\": \"lvl\",\n      \"type\": \"levelTOP\",\n      \"outputs\": [\n        {\n          \"target\": \"out1\",\n          \"inputIndex\": 0\n        }\n      ],\n      \"inputs\": [\n        {\n          \"source\": \"src\",\n          \"outputIndex\": 0\n        }\n      ]\n    },\n    {\n      \"name\": \"out1\",\n      \"type\": \"nullTOP\",\n      \"outputs\": [],\n      \"inputs\": [\n        {\n          \"source\": \"lvl\",\n          \"outputIndex\": 0\n        }\n      ]\n    }\n  ]\n}"
+  },
+  {
+    "test": "B5. BUG? get_parameters search (objeto)",
+    "tool": "get_parameters",
+    "args": {
+      "path": "/hermes_hp",
+      "search": {
+        "name": "res*",
+        "depth": 1
+      }
+    },
+    "ms": 16.5,
+    "response": "{\n  \"root\": \"/hermes_hp\",\n  \"results\": [],\n  \"count\": 0,\n  \"scanned_ops\": 3\n}"
+  },
+  {
+    "test": "B6. BUG? reposition_operators positions dict",
+    "tool": "reposition_operators",
+    "args": {
+      "parent_path": "/hermes_hp",
+      "positions": {
+        "src": [
+          -300,
+          200
+        ],
+        "lvl": [
+          0,
+          200
+        ],
+        "out1": [
+          300,
+          200
+        ]
+      }
+    },
+    "ms": 25.0,
+    "response": "{\n  \"success\": true,\n  \"moved\": 3\n}"
+  },
+  {
+    "test": "B7. get_docs kind=python (clase)",
+    "tool": "get_docs",
+    "args": {
+      "query": "matrix",
+      "kind": "python"
+    },
+    "ms": 73.5,
+    "response": "{\n  \"page\": \"Matrix Class\",\n  \"source\": \"local\",\n  \"kind\": \"python\",\n  \"matched\": \"class-derive\",\n  \"sections_available\": [\n    \"Instantiators (Matrix Class)\",\n    \"Members (Matrix Class)\",\n    \"Methods (Matrix Class)\",\n    \"  Special Functions (Matrix Class)\"\n  ],\n  \"content\": \"The matrix class holds a single 4x4 matrix for use in transformations. The matrix's data layout is in column-major format, which is to say that the matrix is multiplied from the left of vectors and positions. The translation values are stored in the last column of the matrix.\\n\\nNote: tdu.Matrix and TDU.Matrix can be used interchangeably. In general, TDU.Matrix is used to represent the class, while tdu.Matrix is used for the instantiator function.\\n\\nA matrix is created with this line, and will always be initialized to the identity matrix.\\n\\nm = tdu.Matrix()\\n\\nYou can also initialize a matrix with starting values, including another matrix or an initial set of values. When specifiying start values, valid arguments include a list of 16 values or 4 lists of 4 values (among other formats, see the instantiators below). The entries are specified column-by-column. For example, the following lines of code will all produce the shown matrix\\n\\nm = tdu.Matrix(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)\\n\\nm = tdu.Matrix([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])\\n\\nm = tdu.Matrix([1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16])\\n\\n# matrix values\\n1 5 9 13\\n2 6 10 14\\n3 7 11 15\\n4 8 12 16\\n\\nOther valid instantiator arguments include a quaternion as a list of 4 values or transformation/projection matrices from Object COMP and Camera COMP using various methods such as `transform()`, `pretransform()`, or `projection()`.\\n\\n## Instantiators\\n\\n`TDU.Matrix(*args, zero=False)`\\u2192 `TDU.Matrix`:\\n\\nCreate a new Matrix object.\\n\\n- `zero` - if True, create a matrix with all zeroes\\nThe following argument forms are valid instantiators:\\n\\n- `tdu.Matrix()` - identity matrix\\n\\n- `tdu.Matrix(matrix\\u00a0: TDU.Matrix)` - copy the matrix in the argument\\n\\n- `tdu.Matrix(vals\\u00a0: list)` - list of 4 values as a quaternion OR list of 9 or 16 values to fill matrix columns\\n\\n- `tdu.Matrix(col1\\u00a0: list, col2\\u00a0: list, col3\\u00a0: list)` - 3 lists of 3 or 4 floats to fill columns\\n\\n- `tdu.Matrix(col1\\u00a0: list, col2\\u00a0: list, col3\\u00a0: list, col4\\u00a0: list)` - 4 lists of 3 or 4 floats to fill columns\\n\\n- `tdu.Matrix(f1, f2, f3, f4, f5, f6, f7, f8, f9)` - 9 floats to fill matrix columns\\n\\n- `tdu.Matrix(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)` - 16 floats to fill matrix columns\\n\\n## Members\\n\\n`vals` \\u2192 `float`\\u00a0:\\n\\nGet or set the set of Matrix values.\\n\\n`rows` \\u2192 `list[list]` (Read Only):\\n\\nThe list of Matrix rows, each a list of values.\\n\\n`cols` \\u2192 `list[list]` (Read Only):\\n\\nThe list of Matrix columns, each a list of values.\\n\\n## Methods\\n\\n`transpose()`\\u2192 `None`:\\n\\nTranspose the values in the matrix.\\n\\nm.transpose() # m now contains the transpose of the matrix\\n\\n`getTranspose()`\\u2192 `None`:\\n\\nReturns the transpose of the matrix, leaving the matrix itself unchanged.\\n\\nm2 = m.getTranspose()\\n\\n`invert()`\\u2192 `None`:\\n\\nInverts the values in the matrix.\\n\\nm.invert() # m now contains the inverse of the matrix\\n\\n`getInverse()`\\u2192 `TDU.Matrix`:\\n\\nReturns the inverse of the matrix, leaving the matrix itself unchanged.\\n\\nm2 = m.getInverse()\\n\\n`determinant()`\\u2192 `float`:\\n\\nReturns the determinant of the matrix.\\n\\nl = m.determinant()\\n\\n`mapUnitSquareToQuad(blX, blY, brX, brY, tlX, tlY, trX, trY)`\\u2192 `None`:\\n\\nSet the matrix to be a projection matrix that maps coordinates from to a unit square (0,0) -> (1,1) space to a space defined by an arbitrary quadrilateral (blX, blY) -> (trX, trY). The 4 corners of the quadrilateral are given ('bl' means bottom left, 'tr' means top right etc.).\\n\\n`mapQuadToUnitSquare(blX, blY, brX, brY, tlX, tlY, trX, trY)`\\u2192 `None`:\\n\\nIs the inverse of mapUnitSquareToQuad(). Mapping coordinates in an arbitrary quadrilateral into a space defined by the unit square.\\n\\n`fillTable(tableDAT)`\\u2192 `None`:\\n\\nFill in the contents of a table from the matrix which the method is called upon.\\n\\n- tableDAT - The table to be filled.\\n\\n`numpyArray()`\\u2192 `numpy.ndarray`:\\n\\nReturns this matrix as a 4x4 NumPy array.\\n\\n`identity()`\\u2192 `None`:\\n\\nReplaces the values in the matrix with the identity matrix.\\n\\nm.identity() # now contains the identity matrix\\n\\n`copy()`\\u2192 `TDU.Matrix`:\\n\\nReturns a new matrix that is a copy of the matrix.\\n\\nnewM = m.copy() # newM will have the same values as m, m is unchanged\\n\\n`translate(tx, ty, tz, fromRight=False)`\\u2192 `None`:\\n\\nMultiplies the current matrix by a new translation matrix created from tx, ty and tz. The translation is applied from the left of the matrix by default. That is to say, if T is the new translation matrix, and M is the current matrix, then the result of this operation is M = T * M.\\n\\n- tx, ty, tz - The translation value in each axis.\\n\\n- fromRight - (Keyword, Optional) If True, the translation matrix will be multiplied from the right instead of the left.\\nm = tdu.Matrix()\\nm.translate(5, 0, 10)\\n\\n`rotate(rx, ry, rz, fromRight=False, pivot=None)`\\u2192 `None`:\\n\\nMultiplies the current matrix by 3 rotation matrices, first a rotation around the X axis by rx degrees, followed by a rotation around the Y axis by ry degrees, followed by the same for rz. The rotation values are in degrees. The rotation is applied from the left of the matrix by default. So if M is the current matrix, then the result of this operation is M = RZ * RY * RX * M.\\n\\n- rx, ry, rz - The rotation value around each X, Y and Z axis. The value is in degrees. The rotation is applied in XYZ order.\\n\\n- fromRight - (Keyword, Optional) If True, the rotation matrix will be multiplied from the right instead of the left. In this case the operation is M "
+  },
+  {
+    "test": "B8. get_docs drill section",
+    "tool": "get_docs",
+    "args": {
+      "query": "noiseTOP",
+      "kind": "concept",
+      "section": "Parameters - Noise Page"
+    },
+    "ms": 43.5,
+    "response": "{\n  \"page\": \"Noise TOP\",\n  \"source\": \"local\",\n  \"kind\": \"concept\",\n  \"matched\": \"exact\",\n  \"sections_available\": [\n    \"Summary (Noise TOP)\",\n    \"Parameters - Noise Page (Noise TOP)\",\n    \"Parameters - Transform Page (Noise TOP)\",\n    \"Parameters - Output Page (Noise TOP)\",\n    \"Parameters - Common Page (Noise TOP)\",\n    \"Operator Inputs (Noise TOP)\",\n    \"Info CHOP Channels (Noise TOP)\",\n    \"  Common TOP Info Channels (Noise TOP)\",\n    \"  Common Operator Info Channels (Noise TOP)\"\n  ],\n  \"content\": \"## Parameters - Noise Page\\n\\nType `type`\\u00a0- \\u229e - The noise function used to generate noise. The functions available are:\\n\\n- Perlin 2D (GPU)\\u00a0`perlin2d` - Perlin noise function calculated on the GPU. Choose between 2, 3, and 4 dimensional functions.\\n\\n- Perlin 3D (GPU)\\u00a0`perlin3d` - Perlin noise function calculated on the GPU. Choose between 2, 3, and 4 dimensional functions.\\n\\n- Perlin 4D (GPU)\\u00a0`perlin4d` - Perlin noise function calculated on the GPU. Choose between 2, 3, and 4 dimensional functions.\\n\\n- Simplex 2D (GPU)\\u00a0`simplex2d` - Simplex noise function calculated on the GPU. Choose between 2, 3, and 4 dimensional functions.\\n\\n- Simplex 3D (GPU)\\u00a0`simplex3d` - Simplex noise function calculated on the GPU. Choose between 2, 3, and 4 dimensional functions.\\n\\n- Simplex 4D (GPU)\\u00a0`simplex4d` - Simplex noise function calculated on the GPU. Choose between 2, 3, and 4 dimensional functions.\\n\\n- Random (GPU)\\u00a0`randomgpu` - Every sample is randomly generated, calculated on the GPU.\\n\\n- Sparse\\u00a0`sparse` - Produces high quality, continuous noise based on Sparse Convolution.\\n\\n- Hermite\\u00a0`hermite` - Quicker than Sparse, but produces lower quality noise.\\n\\n- Harmomic Summation\\u00a0`harmonic` - Sparse noise with the ability to control the frequency step of the harmonics. Slowest type.\\n\\n- Random\\u00a0`random` - (White Noise) Every sample is random and unrelated to any other sample. It is the same as \\\"white noise\\\" in audio.\\n\\n- Alligator\\u00a0`alligator` - Cell Noise.\\n\\nSeed `seed` - Any number, integer or non-integer, which starts the random number generator. Each number gives completely different noise patterns, but with similar characteristics.\\n\\nPeriod `period` - The approximate separation between peaks of a noise cycle. It is expressed in Units. Increasing the period stretches the noise pattern out.\\nPeriod is the opposite of frequency. If the period is 2 seconds, the base frequency is 0.5 cycles per second, or 0.5Hz for short. Hz refers to Hertz, the electrical and audio engineer of the 19th century, not the car guy.\\n\\nIf the Type is set to Random, setting this to zero will produce completely random noise. Otherwise, the period should be greater than zero.\\n\\nHarmonics `harmon` - The number of higher frequency components to layer on top of the base frequency. The higher this number, the bumpier the noise will be (as long as roughness is not set to zero). 0 harmonics give the base shape.\\n\\nHarmonic Spread `spread` - The factor by which the frequency of the harmonics are increased. It is normally 2. A spread of 3 and a base frequency of 0.1Hz will produce harmonics at 0.3Hz, 0.9Hz, 2.7Hz, etc.. This parameter is only valid for the Harmonic Summation type.\\n\\nHarmonic Gain `gain` - Amount of the Harmonic Gain layered on top of the base frequency.\\n\\nRoughness `rough` - Controls the effect of the higher frequency noise. When roughness is zero, all harmonics above the base frequency have no effect. At one, all harmonics are equal in amplitude to the base frequency. When roughness is between one and zero, the amplitude of higher harmonics drops off exponentially from the base frequency.\\nThe default roughness is 0.5. This means the amplitude of the first harmonic is 0.5 of the base frequency, the second is 0.25, the third is 0.125. The harmonics are added to the base to give the final shape. The Harmonics parameter and the Roughness parameter must both be non-zero to see the harmonic effects.\\n\\nExponent `exp` - Pushes the noise values toward 0, or +1 and -1. (It raises the value to the power of the exponent.) Exponents greater than one will pull the channel toward zero, and powers less than one will pull peaks towards +1 and -1. It is used to reshape the channels.\\n\\nAmplitude `amp` - Defines the noise value's amplitude (a scale on the values output).\\n\\nOffset `offset` - Defines the midpoint color of the noise pattern, the default is 0.5 grey.\\n\\nMonochrome `mono` - Toggle color or monochrome noise.\\n\\nAspect Correct `aspectcorrect` - Controls if the noise takes aspect ratio into account when calculating it's noise coordinates. When this is off, the noise will stretch to fit a non-square aspect ratio texture.\",\n  \"status\": \"\\u2705 local 2025.32460\"\n}"
+  },
+  {
+    "test": "B9. ERROR menu invalido (par real: type)",
+    "tool": "set_parameters",
+    "args": {
+      "path": "/hermes_hp/src",
+      "values": {
+        "type": "perlin_99"
+      }
+    },
+    "ms": 3.0,
+    "response": "*** isError=true ***\n{\n  \"error\": \"invalid menu value 'perlin_99' for 'type' \\u2014 valid: ['perlin2d', 'perlin3d', 'perlin4d', 'simplex2d', 'simplex3d', 'simplex4d', 'randomgpu', 'sparse', 'hermite', 'harmonic', 'random', 'alligator']\",\n  \"details\": {\n    \"code\": \"invalid_menu_value\",\n    \"parameter\": \"type\",\n    \"valid_values\": [\n      \"perlin2d\",\n      \"perlin3d\",\n      \"perlin4d\",\n      \"simplex2d\",\n      \"simplex3d\",\n      \"simplex4d\",\n      \"randomgpu\",\n      \"sparse\",\n      \"hermite\",\n      \"harmonic\",\n      \"random\",\n      \"alligator\"\n    ]\n  },\n  \"path\": \"/hermes_hp/src\"\n}"
+  },
+  {
+    "test": "B10. set_parameters valido en menu",
+    "tool": "set_parameters",
+    "args": {
+      "path": "/hermes_hp/src",
+      "values": {
+        "type": "simplex3d",
+        "resolutionw": 512
+      }
+    },
+    "ms": 17.0,
+    "response": "{\n  \"success\": true,\n  \"path\": \"/hermes_hp/src\",\n  \"set\": [\n    {\n      \"name\": \"type\",\n      \"value\": \"simplex3d\"\n    },\n    {\n      \"name\": \"resolutionw\",\n      \"value\": 512\n    }\n  ]\n}"
+  },
+  {
+    "test": "B11. UNDO: setear y verificar",
+    "tool": "execute_code",
+    "args": {
+      "code": "n=op('/hermes_hp/lvl')\nn.par.brightness1 = 2.5\nprint('brightness ahora:', op('/hermes_hp/lvl').par.brightness1.eval())\nresult = op('/hermes_hp/lvl').par.brightness1.eval()"
+    },
+    "ms": 75.6,
+    "response": "{\n  \"success\": true,\n  \"variables\": {\n    \"n\": \"type:levelTOP path:/hermes_hp/lvl\",\n    \"result\": 2.5\n  },\n  \"output\": \"brightness ahora: 2.5\\n\"\n}"
+  },
+  {
+    "test": "B12. execute_code undo() -> revierte?",
+    "tool": "execute_code",
+    "args": {
+      "code": "ui.undo()\nprint('brightness tras undo:', op('/hermes_hp/lvl').par.brightness1.eval())\nresult = op('/hermes_hp/lvl').par.brightness1.eval()"
+    },
+    "ms": 29.0,
+    "response": "*** isError=true ***\n{\n  \"success\": false,\n  \"error\": \"'td.Undo' object is not callable\",\n  \"traceback\": \"Traceback (most recent call last):\\n  File \\\"/TDMCP/TDMCP/tools_code\\\", line 102, in handle_execute_code\\n  File \\\"<execute_code>\\\", line 1, in <module>\\nTypeError: 'td.Undo' object is not callable\\n\"\n}"
+  },
+  {
+    "test": "B13. inspect_values CHOP",
+    "tool": "execute_code",
+    "args": {
+      "code": "op('/hermes_hp').create('lfoCHOP','lfo')\nprint('creado lfo')\nresult='ok'"
+    },
+    "ms": 46.7,
+    "response": "{\n  \"success\": true,\n  \"variables\": {\n    \"result\": \"ok\"\n  },\n  \"output\": \"creado lfo\\n\"\n}"
+  },
+  {
+    "test": "B14. inspect_values CHOP real",
+    "tool": "inspect_values",
+    "args": {
+      "path": "/hermes_hp/lfo",
+      "include_samples": true
+    },
+    "ms": 5.0,
+    "response": "{\n  \"path\": \"/hermes_hp/lfo\",\n  \"family\": \"CHOP\",\n  \"channels\": {\n    \"chan1\": 0.10452846437692642\n  },\n  \"numChans\": 1,\n  \"numSamples\": 1\n}"
+  },
+  {
+    "test": "B15. tableDAT: set rows + read",
+    "tool": "create_operator",
+    "args": {
+      "parent_path": "/hermes_hp",
+      "type": "tableDAT",
+      "name": "tbl",
+      "parameters": {}
+    },
+    "ms": 36.5,
+    "response": "{\n  \"success\": true,\n  \"path\": \"/hermes_hp/tbl\",\n  \"name\": \"tbl\",\n  \"type\": \"tableDAT\"\n}"
+  },
+  {
+    "test": "B16. set_dat_content rows",
+    "tool": "set_dat_content",
+    "args": {
+      "path": "/hermes_hp/tbl",
+      "rows": [
+        [
+          "k",
+          "v"
+        ],
+        [
+          "a",
+          1
+        ],
+        [
+          "b",
+          2
+        ]
+      ]
+    },
+    "ms": 31.7,
+    "response": "{\n  \"success\": true,\n  \"path\": \"/hermes_hp/tbl\",\n  \"numRows\": 3\n}"
+  },
+  {
+    "test": "B17. get_dat_content",
+    "tool": "get_dat_content",
+    "args": {
+      "path": "/hermes_hp/tbl"
+    },
+    "ms": 11.0,
+    "response": "{\n  \"path\": \"/hermes_hp/tbl\",\n  \"type\": \"tableDAT\",\n  \"rows\": [\n    [\n      \"k\",\n      \"v\"\n    ],\n    [\n      \"a\",\n      \"1\"\n    ],\n    [\n      \"b\",\n      \"2\"\n    ]\n  ],\n  \"numRows\": 3,\n  \"numCols\": 2\n}"
+  },
+  {
+    "test": "B18. set_dat_content file sync (textarea + file)",
+    "tool": "set_dat_content",
+    "args": {
+      "path": "/hermes_hp/tbl",
+      "text": "hola\n",
+      "file_path": "<user-home>\\Documents\\AI_Code\\Touchdesigner_MCP\\Main\\tmp\\synced_dat.txt",
+      "file_content": "hola desde hermes\n"
+    },
+    "ms": 16.6,
+    "response": "*** isError=true ***\n{\n  \"error\": \"file_path must be a relative path inside the project folder: '<user-home>\\\\\\\\Documents\\\\\\\\AI_Code\\\\\\\\Touchdesigner_MCP\\\\\\\\Main\\\\\\\\tmp\\\\\\\\synced_dat.txt'\",\n  \"details\": {\n    \"code\": \"invalid_argument\",\n    \"file_path\": \"<user-home>\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\\\\tmp\\\\synced_dat.txt\"\n  }\n}"
+  },
+  {
+    "test": "B19. view_operator (inline off por default)",
+    "tool": "view_operator",
+    "args": {
+      "path": "/hermes_hp/out1"
+    },
+    "ms": 21.0,
+    "response": "{\n  \"success\": true,\n  \"path\": \"/hermes_hp/out1\",\n  \"file\": \"<user-home>/Documents/AI_Code/TDMCP/TDMCP-1.1.55/.claude/cache/out1.png\",\n  \"resolution\": {\n    \"width\": 181,\n    \"height\": 90\n  }\n}"
+  },
+  {
+    "test": "B20. pulso real + verify",
+    "tool": "pulse_parameter",
+    "args": {
+      "path": "/hermes_hp/out1",
+      "parameter": "cookpulse"
+    },
+    "ms": 21.0,
+    "response": "*** isError=true ***\n{\n  \"error\": \"Parameter not found: cookpulse on /hermes_hp/out1\",\n  \"details\": {\n    \"code\": \"parameter_not_found\",\n    \"parameter\": \"cookpulse\",\n    \"path\": \"/hermes_hp/out1\"\n  }\n}"
+  },
+  {
+    "test": "B21. list_operators depth 2 sobre el COMP oficial",
+    "tool": "list_operators",
+    "args": {
+      "path": "/TDMCP",
+      "depth": 1
+    },
+    "ms": 25.2,
+    "response": "{\n  \"path\": \"/TDMCP\",\n  \"operators\": [\n    {\n      \"name\": \"View\",\n      \"path\": \"/TDMCP/View\",\n      \"type\": \"baseCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 780,\n      \"nodeY\": -40,\n      \"nodeWidth\": 160,\n      \"nodeHeight\": 130\n    },\n    {\n      \"name\": \"logo\",\n      \"path\": \"/TDMCP/logo\",\n      \"type\": \"moviefileinTOP\",\n      \"family\": \"TOP\",\n      \"nodeX\": 1000,\n      \"nodeY\": -500\n    },\n    {\n      \"name\": \"Hosts\",\n      \"path\": \"/TDMCP/Hosts\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 600,\n      \"nodeY\": -500\n    },\n    {\n      \"name\": \"TDMCP\",\n      \"path\": \"/TDMCP/TDMCP\",\n      \"type\": \"baseCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 0,\n      \"nodeY\": -25,\n      \"nodeWidth\": 160,\n      \"nodeHeight\": 130\n    },\n    {\n      \"name\": \"Updater\",\n      \"path\": \"/TDMCP/Updater\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 1000,\n      \"nodeY\": -351\n    },\n    {\n      \"name\": \"annotate1\",\n      \"path\": \"/TDMCP/annotate1\",\n      \"type\": \"annotateCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": -25,\n      \"nodeY\": -174,\n      \"nodeWidth\": 373,\n      \"nodeHeight\": 329\n    },\n    {\n      \"name\": \"annotate2\",\n      \"path\": \"/TDMCP/annotate2\",\n      \"type\": \"annotateCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 373,\n      \"nodeY\": -172,\n      \"nodeWidth\": 182,\n      \"nodeHeight\": 327\n    },\n    {\n      \"name\": \"annotate3\",\n      \"path\": \"/TDMCP/annotate3\",\n      \"type\": \"annotateCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 580,\n      \"nodeY\": -172,\n      \"nodeWidth\": 380,\n      \"nodeHeight\": 327\n    },\n    {\n      \"name\": \"annotate4\",\n      \"path\": \"/TDMCP/annotate4\",\n      \"type\": \"annotateCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": -25,\n      \"nodeY\": -400,\n      \"nodeWidth\": 380,\n      \"nodeHeight\": 206\n    },\n    {\n      \"name\": \"annotate5\",\n      \"path\": \"/TDMCP/annotate5\",\n      \"type\": \"annotateCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 375,\n      \"nodeY\": -550,\n      \"nodeWidth\": 585,\n      \"nodeHeight\": 356\n    },\n    {\n      \"name\": \"MenuValues\",\n      \"path\": \"/TDMCP/MenuValues\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 600,\n      \"nodeY\": -351\n    },\n    {\n      \"name\": \"webserver1\",\n      \"path\": \"/TDMCP/webserver1\",\n      \"type\": \"webserverDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 400,\n      \"nodeY\": 0\n    },\n    {\n      \"name\": \"FollowSystem\",\n      \"path\": \"/TDMCP/FollowSystem\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 200,\n      \"nodeY\": -150\n    },\n    {\n      \"name\": \"MCPServerExt\",\n      \"path\": \"/TDMCP/MCPServerExt\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 200,\n      \"nodeY\": 0\n    },\n    {\n      \"name\": \"SystemPrompt\",\n      \"path\": \"/TDMCP/SystemPrompt\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 0,\n      \"nodeY\": -150,\n      \"nodeWidth\": 151,\n      \"nodeHeight\": 87\n    },\n    {\n      \"name\": \"HostsRegistry\",\n      \"path\": \"/TDMCP/HostsRegistry\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 800,\n      \"nodeY\": -500\n    },\n    {\n      \"name\": \"OAuthProvider\",\n      \"path\": \"/TDMCP/OAuthProvider\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 0,\n      \"nodeY\": -340\n    },\n    {\n      \"name\": \"oauth_waiting\",\n      \"path\": \"/TDMCP/oauth_waiting\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 200,\n      \"nodeY\": -340\n    },\n    {\n      \"name\": \"MenuExtraction\",\n      \"path\": \"/TDMCP/MenuExtraction\",\n      \"type\": \"baseCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 400,\n      \"nodeY\": -390,\n      \"nodeWidth\": 160,\n      \"nodeHeight\": 130\n    },\n    {\n      \"name\": \"SkillsInstaller\",\n      \"path\": \"/TDMCP/SkillsInstaller\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 800,\n      \"nodeY\": -351\n    },\n    {\n      \"name\": \"execute_onstart\",\n      \"path\": \"/TDMCP/execute_onstart\",\n      \"type\": \"executeDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 600,\n      \"nodeY\": -150\n    },\n    {\n      \"name\": \"parameter_callbacks\",\n      \"path\": \"/TDMCP/parameter_callbacks\",\n      \"type\": \"parameterexecuteDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 600,\n      \"nodeY\": 0\n    },\n    {\n      \"name\": \"webserver1_callbacks\",\n      \"path\": \"/TDMCP/webserver1_callbacks\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"nodeX\": 400,\n      \"nodeY\": -150\n    }\n  ],\n  \"count\": 23,\n  \"annotations\": [\n    {\n      \"name\": \"annotate1\",\n      \"title\": \"MCP\",\n      \"nodeX\": -25,\n      \"nodeY\": -174,\n      \"nodeWidth\": 373,\n      \"nodeHeight\": 329\n    },\n    {\n      \"name\": \"annotate2\",\n      \"title\": \"Web Server\",\n      \"nodeX\": 373,\n      \"nodeY\": -172,\n      \"nodeWidth\": 182,\n      \"nodeHeight\": 327\n    },\n    {\n      \"name\": \"annotate3\",\n      \"title\": \"Callbacks & View\",\n      \"nodeX\": 580,\n      \"nodeY\": -172,\n      \"nodeWidth\": 380,\n      \"nodeHeight\": 327\n    },\n    {\n      \"name\": \"annotate4\",\n      \"title\": \"OAuth\",\n      \"nodeX\": -25,\n      \"nodeY\": -400,\n      \"nodeWidth\": 380,\n      \"nodeHeight\": 206\n    },\n    {\n      \"name\": \"annotate5\",\n      \"title\": \"Tools\",\n      \"nodeX\": 375,\n      \"nodeY\": -550,\n      \"nodeWidth\": 585,\n      \"nodeHeight\": 356\n    }\n  ]\n}"
+  },
+  {
+    "test": "B22. get_cook_performance global",
+    "tool": "get_cook_performance",
+    "args": {
+      "top_n": 3
+    },
+    "ms": 77.6,
+    "response": "{\n  \"path\": \"/\",\n  \"operators\": [\n    {\n      \"path\": \"/TDMCP/logo\",\n      \"type\": \"moviefileinTOP\",\n      \"family\": \"TOP\",\n      \"cookTime\": 144.387,\n      \"cpuCookTime\": 144.387,\n      \"budgetPct\": 866.3\n    },\n    {\n      \"path\": \"/hermes_hp/lvl\",\n      \"type\": \"levelTOP\",\n      \"family\": \"TOP\",\n      \"cookTime\": 42.4489,\n      \"cpuCookTime\": 42.4489,\n      \"budgetPct\": 254.7\n    },\n    {\n      \"path\": \"/TDMCP/MCPServerExt\",\n      \"type\": \"textDAT\",\n      \"family\": \"DAT\",\n      \"cookTime\": 28.7668,\n      \"cpuCookTime\": 28.7668,\n      \"budgetPct\": 172.6\n    }\n  ],\n  \"count\": 3,\n  \"sort\": \"cook\"\n}"
+  },
+  {
+    "test": "B23. search_operators global por nombre",
+    "tool": "search_operators",
+    "args": {
+      "name_pattern": "*hermes*"
+    },
+    "ms": 13.0,
+    "response": "{\n  \"results\": [\n    {\n      \"name\": \"hermes_hp\",\n      \"path\": \"/hermes_hp\",\n      \"type\": \"baseCOMP\",\n      \"family\": \"COMP\"\n    }\n  ],\n  \"count\": 1\n}"
+  },
+  {
+    "test": "B24. delete_operator (auto-accept?)",
+    "tool": "delete_operator",
+    "args": {
+      "path": "/hermes_hp"
+    },
+    "ms": 18.3,
+    "response": "{\n  \"success\": true,\n  \"path\": \"/hermes_hp\",\n  \"action\": \"deleted hermes_hp\"\n}"
+  },
+  {
+    "test": "B25. verificar borrado",
+    "tool": "list_operators",
+    "args": {
+      "path": "/",
+      "depth": 1
+    },
+    "ms": 14.6,
+    "response": "{\n  \"path\": \"/\",\n  \"operators\": [\n    {\n      \"name\": \"TDMCP\",\n      \"path\": \"/TDMCP\",\n      \"type\": \"baseCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": 75,\n      \"nodeY\": 50,\n      \"nodeWidth\": 160,\n      \"nodeHeight\": 130\n    },\n    {\n      \"name\": \"local\",\n      \"path\": \"/local\",\n      \"type\": \"baseCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": -200,\n      \"nodeY\": -175,\n      \"nodeWidth\": 160,\n      \"nodeHeight\": 130\n    },\n    {\n      \"name\": \"perform\",\n      \"path\": \"/perform\",\n      \"type\": \"windowCOMP\",\n      \"family\": \"COMP\",\n      \"nodeX\": -200,\n      \"nodeY\": 40,\n      \"nodeWidth\": 160,\n      \"nodeHeight\": 130\n    }\n  ],\n  \"count\": 3\n}"
+  }
+]
