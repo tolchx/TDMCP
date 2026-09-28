@@ -18,6 +18,20 @@ modifications of this software made for use with TouchDesigner.
 | `docs/issues-filed/` | Copy of the three bug reports opened on `TouchDesigner/TDMCP` (#1, #2, #3). |
 | `component/` | The **official TDMCP 1.1.55 build** (`TDMCP.tox` + `TDMCP.json`), committed unmodified with its SHA-256 hashes so the binary travels with the fork instead of living only as a release asset. See `component/README.md`. |
 
+## Stage 3 — the bridge is gone
+
+The original MCP used its own transport: a Web Server DAT bridge on `127.0.0.1:44444` plus a Node
+MCP server with 107 tools. That transport is **retired**. The official `.tox` provides the live
+side, and `knowledge/` provides the offline KB **plus 6 live wrappers** that speak MCP to the
+official server: `find_in_ops` (search inside DATs and parameter expressions), `auto_layout`
+(topological layering), `smart_connect` (family-aware input index), `tdn_export` / `tdn_diff`
+(git-friendly network diffs) and `td_status`. `healthcheck.py` replaces the old bridge-based
+watchdog (silent when healthy).
+
+Tool split of the 107: **43 offline** kept, **30 mapped** 1:1 onto the official's 26, **20 needed a
+wrapper** (the 4 above were worth building, the official covers the rest), **14 dropped**
+(bridge undo/history, memory, watch, batch).
+
 ## Division of labour
 
 * **Live work** → the official `TDMCP.tox` (26 tools, in-process: create/wire/edit, read parameters,

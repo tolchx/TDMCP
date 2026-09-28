@@ -510,6 +510,13 @@ TOOLS = [
     ("glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
     ("glsl_curriculum", "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).", {"query": "string"}, t_glsl_curriculum),
 ]
+# ── tools que necesitan TouchDesigner: hablan MCP contra el server OFICIAL (13316) ──
+try:
+    from live import LIVE_TOOLS
+    TOOLS = TOOLS + LIVE_TOOLS
+except Exception as _e:  # el server sigue arrancando aunque no esté TD
+    print(f"[{SERVER_NAME}] tools live no cargadas: {_e}", file=sys.stderr)
+
 TOOL_MAP = {name: (desc, schema, fn) for name, desc, schema, fn in TOOLS}
 
 
@@ -570,9 +577,17 @@ def main() -> int:
     ap.add_argument("--selftest", action="store_true", help="corre todas las tools con args de prueba y sale")
     a = ap.parse_args()
     KB_DIR = a.kb
+    os.environ["TD_KNOWLEDGE_KB"] = KB_DIR
     print(f"[{SERVER_NAME}] kb={KB_DIR}", file=sys.stderr, flush=True)
     if a.selftest:
+        try:
+            from live import LIVE_NAMES
+        except Exception:
+            LIVE_NAMES = []
         for n, _d, _s, fn in TOOLS:
+            if n in LIVE_NAMES:
+                print(f"  {n:<22} live (probar con test_live.py)")
+                continue
             try:
                 r = fn({"query": "noise", "text": "webcam", "op_type": "noiseTOP", "kind": "patterns",
                         "action": "list", "family": "pop", "code": "P[id] = P[id] * 1.0;\n"})

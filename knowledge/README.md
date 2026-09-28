@@ -1,10 +1,13 @@
-# td-knowledge — capa de conocimiento offline para TouchDesigner
+# td-knowledge — capa de conocimiento para TouchDesigner (offline + live)
 
-MCP server por **stdio en Python puro (stdlib, sin dependencias)**: no necesita TouchDesigner
-abierto, ni un bridge, ni Node. Complementa a **TDMCP** (el MCP oficial, que sí trabaja en vivo
-dentro de TouchDesigner): este server responde lo que se puede responder **sin** la aplicación.
+MCP server por **stdio en Python puro (stdlib, sin dependencias)**. Trabaja en dos modos, en el
+mismo proceso y sin bridge:
 
-## Tools (14)
+* **14 tools offline** — responden con la KB curada **sin** TouchDesigner abierto.
+* **6 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
+  para lo que necesita el proyecto vivo; si TD está cerrado devuelven un error claro.
+
+## Tools offline (14)
 
 | Tool | Qué responde |
 |---|---|
@@ -22,6 +25,22 @@ dentro de TouchDesigner): este server responde lo que se puede responder **sin**
 | `glsl_rules` | Reglas GLSL verificadas en vivo (POP y TOP), por id de regla. |
 | `glsl_analyze` | Análisis **estático** de un shader o snippet: R1/R2/R3/R4 de POP (lectura de la salida, `TDIndex()`/guarda, atributos a crear con sus params), R1/R2 de TOP, y uso de propiedades vs métodos en Python. |
 | `glsl_curriculum` | Ejemplos GLSL POP con fuentes citadas. |
+
+## Tools live (6) — requieren TD con el `.tox` oficial activo
+
+| Tool | Qué hace (y por qué no la tiene el oficial) |
+|---|---|
+| `td_status` | ¿Está TD vivo? proyecto, build, fps, versión del server oficial. Conviene llamarla primero. |
+| `find_in_ops` | Busca un texto en **todo** un subárbol: contenido de DATs, **expresiones** de parámetros, nombres de par, comentarios y nombres de operador. Una sola llamada (corre dentro de TD). El oficial busca operadores por tipo/nombre, no dentro de DATs ni expresiones. |
+| `auto_layout` | Ordena los operadores por **capas topológicas** (sin cruces): lee el cableado, calcula las posiciones localmente y las aplica con `reposition_operators`. `dry_run: true` para verlas sin mover nada. |
+| `smart_connect` | Conecta dos operadores eligiendo el **índice de input** según la familia que espera el destino (lo lee de la KB y, si no está, de los docs del build). Si las familias no son compatibles avisa antes de intentar. |
+| `tdn_export` | Exporta una red a **TDN v1.4** (JSON versionable en git) leyendo el proyecto en vivo. |
+| `tdn_diff` | Compara dos `.tdn` **sin TD**: operadores agregados/quitados y cambios de parámetros, tipos, flags y cableado. |
+
+## Watchdog
+
+`healthcheck.py` verifica KB + tools + MCP oficial. **No imprime nada si todo está bien**
+(patrón watchdog para crons `no_agent`); si algo falla, una línea con el problema.
 
 ## Construir los assets
 
