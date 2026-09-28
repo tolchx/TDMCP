@@ -45,14 +45,14 @@ calls = [
                                                                    "capabilities": {}, "clientInfo": {"name": "hermes-probe", "version": "1"}}},
     {"jsonrpc": "2.0", "method": "notifications/initialized"},
     {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
-    {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "td_kb_info", "arguments": {}}},
-    {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "td_kb_search", "arguments": {"query": "how to build a particle system gravity", "limit": 3}}},
-    {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "td_pop_matrix", "arguments": {"type": "particlePOP"}}},
-    {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "td_resolve_operator", "arguments": {"text": "quiero una camara web en vivo"}}},
-    {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "td_glsl_analyze", "arguments": {"code": "void main(){\n  P[id] = P[id] * 1.001;\n  Cd[id] = vec4(1.0);\n}\n", "family": "pop"}}},
-    {"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": {"name": "td_glsl_analyze", "arguments": {"code": "out vec4 fragColor;\nvoid main(){ vec2 c = vUV.uv; fragColor = vec4(c,0.,1.); }", "family": "top"}}},
-    {"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": "td_recipes", "arguments": {"action": "list"}}},
-    {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "td_kb_get", "arguments": {"name_or_slug": "particlePOP", "max_chars": 900}}},
+    {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "kb_info", "arguments": {}}},
+    {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "kb_search", "arguments": {"query": "how to build a particle system gravity", "limit": 3}}},
+    {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "pop_matrix", "arguments": {"type": "particlePOP"}}},
+    {"jsonrpc": "2.0", "id": 6, "method": "tools/call", "params": {"name": "resolve_operator", "arguments": {"text": "quiero una camara web en vivo"}}},
+    {"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": {"name": "glsl_analyze", "arguments": {"code": "void main(){\n  P[id] = P[id] * 1.001;\n  Cd[id] = vec4(1.0);\n}\n", "family": "pop"}}},
+    {"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": {"name": "glsl_analyze", "arguments": {"code": "out vec4 fragColor;\nvoid main(){ vec2 c = vUV.uv; fragColor = vec4(c,0.,1.); }", "family": "top"}}},
+    {"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": "recipes", "arguments": {"action": "list"}}},
+    {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "kb_get", "arguments": {"name_or_slug": "particlePOP", "max_chars": 900}}},
 ]
 res, err = run(calls)
 print("stderr:", err.strip()[:200])

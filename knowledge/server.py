@@ -495,20 +495,20 @@ def t_glsl_curriculum(a: dict) -> dict:
 
 
 TOOLS = [
-    ("td_kb_info", "Provenance de esta KB offline: ruta, tamaño, origen, conteos de docs y de la matriz POP. Llamala primero si dudás de la frescura.", {}, t_kb_info),
-    ("td_kb_taxonomy", "Qué hay en la KB: conteos por familia/trustTier/sourceType. Con list_docs=true y family='POP' lista los nombres.", {"family": "string", "list_docs": "boolean"}, t_kb_taxonomy),
-    ("td_kb_search", "Búsqueda full-text (BM25) sobre 1048 documentos curados: ops, POPs, patrones, GLSL. Filtrable por familia y trustTier. NO necesita TouchDesigner.", {"query": "string (requerido)", "family": "POP|TOP|CHOP|SOP|DAT", "trust_tier": "official|live-verified|empirical|community", "source_type": "ops|pops|pop-pattern|pop-live|pop-glsl", "limit": "int 1-25"}, t_kb_search),
-    ("td_kb_get", "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página.", {"name_or_slug": "string (requerido)", "max_chars": "int 400-40000"}, t_kb_get),
-    ("td_pop_matrix", "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' = registro completo; category='ok_con_input' = miembros.", {"type": "string", "category": "ok_con_input|sin_geometria|..."}, t_pop_matrix),
-    ("td_ops_doc", "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples.", {"op_type": "string (requerido)", "section": "string"}, t_ops_doc),
-    ("td_ops_params", "Parámetros documentados de un tipo de operador (offline). Con TD abierto preferí get_help del MCP oficial: lee del build vivo.", {"op_type": "string (requerido)"}, t_ops_params),
-    ("td_pop_knowledge", "Datos POP no-oficiales: 'patterns' (mapas de red reales), 'wiki_params', 'pop_inventory', 'validation', 'glsl_library'.", {"kind": "patterns|wiki_params|pop_inventory|validation|glsl_library", "query": "string"}, t_pop_knowledge),
-    ("td_resolve_operator", "Traduce lenguaje natural (ES/EN) a tipo de operador canónico con 99 tipos indexados ('video por webcam' -> videodeviceinTOP).", {"text": "string (requerido)", "limit": "int"}, t_resolve_operator),
-    ("td_templates", "14 plantillas de red con wiring, parámetros y builder Python: action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_templates),
-    ("td_recipes", "5 recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) con gotchas y código: action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_recipes),
-    ("td_glsl_rules", "Reglas GLSL verificadas en vivo, por familia: 6 de POP (write-only, TDIndex, Create Attributes, outputaccess) y 12 de TOP.", {"family": "pop|top", "rule": "texto a buscar en el título", "query": "texto en el cuerpo"}, t_glsl_rules),
-    ("td_glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
-    ("td_glsl_curriculum", "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).", {"query": "string"}, t_glsl_curriculum),
+    ("kb_info", "Provenance de esta KB offline: ruta, tamaño, origen, conteos de docs y de la matriz POP. Llamala primero si dudás de la frescura.", {}, t_kb_info),
+    ("kb_taxonomy", "Qué hay en la KB: conteos por familia/trustTier/sourceType. Con list_docs=true y family='POP' lista los nombres.", {"family": "string", "list_docs": "boolean"}, t_kb_taxonomy),
+    ("kb_search", "Búsqueda full-text (BM25) sobre 1048 documentos curados: ops, POPs, patrones, GLSL. Filtrable por familia y trustTier. NO necesita TouchDesigner.", {"query": "string (requerido)", "family": "POP|TOP|CHOP|SOP|DAT", "trust_tier": "official|live-verified|empirical|community", "source_type": "ops|pops|pop-pattern|pop-live|pop-glsl", "limit": "int 1-25"}, t_kb_search),
+    ("kb_get", "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página.", {"name_or_slug": "string (requerido)", "max_chars": "int 400-40000"}, t_kb_get),
+    ("pop_matrix", "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' = registro completo; category='ok_con_input' = miembros.", {"type": "string", "category": "ok_con_input|sin_geometria|..."}, t_pop_matrix),
+    ("ops_doc", "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples.", {"op_type": "string (requerido)", "section": "string"}, t_ops_doc),
+    ("ops_params", "Parámetros documentados de un tipo de operador (offline). Con TD abierto preferí get_help del MCP oficial: lee del build vivo.", {"op_type": "string (requerido)"}, t_ops_params),
+    ("pop_knowledge", "Datos POP no-oficiales: 'patterns' (mapas de red reales), 'wiki_params', 'pop_inventory', 'validation', 'glsl_library'.", {"kind": "patterns|wiki_params|pop_inventory|validation|glsl_library", "query": "string"}, t_pop_knowledge),
+    ("resolve_operator", "Traduce lenguaje natural (ES/EN) a tipo de operador canónico con 99 tipos indexados ('video por webcam' -> videodeviceinTOP).", {"text": "string (requerido)", "limit": "int"}, t_resolve_operator),
+    ("templates", "14 plantillas de red con wiring, parámetros y builder Python: action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_templates),
+    ("recipes", "5 recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) con gotchas y código: action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_recipes),
+    ("glsl_rules", "Reglas GLSL verificadas en vivo, por familia: 6 de POP (write-only, TDIndex, Create Attributes, outputaccess) y 12 de TOP.", {"family": "pop|top", "rule": "texto a buscar en el título", "query": "texto en el cuerpo"}, t_glsl_rules),
+    ("glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
+    ("glsl_curriculum", "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).", {"query": "string"}, t_glsl_curriculum),
 ]
 TOOL_MAP = {name: (desc, schema, fn) for name, desc, schema, fn in TOOLS}
 

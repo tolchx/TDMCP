@@ -8,20 +8,20 @@ dentro de TouchDesigner): este server responde lo que se puede responder **sin**
 
 | Tool | Qué responde |
 |---|---|
-| `td_kb_info` | Provenance del KB: qué assets, cuándo, cuántos docs, tier de confianza. |
-| `td_kb_taxonomy` | Qué hay en la base (conteos por familia / trust tier / source type) + índice de docs. |
-| `td_kb_search` | Búsqueda FTS5 (BM25 + snippet) con filtros por familia y **trust tier**: `official`, `empirical`, `community`, `live-verified`. |
-| `td_kb_get` | Documento completo por nombre/slug, con paginado. |
-| `td_pop_matrix` | Matriz POP **medida en vivo** (97 tipos): qué se crea, qué cocina, inputs requeridos, params medidos, errores. |
-| `td_ops_doc` | Doc curado de un operador (cualquier familia): summary, inputs, parámetros, use cases, troubleshooting. |
-| `td_ops_params` | Lista de parámetros de un tipo (nombre, label, tipo, default, página). |
-| `td_pop_knowledge` | Datos POP no oficiales: `patterns` (mapas de red reales), `wiki_params`, `pop_inventory`, `validation`. |
-| `td_resolve_operator` | Lenguaje natural (ES/EN) → tipo de operador canónico, con score y familia sugerida. |
-| `td_templates` | 14 plantillas de red con wiring, parámetros y builder Python. |
-| `td_recipes` | 5 recetas builder verificadas, con `gotchas`. |
-| `td_glsl_rules` | Reglas GLSL verificadas en vivo (POP y TOP), por id de regla. |
-| `td_glsl_analyze` | Análisis **estático** de un shader o snippet: R1/R2/R3/R4 de POP (lectura de la salida, `TDIndex()`/guarda, atributos a crear con sus params), R1/R2 de TOP, y uso de propiedades vs métodos en Python. |
-| `td_glsl_curriculum` | Ejemplos GLSL POP con fuentes citadas. |
+| `kb_info` | Provenance del KB: qué assets, cuándo, cuántos docs, tier de confianza. |
+| `kb_taxonomy` | Qué hay en la base (conteos por familia / trust tier / source type) + índice de docs. |
+| `kb_search` | Búsqueda FTS5 (BM25 + snippet) con filtros por familia y **trust tier**: `official`, `empirical`, `community`, `live-verified`. |
+| `kb_get` | Documento completo por nombre/slug, con paginado. |
+| `pop_matrix` | Matriz POP **medida en vivo** (97 tipos): qué se crea, qué cocina, inputs requeridos, params medidos, errores. |
+| `ops_doc` | Doc curado de un operador (cualquier familia): summary, inputs, parámetros, use cases, troubleshooting. |
+| `ops_params` | Lista de parámetros de un tipo (nombre, label, tipo, default, página). |
+| `pop_knowledge` | Datos POP no oficiales: `patterns` (mapas de red reales), `wiki_params`, `pop_inventory`, `validation`. |
+| `resolve_operator` | Lenguaje natural (ES/EN) → tipo de operador canónico, con score y familia sugerida. |
+| `templates` | 14 plantillas de red con wiring, parámetros y builder Python. |
+| `recipes` | 5 recetas builder verificadas, con `gotchas`. |
+| `glsl_rules` | Reglas GLSL verificadas en vivo (POP y TOP), por id de regla. |
+| `glsl_analyze` | Análisis **estático** de un shader o snippet: R1/R2/R3/R4 de POP (lectura de la salida, `TDIndex()`/guarda, atributos a crear con sus params), R1/R2 de TOP, y uso de propiedades vs métodos en Python. |
+| `glsl_curriculum` | Ejemplos GLSL POP con fuentes citadas. |
 
 ## Construir los assets
 
