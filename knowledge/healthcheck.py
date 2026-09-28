@@ -8,7 +8,9 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-KB = os.environ.get("TD_KNOWLEDGE_KB") or os.path.join(os.path.dirname(HERE), "kb")
+# el kb/ puede estar al lado del server (knowledge/kb) o un nivel arriba (repo/kb)
+KB = os.environ.get("TD_KNOWLEDGE_KB") or (os.path.join(HERE, "kb") if os.path.isdir(os.path.join(HERE, "kb"))
+                                           else os.path.join(os.path.dirname(HERE), "kb"))
 problems = []
 
 
