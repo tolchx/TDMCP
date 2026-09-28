@@ -16,6 +16,7 @@ modifications of this software made for use with TouchDesigner.
 | `skills-hermes/` | The 19 portable `td-*` skills from [TouchDesigner/TDMCPSkills](https://github.com/TouchDesigner/TDMCPSkills), adapted for the Hermes Agent skill format (`Use when …` descriptions + a header that maps the tool names to the host's `mcp_<server>_<tool>` convention). Original license retained in `LICENSE-TDMCPSkills.md`. |
 | `docs/community-test-notes-2026-09-28.md` | Test notes from exercising TDMCP 1.1.55 against a live TouchDesigner project: what was verified (structured errors, undo-per-tool-call, security guards, grid captures, DAT file sync) and the three issues filed upstream. |
 | `docs/issues-filed/` | Copy of the three bug reports opened on `TouchDesigner/TDMCP` (#1, #2, #3). |
+| `component/` | The **official TDMCP 1.1.55 build** (`TDMCP.tox` + `TDMCP.json`), committed unmodified with its SHA-256 hashes so the binary travels with the fork instead of living only as a release asset. See `component/README.md`. |
 
 ## Division of labour
 
