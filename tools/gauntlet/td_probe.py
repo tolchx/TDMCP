@@ -210,13 +210,17 @@ def _selftest_local() -> int:
             pass
 
         def exec_code(self, code):
+            """Como `Gauntlet.exec_code`: parsea lo que sigue al PRIMER marcador."""
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 exec(code, {"op": lambda p: _Op()})
             out = buf.getvalue()
-            marks = out.count(MARK)
-            got = json.loads(out.split(MARK, 1)[1].strip()) if marks else {}
-            return marks == 1, got
+            if MARK not in out:
+                return False, {}
+            try:
+                return True, json.loads(out.split(MARK, 1)[1].strip())
+            except ValueError:
+                return False, {}
 
     bad, got = set_and_verify(_ReadG(), "/x", vals)
     results.append(("set_and_verify relee lo escrito (un solo marcador)",

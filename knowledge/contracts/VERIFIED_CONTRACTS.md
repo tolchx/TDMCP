@@ -256,3 +256,26 @@ pantalla). Moraleja: si tus "puntos" se ven como una pelotita de 2 px, subí **`
    cableado a `/curl_field` no refresca `/particle_swirl` y `numpyArray()` devuelve el **frame
    cacheado** (medido: togglear `torus1.render` sin cocinar la cadena de swirl no cambió nada; al
    cocinarla, cayó a 0).
+
+---
+
+## C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)
+
+Verificado construyendo una fuente de partículas con el MCP oficial (8/8 checks). Lo que la
+doc "de memoria" dice mal y lo que el `get_help` del build vivo devuelve:
+
+- **spherePOP**: `rad` (XYZW → `radx`/`rady`/`radz`), `cols`/`rows` (NO `columns`), `freq`.
+- **particlePOP**: `timeintegration` (Toggle, **debe estar ON** para que los puntos se muevan;
+  con OFF nacen pero no integran posición/velocidad), `birthrate`, `life`, `initvelocity`
+  (XYZW → `initvelocityy`/`z`), `maxparticles`, `createpointprim` (crea point primitives él
+  mismo, sin convertPOP), `emissionmode` (rate|attr).
+- **forceradialPOP**: `globforce` (XYZW → `globforcey`), `globforcemult` (Float, **sin él la
+  fuerza global no hace nada**), y los toggles `radial`/`axial`/`spiral`/`planar`. **NO existe**
+  `globforceradial`.
+- **API Python de POPs**: `display`/`render` son **propiedades del OP** (`op.display = True`),
+  NO parámetros (`op.par.display` → `AttributeError`). Conteo: `.numPoints()` / `.numPrims()`.
+- **poptoCHOP**: `.chans()` (método) y `.numSamples`, NO `.channels`. `poptoCHOP.par.pop` acepta
+  **ruta absoluta** (una relativa `./geo/x` da warning "Invalid path").
+- **`set_parameters`** del MCP usa la clave **`values`** (no `params`).
+- **`view_operator` async**: primera llamada devuelve `{status: capturing, job_id, waitTime}`;
+  la imagen se recupera con una segunda llamada `view_operator {path, job_id}` (sleep ~0.4s).

@@ -121,3 +121,8 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **rectanglePOP size is `sizeu`/`sizev`**, NOT `sizex/y/z/w` despite get_help showing those as components. Setting `sizex` silently does nothing. Same U/V naming on other 2D primitives with UV semantics — always verify live pars with `get_parameters(include_defaults=true)` before trusting get_help's `components` list
 - **POP render color attr = `Color` (float4), NOT `Cd`** — SOP→POP trap. `attributePOP` value params are `attr0value0..3`. `constantMAT applypointcolor=1` renders point AND primitive `Color`
 - **Filled POP geometry invisible from one side** — set MAT `cullface=neither`; default backface-culls primitives whose winding faces away
+- **particlePOP no se mueve sin `timeintegration=ON`** — el Toggle "Enable Time Integration" integra posición/velocidad en el tiempo. Con OFF las partículas nacen pero quedan estáticas. Verificado en la fuente de partículas (2026-09-29)
+- **spherePOP es `rad` (XYZW) y `cols`/`rows`** — NO `radius` ni `columns`. `rad` expone `radx/rady/radz`. `cols`/`rows` son los Int de subdivisión. (circlePOP en cambio sí usa `radx/rady`)
+- **`display`/`render` son PROPIEDADES del OP, no params** — `op.display = True` / `op.render = True`. `op.par.display` da `AttributeError: 'td.ParCollection' object has no attribute 'display'`
+- **poptoCHOP: `.chans()` y `.numSamples`** — NO `.channels` (método vs atributo). `poptoCHOP.par.pop` toma ruta **absoluta** (relativa `./geo/x` → warning "Invalid path")
+- **`set_parameters` del MCP usa clave `values`** — `{"path":..., "values":{...}}`, no `params`
