@@ -42,7 +42,17 @@ COMPs use in/out ops to define their boundaries:
 
 ## Custom Parameters
 
-Use `edit_custom_parameters` tool — `add`, `edit`, `delete`, `sort`, `rename`, `delete_page`. Name = code identifier, Label = human-readable display. Custom pars persist in .tox — never create via init scripts.
+Use `edit_custom_parameters` tool — the schema is `{ "path", "page": "<page name>", "add": [...],
+"edit": [...], "delete": [...], "sort": [...], "rename": [...], "delete_page": true }`. Each `add`
+entry: `{ "name", "type", "label", "default", "min", "max", "clampMin", "clampMax", "normMin",
+"normMax", "menuNames", "menuLabels", "size", "section" }` with `type` one of `Float, Int, Str,
+Toggle, Menu, Pulse, Header, OP, COMP, TOP, CHOP, SOP, DAT, MAT, File, Folder, XY, XYZ, XYZW, RGB,
+RGBA`. Name = code identifier, Label = human-readable display. Custom pars persist in .tox — never
+create via init scripts.
+
+⚠️ **Verified trap (2026-09-28):** a wrong envelope (`{"action": "add", "parameters": [...]}`) is
+NOT rejected — the tool answers `success: true` with `added: []` and creates nothing. Check `added`
+in the response (or verify with `get_parameters`) before building on the new pars.
 
 - `enableExpr` — grey out conditionally: `par.enableExpr = 'me.par.SomeToggle'`
 - `startSection` — visual divider above a parameter
@@ -68,8 +78,12 @@ For Python-driven components, see the `td-python-extension` skill. Use `get_oper
 When two sub-COMPs have identical networks but different parameter values (e.g. bat1/bat2 detection), use **clones**:
 - Build the master baseCOMP with custom parameters for all variable values
 - Internal network references `parent().par.Paramname`
-- Set `clone` parameter on the copy to point at the master
-- The clone inherits the master's internal network; only custom par values differ
+- Create the copy with `edit_operator {"path": "/master", "copy_to": "/", "name": "master2",
+  "nodeX": ..., "nodeY": ...}` — a full deep copy in one call (verified: the copy arrives with the
+  master's whole internal network). There is no `duplicate_operator` tool
+- Set `clone` parameter on the copy to point at the master: `set_parameters {"clone": "/master"}`
+- The clone then inherits the master's internal network; only custom par values differ — override
+  them per-clone with `set_parameters` (master keeps its own values; verified live)
 
 ## Self-Contained Components
 
@@ -85,8 +99,26 @@ When two sub-COMPs have identical networks but different parameter values (e.g. 
 - Material pattern: `materialMAT → null_material`, reference as `./null_material`
 - For instancing: see `td-geometry-instancing` skill
 
+### Verificado en vivo (2026-09-29)
+
+- **El geometryCOMP dibuja el draw-stream del nodo con `render=true`**, y ese nodo es el **terminal
+  del chain** (el `nullPOP` de salida), no el `nullTOP` del viewer. `display=true` solo **no**
+  dibuja: hacen falta ambos. Con `render=false` el renderTOP sale negro aunque los datos estén bien.
+- **El renderer es `renderTOP`** (familia TOP) y sus bindings `camera` / `geometry` / `lights` son
+  OP-pars: solo por `execute_code`. El par de la luz es **`lights` (plural)** en este build —
+  resolverlo iterando `ren.pars()` por `name.lower().startswith('light')`.
+- **Una superficie no es una nube de puntos**: para partículas, `convertPOP(convert='topointprims')`
+  antes del material (`spherePOP` default = 252 pts / 500 prims → con `topointprims`, 252 pts / 252
+  prims y **se dibuja**). ❗ `deleteprims` deja 0 prims y el render sale **negro** — no sirve para
+  hacer partículas visibles.
+- Receta completa + gradables: skill **`td-pop-render-pipeline`**. Contratos:
+  `contracts` (`section='render_flag_on_terminal'`).
+
 ## Pitfalls
 
+- **Inventing tool arguments** — there is no `duplicate_operator`/`copy_operator`; cloning goes
+  through `edit_operator.copy_to`. Unknown args are ignored, not rejected (see Custom Parameters
+  above)
 - **No in* op before wiring** — baseCOMP has no connectors until you create one inside
 - **ext0object as expression** — must be constant mode string, not expression
 - **Forgetting reinitextensions** — edited extension code doesn't reload automatically

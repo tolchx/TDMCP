@@ -31,13 +31,23 @@ def check_kb():
         problems.append("KB ilegible: " + str(e)[:120])
 
 
+EXPECTED_TOOLS = 21  # 15 offline (incluye `contracts`) + 6 live
+
+
 def check_tools():
-    """El server tiene que exponer las 20 tools (14 offline + 6 live)."""
+    """El server tiene que exponer las 21 tools (15 offline + 6 live)."""
     sys.path.insert(0, HERE)
     import server  # noqa: F401  (importarlo no arranca el loop stdio)
     n = len(server.TOOLS)
-    if n != 20:
-        problems.append("server.py expone " + str(n) + " tools (esperado 20)")
+    if n != EXPECTED_TOOLS:
+        problems.append("server.py expone " + str(n) + " tools (esperado " + str(EXPECTED_TOOLS) + ")")
+
+
+def check_contracts():
+    """El fichero de contratos verificados tiene que estar (lo sirve la tool offline)."""
+    f = os.path.join(HERE, "contracts", "VERIFIED_CONTRACTS.md")
+    if not os.path.isfile(f):
+        problems.append("falta contracts/VERIFIED_CONTRACTS.md (tool `contracts` sin datos)")
 
 
 def check_td():
@@ -48,7 +58,7 @@ def check_td():
         problems.append("TD/TDMCP no responde: " + str(st.get("error"))[:140])
 
 
-for fn in (check_kb, check_tools, check_td):
+for fn in (check_kb, check_tools, check_contracts, check_td):
     try:
         fn()
     except Exception as e:

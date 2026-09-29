@@ -20,7 +20,7 @@
   "result": {
    "tools": [
     {
-     "name": "td_kb_info",
+     "name": "kb_info",
      "description": "Provenance de esta KB offline: ruta, tamaño, origen, conteos de docs y de la matriz POP. Llamala primero si dudás de la frescura.",
      "inputSchema": {
       "type": "object",
@@ -29,7 +29,7 @@
      }
     },
     {
-     "name": "td_kb_taxonomy",
+     "name": "kb_taxonomy",
      "description": "Qué hay en la KB: conteos por familia/trustTier/sourceType. Con list_docs=true y family='POP' lista los nombres.",
      "inputSchema": {
       "type": "object",
@@ -47,7 +47,7 @@
      }
     },
     {
-     "name": "td_kb_search",
+     "name": "kb_search",
      "description": "Búsqueda full-text (BM25) sobre 1048 documentos curados: ops, POPs, patrones, GLSL. Filtrable por familia y trustTier. NO necesita TouchDesigner.",
      "inputSchema": {
       "type": "object",
@@ -79,7 +79,7 @@
      }
     },
     {
-     "name": "td_kb_get",
+     "name": "kb_get",
      "description": "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página.",
      "inputSchema": {
       "type": "object",
@@ -99,7 +99,7 @@
      }
     },
     {
-     "name": "td_pop_matrix",
+     "name": "pop_matrix",
      "description": "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' = registro completo; category='ok_con_input' = miembros.",
      "inputSchema": {
       "type": "object",
@@ -117,7 +117,7 @@
      }
     },
     {
-     "name": "td_ops_doc",
+     "name": "ops_doc",
      "description": "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples.",
      "inputSchema": {
       "type": "object",
@@ -137,7 +137,7 @@
      }
     },
     {
-     "name": "td_ops_params",
+     "name": "ops_params",
      "description": "Parámetros documentados de un tipo de operador (offline). Con TD abierto preferí get_help del MCP oficial: lee del build vivo.",
      "inputSchema": {
       "type": "object",
@@ -153,7 +153,7 @@
      }
     },
     {
-     "name": "td_pop_knowledge",
+     "name": "pop_knowledge",
      "description": "Datos POP no-oficiales: 'patterns' (mapas de red reales), 'wiki_params', 'pop_inventory', 'validation', 'glsl_library'.",
      "inputSchema": {
       "type": "object",
@@ -171,7 +171,7 @@
      }
     },
     {
-     "name": "td_resolve_operator",
+     "name": "resolve_operator",
      "description": "Traduce lenguaje natural (ES/EN) a tipo de operador canónico con 99 tipos indexados ('video por webcam' -> videodeviceinTOP).",
      "inputSchema": {
       "type": "object",
@@ -191,7 +191,7 @@
      }
     },
     {
-     "name": "td_templates",
+     "name": "templates",
      "description": "14 plantillas de red con wiring, parámetros y builder Python: action=list|get.",
      "inputSchema": {
       "type": "object",
@@ -213,7 +213,7 @@
      }
     },
     {
-     "name": "td_recipes",
+     "name": "recipes",
      "description": "5 recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) con gotchas y código: action=list|get.",
      "inputSchema": {
       "type": "object",
@@ -235,7 +235,7 @@
      }
     },
     {
-     "name": "td_glsl_rules",
+     "name": "glsl_rules",
      "description": "Reglas GLSL verificadas en vivo, por familia: 6 de POP (write-only, TDIndex, Create Attributes, outputaccess) y 12 de TOP.",
      "inputSchema": {
       "type": "object",
@@ -257,7 +257,7 @@
      }
     },
     {
-     "name": "td_glsl_analyze",
+     "name": "glsl_analyze",
      "description": "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.",
      "inputSchema": {
       "type": "object",
@@ -277,7 +277,7 @@
      }
     },
     {
-     "name": "td_glsl_curriculum",
+     "name": "glsl_curriculum",
      "description": "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).",
      "inputSchema": {
       "type": "object",
@@ -288,6 +288,193 @@
        }
       },
       "required": []
+     }
+    },
+    {
+     "name": "contracts",
+     "description": "Contratos verificados EN VIVO contra TD 2025.32460 + TDMCP 1.1.55 (cook lag, render POP, pointspriteMAT, API Python, verificación). list=true = índice; section='cook_lag' / 'pop_render_network' / 'C2' para filtrar; query= texto libre.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "string"
+       },
+       "section": {
+        "type": "string",
+        "description": "string"
+       },
+       "list": {
+        "type": "boolean",
+        "description": "boolean"
+       },
+       "max_chars": {
+        "type": "integer",
+        "description": "int 1000-40000"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "td_status",
+     "description": "¿Está TouchDesigner vivo? Devuelve proyecto, build, fps y versión del server oficial. Usalo primero si dudás de la conexión.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+     }
+    },
+    {
+     "name": "find_in_ops",
+     "description": "Busca un texto en TODO un subárbol: contenido de DATs, expresiones de parámetros, nombres de par, comentarios y nombres de operador. Una sola llamada (corre dentro de TD). No existía en el MCP oficial.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "string (requerido)"
+       },
+       "root_path": {
+        "type": "string",
+        "description": "string (default /)"
+       },
+       "in_dat": {
+        "type": "string",
+        "description": "bool (default true)"
+       },
+       "in_expr": {
+        "type": "string",
+        "description": "bool (default true)"
+       },
+       "in_name": {
+        "type": "string",
+        "description": "bool (default false)"
+       },
+       "in_comment": {
+        "type": "string",
+        "description": "bool (default true)"
+       },
+       "limit": {
+        "type": "integer",
+        "description": "int (default 40)"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "auto_layout",
+     "description": "Ordena los operadores de un COMP por dependencias (capas topológicas), sin cruces: calcula las posiciones localmente y las aplica con el oficial. dry_run=true para verlas sin mover.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "parent_path": {
+        "type": "string",
+        "description": "string (requerido)"
+       },
+       "direction": {
+        "type": "string",
+        "description": "lr|tb (default lr)"
+       },
+       "hgap": {
+        "type": "integer",
+        "description": "int (default 175)"
+       },
+       "vgap": {
+        "type": "integer",
+        "description": "int (default 130)"
+       },
+       "dry_run": {
+        "type": "string",
+        "description": "bool"
+       },
+       "include_docked": {
+        "type": "string",
+        "description": "bool (default true)"
+       }
+      },
+      "required": [
+       "parent_path"
+      ]
+     }
+    },
+    {
+     "name": "smart_connect",
+     "description": "Conecta dos operadores eligiendo el índice de input según la familia que espera el destino (lo lee de la KB). Acepta input_index para forzarlo.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "from_path": {
+        "type": "string",
+        "description": "string (requerido)"
+       },
+       "to_path": {
+        "type": "string",
+        "description": "string (requerido)"
+       },
+       "input_index": {
+        "type": "integer",
+        "description": "int (opcional)"
+       }
+      },
+      "required": [
+       "from_path",
+       "to_path"
+      ]
+     }
+    },
+    {
+     "name": "tdn_export",
+     "description": "Exporta una red a TDN v1.4 (JSON versionable en git) leyendo el proyecto en vivo. include_dat_content para incluir el texto/tablas de los DATs. Si das out_path escribe el .tdn.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "root_path": {
+        "type": "string",
+        "description": "string (default /)"
+       },
+       "out_path": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "include_dat_content": {
+        "type": "string",
+        "description": "bool (default false)"
+       },
+       "include_storage": {
+        "type": "string",
+        "description": "bool (default false)"
+       },
+       "include_color": {
+        "type": "string",
+        "description": "bool (default false: el color del nodo cambia solo)"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "tdn_diff",
+     "description": "Compara dos archivos .tdn (offline, sin TD): operadores agregados/quitados y cambios de parámetros, tipos, flags y cableado.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "path_a": {
+        "type": "string",
+        "description": "string (requerido)"
+       },
+       "path_b": {
+        "type": "string",
+        "description": "string (requerido)"
+       }
+      },
+      "required": [
+       "path_a",
+       "path_b"
+      ]
      }
     }
    ]
@@ -300,7 +487,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"kb_dir\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\TDMCP\\\\TDMCP-1.1.55\\\\extras\\\\port\\\\kb\",\n \"kb_total_bytes\": 29347430,\n \"kb_origen\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n \"assets\": [\n  \"knowledge_brain.db\",\n  \"pop_matrix.json\",\n  \"topology.json\",\n  \"webtoe-pop-specs.json\",\n  \"ops/index.json\",\n  \"rules/GLSL_POP_RULES.md\",\n  \"rules/GLSL_TOP_RULES.md\",\n  \"rules/glsl_pop_shader_guide.md\",\n  \"rules/GLSL_POP_SUITE_GUIDE.md\",\n  \"rules/POPs_KNOWLEDGE.md\",\n  \"rules/POPs_CORRECTIONS.md\",\n  \"rules/POPs_VALIDATION.md\",\n  \"rules/TD_PARAMETER_CHEATSHEET.md\",\n  \"rules/BRIDGE_CONTRACT.md\",\n  \"ops/operators/\",\n  \"pops/\"\n ],\n \"ts_extract\": {\n  \"generated_at\": \"2026-09-28T22:02:57.222Z\",\n  \"source\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n  \"semantic\": 2,\n  \"templates\": 1,\n  \"recipes\": 3\n },\n \"docs\": {\n  \"docs_total\": 1048,\n  \"por_familia\": {\n   \"POP\": 541,\n   \"CHOP\": 171,\n   \"TOP\": 148,\n   \"SOP\": 114,\n   \"DAT\": 74\n  },\n  \"por_trust_tier\": {\n   \"official\": 507,\n   \"empirical\": 342,\n   \"community\": 102,\n   \"live-verified\": 97\n  },\n  \"por_source_type\": {\n   \"ops\": 507,\n   \"pop-pattern\": 280,\n   \"pops\": 102,\n   \"pop-live\": 97,\n   \"pop-glsl\": 62\n  }\n },\n \"pop_matrix\": {\n  \"generado\": \"2026-09-17T00:51:34\",\n  \"build_medido\": \"TouchDesigner 2025.31760\",\n  \"tipos\": 97,\n  \"creados_ok\": 96,\n  \"creados_fail\": 1,\n  \"ok_con_input\": 89,\n  \"params_medidos\": 2987\n }\n}"
+     "text": "{\n \"kb_dir\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\TDMCP\\\\tolchx-TDMCP\\\\knowledge\\\\kb\",\n \"kb_total_bytes\": 29347430,\n \"kb_origen\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n \"assets\": [\n  \"knowledge_brain.db\",\n  \"pop_matrix.json\",\n  \"topology.json\",\n  \"webtoe-pop-specs.json\",\n  \"ops/index.json\",\n  \"rules/GLSL_POP_RULES.md\",\n  \"rules/GLSL_TOP_RULES.md\",\n  \"rules/glsl_pop_shader_guide.md\",\n  \"rules/GLSL_POP_SUITE_GUIDE.md\",\n  \"rules/POPs_KNOWLEDGE.md\",\n  \"rules/POPs_CORRECTIONS.md\",\n  \"rules/POPs_VALIDATION.md\",\n  \"rules/TD_PARAMETER_CHEATSHEET.md\",\n  \"rules/BRIDGE_CONTRACT.md\",\n  \"ops/operators/\",\n  \"pops/\"\n ],\n \"ts_extract\": {\n  \"generated_at\": \"2026-09-28T22:02:57.222Z\",\n  \"source\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n  \"semantic\": 2,\n  \"templates\": 1,\n  \"recipes\": 3\n },\n \"docs\": {\n  \"docs_total\": 1048,\n  \"por_familia\": {\n   \"POP\": 541,\n   \"CHOP\": 171,\n   \"TOP\": 148,\n   \"SOP\": 114,\n   \"DAT\": 74\n  },\n  \"por_trust_tier\": {\n   \"official\": 507,\n   \"empirical\": 342,\n   \"community\": 102,\n   \"live-verified\": 97\n  },\n  \"por_source_type\": {\n   \"ops\": 507,\n   \"pop-pattern\": 280,\n   \"pops\": 102,\n   \"pop-live\": 97,\n   \"pop-glsl\": 62\n  }\n },\n \"pop_matrix\": {\n  \"generado\": \"2026-09-17T00:51:34\",\n  \"build_medido\": \"TouchDesigner 2025.31760\",\n  \"tipos\": 97,\n  \"creados_ok\": 96,\n  \"creados_fail\": 1,\n  \"ok_con_input\": 89,\n  \"params_medidos\": 2987\n }\n}"
     }
    ],
    "isError": false
@@ -339,7 +526,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"texto\": \"quiero una camara web en vivo\",\n \"familia_sugerida\": [],\n \"candidatos\": [\n  {\n   \"type\": \"videodeviceinTOP\",\n   \"score\": 34,\n   \"coincidencias\": [\n    \"cam\"\n   ]\n  }\n ],\n \"tipos_indexados\": 99\n}"
+     "text": "{\n \"texto\": \"quiero una camara web en vivo\",\n \"familia_sugerida\": [],\n \"candidatos\": [\n  {\n   \"type\": \"videodeviceinTOP\",\n   \"score\": 43,\n   \"coincidencias\": [\n    \"cam\"\n   ]\n  }\n ],\n \"tipos_indexados\": 99\n}"
     }
    ],
    "isError": false
@@ -352,7 +539,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"family\": \"pop\",\n \"ok\": false,\n \"escribe\": [\n  \"Cd\",\n  \"P\"\n ],\n \"lee\": [\n  \"P\"\n ],\n \"errores\": [\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"no usa TDIndex() para iterar los puntos\",\n   \"fix\": \"const uint id = TDIndex();\"\n  },\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"falta la guarda de rango\",\n   \"fix\": \"if (id >= TDNumElements()) return;\"\n  },\n  {\n   \"regla\": \"POP R4 (y R1 si es P)\",\n   \"mensaje\": \"'P' se escribe y se lee en el mismo main()\",\n   \"fix\": \"si es la salida [P] usá TDIn_P(0, id); si necesitás leerla, poné outputaccess='readwrite'\"\n  }\n ],\n \"warnings\": [\n  {\n   \"regla\": \"POP R1\",\n   \"mensaje\": \"escribe P sin leer la entrada (TDIn_P): verificá el origen de los valores\",\n   \"fix\": \"P[id] = TDIn_P(0, id) * ...;\"\n  }\n ],\n \"notas\": [\n  {\n   \"regla\": \"POP R3\",\n   \"mensaje\": \"los atributos que se escriben y no vienen en la entrada hay que crearlos en la página Create Attributes (outputattrs solo selecciona atributos existentes)\"\n  },\n  {\n   \"attr\": \"Cd\",\n   \"parametros\": {\n    \"attr0name\": \"Custom\",\n    \"attr0customname\": \"Cd\",\n    \"attr0numcomps\": 4\n   }\n  }\n ]\n}"
+     "text": "{\n \"family\": \"pop\",\n \"ok\": false,\n \"escribe\": [\n  \"Cd\",\n  \"P\"\n ],\n \"lee\": [\n  \"P\"\n ],\n \"errores\": [\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"no usa TDIndex() para iterar los puntos\",\n   \"fix\": \"const uint id = TDIndex();\"\n  },\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"falta la guarda de rango\",\n   \"fix\": \"if (id >= TDNumElements()) return;\"\n  },\n  {\n   \"regla\": \"POP R4 (y R1 si es P)\",\n   \"mensaje\": \"'P' se escribe y se lee en el mismo main()\",\n   \"fix\": \"si es la salida [P] usá TDIn_P(0, id); si necesitás leerla, poné outputaccess='readwrite'\"\n  }\n ],\n \"warnings\": [\n  {\n   \"regla\": \"POP R1\",\n   \"mensaje\": \"escribe P sin leer la entrada (TDIn_P): verificá el origen de los valores\",\n   \"fix\": \"P[id] = TDIn_P(0, id) * ...;\"\n  }\n ],\n \"notas\": [\n  {\n   \"regla\": \"POP R3\",\n   \"mensaje\": \"los atributos que se escriben y no vienen en la entrada hay que crearlos en la página Create Attributes (outputattrs solo selecciona atributos existentes)\"\n  },\n  {\n   \"attr\": \"Cd\",\n   \"parametros\": {\n    \"attr0name\": \"custom\",\n    \"attr0customname\": \"Cd\",\n    \"attr0numcomps\": 4\n   }\n  },\n  {\n   \"regla\": \"POP R3 (outputattrs)\",\n   \"mensaje\": \"los atributos que SI vienen en la entrada y se reescriben (ej. P) hay que listarlos en el par 'outputattrs' para que el preamble los declare — sin eso: \\\"'P' : undeclared identifier\\\" al compilar (verificado 2026-09-28)\",\n   \"outputattrs\": \"P\"\n  }\n ]\n}"
     }
    ],
    "isError": false
@@ -392,6 +579,32 @@
     {
      "type": "text",
      "text": "{\n \"name\": \"particlePOP\",\n \"family\": \"POP\",\n \"page\": \"Particle POP\",\n \"slug\": \"Particle_POP\",\n \"url\": \"https://docs.derivative.ca/Particle_POP\",\n \"trust_tier\": \"community\",\n \"source_type\": \"pops\",\n \"summary\": \"POP for particle lifecycle management with Euler integration. New in 2025.3: Jitter Birth Position, Jitter Births During Frame, Pre-Roll, and Death Attribute parameters.\",\n \"body\": \"Particle POP\\nParticle_POP\\nPOP for particle lifecycle management with Euler integration. New in 2025.3: Jitter Birth Position, Jitter Births During Frame, Pre-Roll, and Death Attribute parameters.\\nparticlePOP\\nTarget Feedback Loop POP\\nReference to downstream Null POP that feeds particle state back each frame.\\nMaximum Particles\\nHard limit on particle count to prevent memory overflow.\\nEmission from\\nHow particles are emitted: constant rate or per-point attribute.\\nBirth Rate\\nNumber of particles born per second.\\nLife Expect\\nAverage particle lifetime in seconds.\\nLife Variance\\nRandom variation as fraction of life expectancy.\\nEnable Time Integration\\nGPU integration: V(t+1)=V(t)+(F/m)*dt, P(t+1)=P(t)+V(t+1)*dt.\\nInitial Velocity\\nStarting velocity in units/sec.\\nInitial Mass\\nParticle mass for force calculations (F=ma).\\nInitial Drag\\nDrag factor causing deceleration (F_drag=D*V²).\\nVelocity Damping\\nMulti\\n…[cortado: 7573 chars en total]\",\n \"body_total_chars\": 7573\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 11,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"archivo\": \"contracts\\\\VERIFIED_CONTRACTS.md\",\n \"secciones\": [\n  \"C1 — Medición: siempre asentar antes de leer\",\n  \"C2 — POPs y render\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\"\n ],\n \"contratos\": [\n  \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n  \"`render_cache_vs_data` — el render no siempre re-sube geometría POP\",\n  \"`clock_stopped` — el reloj maestro puede estar parado\",\n  \"`png_use_pil` — verificá imágenes con PIL, no con un decoder casero\",\n  \"`points_need_pointprims` — lo que dibuja son las PRIMITIVAS, no los puntos\",\n  \"`autotorus_masks_render` — el auto-torus hace pasar por bueno un render roto\",\n  \"`render_flag_on_terminal` — las flags van en el nodo terminal del chain\",\n  \"`pop_render_network` — receta mínima que dibuja (verificada)\",\n  \"`pointsprite_pars` — el look de partículas\",\n  \"`python_pop_api` — POPs vs SOPs en Python\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\"\n ],\n \"total\": 13\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 12,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"total\": 1,\n \"contratos\": [\n  {\n   \"seccion\": \"C1 — Medición: siempre asentar antes de leer\",\n   \"id\": \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n   \"texto\": \"**Síntoma:** editás el shader o un uniform y \\\"no pasa nada\\\"; medís de nuevo y aparece el valor\\n*anterior*. Conclusión falsa típica: \\\"el uniform no está conectado\\\".\\n\\n**Evidencia [V]:** shader editado a `P[id] = pos * 2.0` → el poptoCHOP seguía mostrando `P_0.max\\n= 1.0257`; al *restaurar* el DAT, el cook siguiente mostró `2.0513` (exactamente 2×).\\n\\n**Regla:** tras tocar DAT/parámetros/uniforms, cocinar en cadena varias veces y **releer**:\\n\\n```python\\ndef settle(n=4):\\n    for _ in range(n):\\n        op('/X/geo').cook(force=True)\\n        op('/X/geo/glsl').cook(force=True)\\n        op('/X/geo/null_out').cook(force=True)\\n        op('/X/ren').cook(force=True)\\n        time.sleep(0.04)\\n```\"\n  }\n ],\n \"nota\": \"Contratos verificados contra TD vivo 2025.32460 + TDMCP 1.1.55.\"\n}"
     }
    ],
    "isError": false

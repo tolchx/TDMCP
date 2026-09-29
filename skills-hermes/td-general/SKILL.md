@@ -61,6 +61,8 @@ Load `td-general` first on any TD task, then load by intent. Respect phase — d
 - `td-chop-family` — CHOPs: audio, LFO, animation, data-driven control · anytime
 - `td-top-family` — TOPs: image, compositing, render, feedback · anytime
 - `td-pop-family` — POPs: GPU particles, points, forces · anytime
+- `td-pop-render-pipeline` — hacer que un efecto POP se **dibuje** (geometryCOMP + renderTOP + material, `topointprims`, flags del terminal, auto-torus) · durante-build
+- `td-live-verification` — medir y verificar **sin conclusiones falsas** (asentar cooks, `poptoCHOP` como verdad, píxeles, PIL) · verificación
 - `td-sop-family` — SOPs: CPU procedural geometry · anytime
 - `td-dat-family` — DATs: tables, Python callbacks, execute DATs · anytime
 - `td-mat-family` — materials / shading assignment · anytime
@@ -101,10 +103,12 @@ Ambiguous intent → ask which applies before loading. Multi-domain builds → l
 
 ## Tool Preferences
 
-- `edit_operator` — rename, reposition, flags, color (not `execute_code`)
+- `edit_operator` — rename, reposition, flags, color (not `execute_code`); also **copy/move** an op
+  via `copy_to`/`move_to` and change type via `change_type` (all in the schema — read it, invented
+  args are ignored)
 - `delete_operator` — deletion
 - `reposition_operators` — batch moves
-- `annotation` — create/edit annotations
+- `annotation` — create/edit annotations (create takes **`comment`**, not `text`)
 - `build_network` — multi-op creation with wiring in one call, preferred over `create_operator` + `wiring` sequences
 - `execute_code` — reserved for things no dedicated tool covers
 
@@ -126,6 +130,29 @@ Ambiguous intent → ask which applies before loading. Multi-domain builds → l
 
 ## Universal Gotchas
 
+- **`set_parameters` sets CONSTANTS only** — a Python expression string in `values` (e.g.
+  `"op('lvl')['chan1']"`) errors out. Expressions go through `execute_code`:
+  `par.Name.expr = "..."`. Same for OP-valued pars (camera/geometry/envlightmap):
+  `op('ren').par.camera = op('cam')` needs `execute_code` too. (Verified live 2026-09-28.)
+- **Read the `inputSchema` before calling a tool with an unfamiliar shape** — plausible-looking but
+  wrong args can be *silently ignored*: `edit_custom_parameters` with an `action`/`parameters`
+  envelope answers `success: true` with `added: []`, and `annotation` create with `text` (instead of
+  `comment`) builds an empty box. After any create-style call, verify the result actually happened
+  (`get_operator_info`, `get_parameters`) before building on top of it.
+- **Medí con ASENTAMIENTO (cook lag ≥ 1)** — los cambios de DAT de shader y de uniforms `vec*` se
+  aplican **un cook después**: leer al instante devuelve el estado *anterior* (así se genera el falso
+  "el uniform no está conectado"). Cociná en cadena `geo → glsl → null → ren` varias veces y recién
+  ahí leé. Verificado 2026-09-29 · detalle en la skill `td-live-verification` y en la tool offline
+  `contracts` (`section='cook_lag'`).
+- **Todo write se relee** — `set_parameters` puede **no aplicar** un par y responder ok (visto con
+  `pointspriteMAT.attensizenear` y con los `vecNvaluex` de `glslPOP`, que quedaron en 0.5): verificá
+  con `get_parameters` o `par.eval()`; si no cambió, escribí por `execute_code`.
+- **Verificación numérica antes que visual** — `poptoCHOP` (GPU→CPU) es la verdad para datos y
+  animación; los píxeles del renderTOP no reflejan cambios de datos POP en remoto (caché de
+  geometría). Checklist completo en `td-live-verification`.
+- **Antes de improvisar, consultá los contratos verificados** — tool offline `contracts`
+  (`knowledge/contracts/VERIFIED_CONTRACTS.md`): POP→render, pointspriteMAT, API Python de POPs,
+  límites del entorno. Si algo te sorprende, **anotalo ahí** (ver `docs/td-lecciones-aprendidas-*.md`).
 - **`viewer=true`** on every operator at create time
 - **Never `absTime.seconds`** — overflows, use `lfoCHOP` or `timer`
 - **Set code-DAT `language`** — defaults to `input` (inherits from a wired input); a standalone

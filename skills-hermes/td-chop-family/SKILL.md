@@ -26,7 +26,7 @@ Build CHOP chains for audio, animation, LFOs, and data-driven parameter control.
 - `lfoCHOP` — periodic oscillation
 - `waveCHOP` — waveform generator
 - `noiseCHOP` — smooth random (types: sparse, harmonic, random — check `get_help`)
-- `audiodevinCHOP` — audio input
+- `audiodeviceinCHOP` — audio input
 - `oscCHOP`, `midiinCHOP` — external data
 - `animationCHOP` — keyframed curves
 - `timerCHOP` — timed sequences, state machine (see `reference.md`)
@@ -87,6 +87,14 @@ Use `inspect_values(path, include_samples=true)` to read full sample arrays from
 
 ## Pitfalls
 
+- **Type names are lowercase** — the live catalog is `audiodeviceinCHOP`, `audiospectrumCHOP`;
+  the doc-style camel case (`audioDeviceInCHOP`) is rejected as `unknown_operator_type` with no
+  suggestion. Confirmed live: `get_help {family:"CHOP", pattern:"*audio*"}` lists only lowercase
+  forms, and `build_network` with the camel-cased name fails (measured 2026-09-28, TD 2025.32460).
+- **Cross-family via expressions needs `execute_code`** — `set_parameters` sets constant-mode values
+  ONLY: a string like `op('lvl')['chan1']` in `values` errors with `internal_error` ("Cannot cast
+  value to a numeric object"). Set the expression with `execute_code`: `op('x/fondo').par.colorr.expr
+  = "..."` (works for any OP-valued/EXPRESSION-mode par). Also verified live.
 - **No selective cooking on output** — forces entire upstream chain to cook every frame
 - **absTime.seconds for animation** — floats lose precision after hours, use lfoCHOP or timerCHOP
 - **CHOP reference syntax** — use `op('path')['channelname']` not `op('path').chan('name')`

@@ -403,9 +403,64 @@ def t_glsl_rules(a: dict) -> dict:
             "titulos": [r["regla"] for r in rules]}
 
 
+# --- contratos verificados en vivo: fichero VERSIONADO (no kb/, que es derivado)
+CONTRACTS_MD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "contracts",
+                            "VERIFIED_CONTRACTS.md")
+
+
+def _contracts_text() -> str:
+    if not os.path.exists(CONTRACTS_MD):
+        raise FileNotFoundError(f"falta el fichero de contratos: {CONTRACTS_MD}")
+    with open(CONTRACTS_MD, encoding="utf-8") as f:
+        return f.read()
+
+
+def t_contracts(a: dict) -> dict:
+    """Sirve knowledge/contracts/VERIFIED_CONTRACTS.md por seccion / texto / listado."""
+    md = _contracts_text()
+    items = []
+    for block in re.split(r"(?m)^(?=##\s)", md):
+        m = re.match(r"##\s+(.*)", block)
+        if not m:
+            continue
+        seccion = m.group(1).strip()
+        body = block[m.end():].strip()
+        subs = []
+        for sub in re.split(r"(?m)^(?=###\s)", body):
+            ms = re.match(r"###\s+(.*)", sub)
+            if ms:
+                subs.append({"id": ms.group(1).strip(), "texto": sub[ms.end():].strip()})
+        if not subs and body:  # seccion sin subtitulos: entra como una sola pieza
+            subs = [{"id": seccion, "texto": body}]
+        for s in subs:
+            items.append({"seccion": seccion, **s})
+    if a.get("list"):
+        return {"archivo": os.path.relpath(CONTRACTS_MD, os.path.dirname(os.path.abspath(__file__))),
+                "secciones": sorted({i["seccion"] for i in items}),
+                "contratos": [i["id"] for i in items], "total": len(items)}
+    want = (a.get("section") or "").strip().lower()
+    q = (a.get("query") or "").strip().lower()
+    sel = items
+    if want:
+        sel = [i for i in sel if want in i["id"].lower() or want in i["seccion"].lower()]
+    if q:
+        sel = [i for i in sel if q in i["texto"].lower() or q in i["id"].lower()]
+    if not sel:
+        return {"total": 0, "contratos": [],
+                "sin_coincidencias": "query=%r section=%r" % (q, want),
+                "contratos_disponibles": [i["id"] for i in items]}
+    n = int(a.get("max_chars") or 9000)
+    return {"total": len(sel), "contratos": [{"seccion": i["seccion"], "id": i["id"],
+                                              "texto": clip(i["texto"], n)} for i in sel],
+            "nota": "Contratos verificados contra TD vivo 2025.32460 + TDMCP 1.1.55."}
+
+
 # --- analyzer: puerto fiel de las reglas verificadas (POP R1-R4, TOP R1-R2, Python R6)
 COMPONENTS = {"cd": 4, "n": 3, "uv": 2, "p": 3, "v": 3, "alpha": 1, "mass": 1, "masa": 1}
 BUILTIN_WRITE_OK = {"p"}  # P ya existe si hay TDIn_P; igual conviene no leerla (R1)
+# Menus reales de attr0name en TD 2025.32460: 'custom' lowercase (verificado en vivo
+# 2026-09-28; el valor con mayuscula es rechazado por set_parameters).
+ATTR_MENU_CASE = "lowercase"
 
 
 def _writes_and_reads(code: str):
@@ -472,8 +527,15 @@ def t_glsl_analyze(a: dict) -> dict:
         notes.append({"regla": "POP R3", "mensaje": "los atributos que se escriben y no vienen en la entrada hay que crearlos "
                        "en la página Create Attributes (outputattrs solo selecciona atributos existentes)"})
         for i, x in enumerate(create):
-            notes.append({"attr": x, "parametros": {"attr%dname" % i: "Custom", "attr%dcustomname" % i: x,
+            name_val = "custom" if ATTR_MENU_CASE == "lowercase" else "Custom"
+            notes.append({"attr": x, "parametros": {"attr%dname" % i: name_val, "attr%dcustomname" % i: x,
                                                      "attr%dnumcomps" % i: COMPONENTS.get(x.lower(), 1)}})
+        out_inputs = [x for x in out_attrs if x.lower() in BUILTIN_WRITE_OK]
+        if out_inputs:
+            notes.append({"regla": "POP R3 (outputattrs)", "mensaje": "los atributos que SI vienen en la entrada y se "
+                           "reescriben (ej. P) hay que listarlos en el par 'outputattrs' para que el preamble "
+                           "los declare — sin eso: \"'P' : undeclared identifier\" al compilar (verificado 2026-09-28)",
+                          "outputattrs": " ".join(sorted(x for x in out_attrs if x.lower() in BUILTIN_WRITE_OK))})
     if "readwrite" in code:
         notes.append("Menciona readwrite: recordá que es un parámetro del nodo (outputaccess), no una línea de GLSL.")
     return {"family": "pop", "ok": not errors, "escribe": out_attrs, "lee": sorted(set(reads)),
@@ -509,6 +571,7 @@ TOOLS = [
     ("glsl_rules", "Reglas GLSL verificadas en vivo, por familia: 6 de POP (write-only, TDIndex, Create Attributes, outputaccess) y 12 de TOP.", {"family": "pop|top", "rule": "texto a buscar en el título", "query": "texto en el cuerpo"}, t_glsl_rules),
     ("glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
     ("glsl_curriculum", "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).", {"query": "string"}, t_glsl_curriculum),
+    ("contracts", "Contratos verificados EN VIVO contra TD 2025.32460 + TDMCP 1.1.55 (cook lag, render POP, pointspriteMAT, API Python, verificación). list=true = índice; section='cook_lag' / 'pop_render_network' / 'C2' para filtrar; query= texto libre.", {"query": "string", "section": "string", "list": "boolean", "max_chars": "int 1000-40000"}, t_contracts),
 ]
 # ── tools que necesitan TouchDesigner: hablan MCP contra el server OFICIAL (13316) ──
 try:

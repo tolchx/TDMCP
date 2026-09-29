@@ -16,6 +16,14 @@ description: "Use after builds to verify correctness. Chequear errores, verifica
 
 Validate completed builds. Check for errors, verify structure, diagnose root causes. Review only — does not apply fixes.
 
+> **Patch verificado (2026-09-29):** al verificar un build, **medí con asentamiento y con la
+> herramienta adecuada por pregunta**. Casi todos los falsos diagnósticos de una sesión salen de
+> leer un valor antes de que los cooks se estabilicen. Metodología completa: skill
+> **`td-live-verification`**. Resumen: datos/animación → `poptoCHOP` (GPU→CPU, con `settle()` de
+> varios cooks en cadena); "¿dibuja algo?" → `renderTOP.numpyArray()`; "¿se ve como quiero?" →
+> `view_operator` + decodificar el PNG con **PIL** (no un decoder casero). Tras cualquier write,
+> **releé** el par: `set_parameters` puede no aplicarlo y responder ok.
+
 ## Process
 
 1. **Error check** — `get_errors(path)` — blocking, build cannot pass with errors
@@ -40,6 +48,8 @@ Validate completed builds. Check for errors, verify structure, diagnose root cau
 - **Always trace upstream** — if error op looks correct, follow input chain to find actual broken node
 - **Chain reactions** — 5 errors from 1 missing connection = 1 fix, not 5. Group them
 - **False errors from cook order** — on first cook, some ops error because upstream hasn't cooked yet. `pulse_parameter` to reinit feedback, recheck
+- **Valores que "no cambiaron"** → leídos sin asentar (cook lag ≥ 1 en DAT/uniforms). Cociná en cadena y releé antes de declarar que un par no hace nada
+- **"Se ve negro / no dibuja"** → antes de tocar el shader, verificá en orden: flags `display` y `render` en el **terminal del chain**, bindings `camera`/`geometry` del renderTOP, y que el render esté leyendo datos frescos. Receta: `td-pop-render-pipeline`
 - **Feedback sims need time** — don't judge on frame 0, `pulse_parameter` for init+start, wait, then check
 - **Read shader code** — GLSL errors need actual code to diagnose, not just the error message
 

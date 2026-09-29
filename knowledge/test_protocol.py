@@ -6,8 +6,12 @@ PY = sys.executable
 
 
 def run(calls):
+    # El hijo escribe su stdout con el encoding de locale (cp1252 en Windows);
+    # forzar utf-8 para que el pipe coincida con la decodificacion del padre.
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
     p = subprocess.Popen([PY, SERVER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
+                         stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1,
+                         env=env)
     out = []
     for c in calls:
         p.stdin.write(json.dumps(c) + "\n")
@@ -53,6 +57,8 @@ calls = [
     {"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": {"name": "glsl_analyze", "arguments": {"code": "out vec4 fragColor;\nvoid main(){ vec2 c = vUV.uv; fragColor = vec4(c,0.,1.); }", "family": "top"}}},
     {"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"name": "recipes", "arguments": {"action": "list"}}},
     {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "kb_get", "arguments": {"name_or_slug": "particlePOP", "max_chars": 900}}},
+    {"jsonrpc": "2.0", "id": 11, "method": "tools/call", "params": {"name": "contracts", "arguments": {"list": True}}},
+    {"jsonrpc": "2.0", "id": 12, "method": "tools/call", "params": {"name": "contracts", "arguments": {"section": "cook_lag"}}},
 ]
 res, err = run(calls)
 print("stderr:", err.strip()[:200])
@@ -66,7 +72,8 @@ assert len(names) == len(set(names)), "nombres duplicados!"
 print("  " + ", ".join(names))
 print()
 labels = {3: "kb_info", 4: "kb_search", 5: "pop_matrix(particlePOP)", 6: "resolve_operator", 7: "glsl_analyze POP (P se lee y escribe)",
-          8: "glsl_analyze TOP (.uv)", 9: "recipes list", 10: "kb_get particlePOP"}
+          8: "glsl_analyze TOP (.uv)", 9: "recipes list", 10: "kb_get particlePOP",
+          11: "contracts (indice de contratos verificados)", 12: "contracts (section=cook_lag)"}
 for r in res[2:]:
     mid = r["id"]
     print("=" * 78); print(f"### [{mid}] {labels.get(mid)}  isError={r['result'].get('isError')}")

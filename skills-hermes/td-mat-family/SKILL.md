@@ -44,6 +44,20 @@ Renders each point as a camera-facing square. Without this, points render as sin
 - `blending` — enable for transparency
 - `sizingmodel` — `constant/attenuate` or `attrib`. Attenuate scales with distance
 
+### Verificado en vivo (2026-09-29): el look de partículas
+
+| Par | Valor probado | Por qué |
+|---|---|---|
+| **`pointsize`** | **el tamaño del sprite** (default **1.0** ≈ 2 px) | es el par que hay que tocar: si los puntos se ven como puntitos, subí `pointsize` (2–4). Medido: 1→641 px · 2→1742 · 3→3324 · 4→5313 |
+| `sizingmodel='constatten'` | tamaño en **píxeles** (predecible) | `perspective` escala en **mundo**: con `pointsize=1` llenó 300758/307200 px |
+| `attensizenear` / `attensizefar` | **inertes con `attenpscale=0`** (default) | **no** controlan el tamaño — 1/8/60 dan el mismo render (refutado 2026-09-29) |
+| `blending=true` + `srcblend='sa'` + `destblend='one'` | aditivo | partículas que se suman (glow); el `Cd` del punto llega al sprite |
+| `colorr/g/b` | color base | multiplica el color del punto |
+
+⚠️ `set_parameters` **no fijó `attensizenear`** aunque devolviera ok: escribí los valores por
+`execute_code` y **releé** (`mat.par.pointsize.eval()`). Receta completa del pipeline POP→render
+en la skill `td-pop-render-pipeline`; contratos en `contracts` (`section='pointsprite_pars'`).
+
 ## Placement
 
 - **Inside geometryCOMP** — reference as `./mat_name`. Material lives with its geometry
@@ -55,9 +69,33 @@ Renders each point as a camera-facing square. Without this, points render as sin
 
 pbrMAT renders completely black without an environment light:
 1. Create `environmentlightCOMP` inside the geometryCOMP (or sibling)
-2. Create `moviefileinTOP` with `file` = `app.samplesFolder + '/Map/CloudyOcean_2Kx1K_8bit.tif'`
-3. Set environmentlightCOMP `envmap` to the moviefileinTOP
+2. Create a map TOP — `moviefileinTOP` with `file` = `app.samplesFolder + '/Map/CloudyOcean_2Kx1K_8bit.tif'`, or a `constantTOP` for a quick flat env
+3. Assign it to the **`envlightmap`** parameter (verified name, `parType: TOP`)
 4. POP geometry using pbrMAT also needs `normalPOP` with `tang=alwayscompute` — PBR lighting requires tangent vectors
+
+⚠️ `environmentlightCOMP` has **no input connectors** (verified 2026-09-28): you cannot wire the map
+TOP to it — `wiring {to: envlight}` fails. The map goes through the `envlightmap` par, and because
+that par is OP-valued it must be set via `execute_code` (`op('envlight').par.envlightmap =
+op('envmap')`), not `set_parameters`.
+
+## Render Network Setup (verified coreography)
+
+The full assembly of a minimal 3D render — none of this is documented elsewhere in the skills, and
+all of it was probed live against TD 2025.32460:
+
+1. **The renderer is `renderTOP`** (TOP family). There is NO `renderCOMP` — `create_operator` with it
+   fails `unknown_operator_type`.
+2. **`renderTOP` auto-creates nothing** — a fresh one has zero children. Create `cameraCOMP`,
+   `lightCOMP`, `geometryCOMP` (and the env rig from PBR Setup) as **siblings**, then bind the
+   renderTOP's `camera` / `light` / `geometry` OP parameters.
+3. **OP-valued bindings via `execute_code`**: `op('ren').par.camera = op('cam')` (same for
+   `geometry`; `set_parameters` refuses string values there). Resolution goes through `set_parameters`
+   (`resolutionw`/`resolutionh`) since those are plain ints.
+4. **Guaranteed-visible test render**: set the pbrMAT's `constantr/g/b` (RGB components, ~0.9) —
+   `constant=1` renders unlit-bright even with a black env map. Useful as a gradable "did it render"
+   check before investing in lighting.
+5. **Empty-render detector**: a `view_operator` PNG of ~200 bytes is a black/empty render (real
+   content starts around 1.6 KB). Check camera binding and light/env first.
 
 ## glslMAT Setup
 
@@ -79,7 +117,8 @@ Layout follows the GLSL DAT sandwich pattern (see `td-node-layout` skill). Load 
 - **Points invisible** — using constantMAT/pbrMAT for point-only geometry. Use pointspriteMAT
 - **Wrong path prefix** — `./` means child, no prefix means sibling. Match placement to reference
 - **Blending off** — transparent materials need `blending=true` on the MAT
-- **pbrMAT renders black** — missing environmentlightCOMP with an environment map TOP. Always include one
+- **pbrMAT renders black** — missing environmentlightCOMP with an environment map TOP. Always include one (assignment via the `envlightmap` par — see PBR Setup)
+- **No `renderCOMP`** — the renderer is `renderTOP`, and it auto-creates no children; bind camera/light/geometry as siblings (see Render Network Setup)
 - **PBR on POPs missing tangents** — normalPOP `tang` must be `alwayscompute`, otherwise lighting fails
 - **pbrMAT `metallic` defaults to 1** — must explicitly set `metallic=0` for non-metallic surfaces, otherwise geometry looks like chrome
 - **pbrMAT reads vertex Tex, not point Tex** — glslPOP writes point attributes, but pbrMAT samples `basecolormap` from vertex Tex coords. Use `attributeconvertPOP` (`convertop=pointtovert`) to convert. See `td-pop-family` skill

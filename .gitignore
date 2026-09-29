@@ -3,3 +3,18 @@ site/
 .cache/
 local/
 .freebuff/
+
+# Loop engineering — estado generado (no versionar)
+.freebuff_tasks/
+loop-candidates.json
+loop-ledger.json
+
+# KB derivada (se reconstruye con build_assets.py)
+knowledge/kb/
+
+# Evidencia de corridas del gauntlet
+tools/gauntlet/results/
+
+# Python
+__pycache__/
+*.pyc

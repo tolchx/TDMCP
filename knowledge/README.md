@@ -3,11 +3,11 @@
 MCP server por **stdio en Python puro (stdlib, sin dependencias)**. Trabaja en dos modos, en el
 mismo proceso y sin bridge:
 
-* **14 tools offline** — responden con la KB curada **sin** TouchDesigner abierto.
+* **15 tools offline** — responden con la KB curada **sin** TouchDesigner abierto.
 * **6 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
   para lo que necesita el proyecto vivo; si TD está cerrado devuelven un error claro.
 
-## Tools offline (14)
+## Tools offline (15)
 
 | Tool | Qué responde |
 |---|---|
@@ -25,6 +25,7 @@ mismo proceso y sin bridge:
 | `glsl_rules` | Reglas GLSL verificadas en vivo (POP y TOP), por id de regla. |
 | `glsl_analyze` | Análisis **estático** de un shader o snippet: R1/R2/R3/R4 de POP (lectura de la salida, `TDIndex()`/guarda, atributos a crear con sus params), R1/R2 de TOP, y uso de propiedades vs métodos en Python. |
 | `glsl_curriculum` | Ejemplos GLSL POP con fuentes citadas. |
+| `contracts` | **Contratos verificados en vivo** contra TD 2025.32460 + TDMCP 1.1.55, servidos desde `contracts/VERIFIED_CONTRACTS.md` (versionado, no derivado): cook lag ≥1, caché de geometría del renderTOP, reloj detenido, POP→render (`topointprims` — **no** `deleteprims` —, auto-torus que enmascara el render, flags del terminal, pointspriteMAT), API Python de POPs, contratos de tools y checklist de verificación. `list=true` = índice; `section`/`query` filtran. |
 
 ## Tools live (6) — requieren TD con el `.tox` oficial activo
 

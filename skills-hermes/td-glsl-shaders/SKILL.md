@@ -41,7 +41,13 @@ snapshot at creation; renaming the TOP later does NOT follow them.)
 3. Write/sync the shader into `<name>_pixel` (already wired to `pixeldat`).
 4. Keep `<name>_info` for compile-error visibility.
 
-**glslPOP/glslcopyPOP**: always write shaders into the auto-docked DATs (`<name>_compute`, `<name>_ptCompute`). Never create separate textDATs for POP shaders. Delete unused docked DATs (e.g. `_vertCompute`, `_primCompute` if not writing vert/prim shaders).
+**glslPOP/glslcopyPOP**: los DATs dockeados (`<name>_compute`, `<name>_ptCompute`, `<name>_info`)
+**NO existen al crear el nodo** — aparecen perezosamente al cocinar/enlazar `computedat` [V]. O sea:
+justo cuando querés escribir el shader, no están. El flujo que funciona **siempre** es un **textDAT
+hermano** con `language='glsl'` + `glslPOP.par.computedat = op(...)` (verificalo con
+`get_operator_info` qué hijos quedaron realmente creados). Si en algún momento querés usar el dock,
+primero forzá un cook y comprobá que existe. `glslcopyPOP` es la excepción: su `_ptCompute` sí es
+obligatorio (TDCopyIndex). Borrá los dockeados que no uses si aparecen.
 
 **glslMAT**: See `td-mat-family` skill for docked DAT setup and placement. Use `#ifdef TD_VERTEX_SHADER` / `#ifdef TD_PIXEL_SHADER` guards in combined shader DAT. See `reference.md` for MAT vertex/pixel functions and templates.
 
@@ -56,6 +62,34 @@ Up to 32 uniform vectors via operator parameters (`vec0name`, `vec0valuex`, etc.
 **POP (glslPOP/glslcopyPOP)**: uniforms ARE auto-declared as `float`. Do NOT redeclare them — causes "Redeclaration" compile error. Cannot override the type to `vec3` etc.; use constants or sampler inputs for multi-component data.
 
 To use N uniforms, first set the sequence block count, then access `vec0name`, `vec1name`, etc.
+
+### Verificado en vivo (2026-09-28/29, glslPOP en TD 2025.32460)
+
+- **Los cambios de DAT y de uniforms se aplican con un cook de RETRASO.** Editar el shader (o
+  `vec0valuex`) y medir al instante devuelve el estado *anterior* — el falso diagnóstico típico es
+  "el uniform no está conectado" (evidencia: `P = pos*2.0` no cambió P; al restaurar el DAT, el cook
+  siguiente mostró exactamente el doble). Cociná en cadena y releé (`settle()`): ver
+  `td-live-verification`.
+- **Enlazar `computedat` resetea la secuencia `vec`**: bindeá el DAT **primero** y seteá
+  `vec0name`/`vec1name`/valores **después**.
+- **`outputattrs` lista los atributos re-escritos**: si el shader escribe `P` hay que declarar
+  `outputattrs='P'` o falla con `'P' : undeclared identifier`. Y para atributos nuevos, Create
+  Attributes con `attr0name='custom'` (**lowercase**), `attr0customname='Cd'`, `attr0numcomps=4`.
+- **La secuencia `vec` arranca en `numBlocks=1`** [V]: para N>1 uniforms, subila primero por
+  `execute_code` (`glsl.par.vec.sequence.numBlocks = 3`). Y los **valores** `vecNvaluex` a veces **no**
+  los aplica `set_parameters` (quedan en 0.5 aunque responda ok) → escribilos por `execute_code` y
+  releélos.
+- **`TDPerlinNoise()` no existe en compute shaders** [V] (sí en TOP/MAT): para ruido, escribí un hash
+  + interpolación a mano, o pasá una textura por sampler. Un campo curl-noise entero se hace con
+  diferencias finitas de un potencial de ruido.
+- **Ruido/atributo vivo**: si `numPrims()==0` el nodo no dibuja por más que el shader corra. Después
+  del `glslPOP` el atributo debe conservar las **primitivas de punto** del input.
+- **DAT del shader**: el flujo que funcionó siempre con el MCP oficial fue **textDAT hermano** +
+  `language='glsl'` explícito + `par.computedat = op(...)`. El auto-dock de DATs del glslPOP no es
+  fiable entre builds: verificá con `get_operator_info` qué hijos quedaron realmente creados.
+- **Animar un uniform**: `par.vec0valuex.expr = 'absTime.seconds'` (expresión) y valores constantes
+  para lo que mueve el usuario. Para **verificar**, escaloná el valor a mano (`par.val = 0/3`) y
+  compará por `poptoCHOP` — el reloj maestro puede estar parado en remoto.
 
 ### glslPOP `vec` vs `const` Sequences
 

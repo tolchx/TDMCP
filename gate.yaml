@@ -1,0 +1,30 @@
+# gate.yaml — gemelo legible por máquina de loop-constraints.md.
+# Lo consume scripts/loop_gate.py para FRENAR un commit/push mecánicamente,
+# sin depender del criterio del agente que hizo el cambio.
+version: 1
+
+# Nunca tocar (si aparece en el diff, el gate bloquea, sin juicio humano de por medio).
+denylist:
+  - "component/*.tox"                  # el núcleo oficial de Derivative, viaja con su SHA-256
+  - "component/*.json"
+  - "knowledge/kb/**"                  # KB derivada, no versionada a propósito
+  - "**/secrets/**"
+  - "**/.env"
+  - "**/.env.*"
+  - "**/*_key*"
+  - "**/*_secret*"
+  - ".freebuff_tasks/sent/**"          # historial de briefs enviados
+  - ".freebuff_tasks/evidence/**"      # evidencia cruda local
+
+# Un cambio más grande que esto no se auto-publica: se escala.
+maxFiles: 12
+maxLines: 4000
+
+# Lo único que puede auto-publicarse sin mirar el diff.
+autoMergeAllowlist:
+  - "docs/**"
+  - "**/*.md"
+  - "tools/gauntlet/results/**"
+
+# El gate exige suites verdes antes de dejar pasar un commit.
+requireGreenTests: true

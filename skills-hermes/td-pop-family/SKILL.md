@@ -35,6 +35,30 @@ GPU-accelerated point operations. POPs replace SOPs for 3D geometry with massive
 5. Material: place MAT inside geometryCOMP, reference as `./mat_name`. See `td-mat-family` skill
 6. For instancing: see `td-geometry-instancing` skill
 
+### Verificado en vivo (2026-09-29): qué hace que un POP se DIBUJE
+
+Contratos probados contra TD 2025.32460 con evidencia numérica. Receta completa y gradables en la
+skill **`td-pop-render-pipeline`**; detalle en `knowledge/contracts/VERIFIED_CONTRACTS.md` (C2).
+
+- **Lo que dibuja son las PRIMITIVAS** — `spherePOP` con defaults = 252 pts / **500 prims**
+  (superficie, se ve como blob). Para partículas de verdad, dá a cada punto su primitiva de punto:
+  `convertPOP (convert='topointprims')` → 252 pts / **252 prims** y se dibuja como nube.
+  ⚠️ **`convert='deleteprims'` NO sirve para renderizar**: deja **0 prims** y el render sale
+  **negro** (medido: 0 px). `deleteprims` es para *quitar* primitivas, no para dibujar puntos.
+- **El `geometryCOMP` auto-crea un `torus1` que DIBUJA** (800 pts/800 prims). Si no lo borrás, el
+  `px>500` del render mide el torus, no tu cadena. Evidencia: en `/particle_swirl` apagar el flag
+  `render` del torus lleva el render de 81572 px a **0**. Ver `td-pop-render-pipeline`.
+- **La flag que dibuja es `render=true` en el TERMINAL del chain** (p. ej. el `nullPOP` de salida),
+  junto con `display=true`. Solo `display` no alcanza; `render=false` → render **negro**.
+- **El render no refleja cambios de datos** en remoto (uTime/uSwirl/radx): el `renderTOP` re-sube
+  geometría solo ante cambios de material o estructura. Verificá animación por `poptoCHOP`, no por
+  píxeles. Detalle en `td-live-verification`.
+- **Si el dibujo se wedgea** tras muchas iteraciones de rewire/flags sobre el mismo geometryCOMP
+  (datos correctos, 0 px) → reconstruí el chain/la red; el estado se cura con un build limpio.
+- **Python**: `numPoints`/`numPrims` son **método** en POPs (`null_out.numPoints()`) pero **propiedad
+  int** en SOPs (`tor1.numPoints`). Clases para `COMP.create()`: `spherePOP`, `convertPOP`,
+  `nullPOP`, `sphereSOP`, `convertSOP`, `constantMAT` (sin sufijo no existen).
+
 ## Feedback Simulation
 
 feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is automatic.
