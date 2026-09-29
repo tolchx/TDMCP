@@ -216,8 +216,11 @@ def sig_tests(full: bool) -> list[dict]:
     return out
 
 
-SIGNALS = [sig_dirty_tree, sig_queue_drift, sig_live_evidence_fail, sig_client_log,
+SIGNALS = [sig_dirty_tree, sig_queue_drift, sig_live_evidence_fail,
            sig_closed_without_live, sig_stale_briefs]
+# NOTA fork tolchx: sig_client_log quedó FUERA. El log `tdmcp-client.log` era del bridge
+# propio retirado (127.0.0.1:44444); el MCP oficial (13316) no escribe ese log, así que la
+# señal generaba candidatos falsos de "timeout" sobre un log congelado del sistema viejo.
 
 
 # ---------------------------------------------------------------------------
