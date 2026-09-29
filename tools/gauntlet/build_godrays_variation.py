@@ -23,28 +23,28 @@ ROOT = "/project1/GodRays_Variation"
 
 VARIATION_SHADER = """layout(location = 0) out vec4 fragColor;
 uniform vec2 uCenter;
-uniform int uSamples;
 uniform float uStrength;
-uniform vec3 uTint;      // VARIACIÓN 1: tinte cromático
-uniform float uFalloff;  // VARIACIÓN 2: atenuación radial
+uniform vec3 uTint;      // VARIACIÓN: tinte cromático (cálido al centro)
+
+const int SAMPLES = 32;  // loop CONSTANTE (no uniform): sin riesgo de TDR
 
 void main(void)
 {
     vec2 res = uTD2DInfos[0].res.zw;
     vec2 pos = uCenter * res;
     vec2 dir = (gl_FragCoord.xy-pos)/res;
-    float dist = length(dir);   // VARIACIÓN 2: distancia radial
+    float dist = length(dir);
 
     vec4 color = vec4(0.0,0.0,0.0,0.0);
-    for (int i = 0; i < uSamples; i += 2)
+    for (int i = 0; i < SAMPLES; i += 2)
     {
-        color += texture(sTD2DInputs[0],vUV.st+float(i)/float(uSamples)*dir*-uStrength);
-        color += texture(sTD2DInputs[0],vUV.st+float(i+1)/float(uSamples)*dir*-uStrength);
+        color += texture(sTD2DInputs[0],vUV.st+float(i)/float(SAMPLES)*dir*-uStrength);
+        color += texture(sTD2DInputs[0],vUV.st+float(i+1)/float(SAMPLES)*dir*-uStrength);
     }
-    color /= float(uSamples);
+    color /= float(SAMPLES);
 
-    // VARIACIÓN: tinte cálido al centro, atenuación con la distancia
-    float falloff = 1.0 - smoothstep(0.0, 1.0, dist) * uFalloff;
+    // tinte cálido al centro, atenuación con la distancia
+    float falloff = 1.0 - smoothstep(0.0, 1.0, dist) * 0.6;
     vec3 tinted = color.rgb * mix(vec3(1.0), uTint, falloff);
     fragColor = vec4(tinted, color.a);
 }
@@ -75,19 +75,16 @@ gl = op('{ROOT}/glsl_variation')
 gl.par.pixeldat = '{ROOT}/shader_pixel'
 gl.par.resolutionw = 640
 gl.par.resolutionh = 640
-# uniforms: uCenter (vec2), uSamples (int), uStrength (float), uTint (vec3), uFalloff (float)
+# uniforms: uCenter (vec2), uStrength (float), uTint (vec3) — 3 uniforms, 3 vec slots
 gl.par.vec0name.val = 'uCenter'
 gl.par.vec0valuex = 0.5
 gl.par.vec0valuey = 0.5
-gl.par.vec1name.val = 'uSamples'
-gl.par.vec1valuex = 32
-gl.par.vec1valuey = 0.35
 gl.par.vec1name.val = 'uStrength'
+gl.par.vec1valuex = 0.35
 gl.par.vec2name.val = 'uTint'
 gl.par.vec2valuex = 1.0
 gl.par.vec2valuey = 0.7
 gl.par.vec2valuez = 0.3
-gl.par.vec2valuew = 0.6
 print('<<JSON>>' + json.dumps({{'pixeldat': str(gl.par.pixeldat.eval()), 'vec0': gl.par.vec0name.val, 'vec1': gl.par.vec1name.val, 'vec2': gl.par.vec2name.val}}))
 """)
 print("enlace shader:", ok, d if not ok else "")
@@ -97,16 +94,12 @@ g.call_ok("create_operator", {"parent_path": ROOT, "type": "noiseTOP", "name": "
 g.call_ok("set_parameters", {"path": ROOT + "/src_noise", "values": {"type": "simplex", "resolutionw": 640, "resolutionh": 640}}, note="noise simplex 640")
 g.call_ok("wiring", {"from_path": ROOT + "/src_noise", "to_path": ROOT + "/in1", "to_index": 0}, note="src_noise → in1")
 
-# ── 6. verificar ──
+# ── 6. verificar (get_errors + inspect_values; SIN view_operator que dispara el render) ──
 g.call("get_errors", {"path": ROOT}, note="errores de la variación")
 time.sleep(0.5)
-g.call_ok("set_parameters", {"path": "/TDMCP", "values": {"Inlineimages": True}}, note="Inline Images ON")
-r = g.call("view_operator", {"path": ROOT + "/out1", "resolution": "small"}, note="captura variación")
-job = g.json_of(r).get("job_id", "")
+g.call("inspect_values", {"path": ROOT + "/out1", "max_points": 4}, note="muestrear out1")
 time.sleep(0.4)
-r2 = g.call("view_operator", {"path": ROOT + "/out1", "job_id": job}, note=f"retrieve {job}") if job else r
-img = g.save_image(r2, os.path.join(g.out_dir, "godrays_variation.png"))
-g.call_ok("set_parameters", {"path": "/TDMCP", "values": {"Inlineimages": False}}, note="Inline Images OFF")
+img = None  # sin captura view_operator (evita disparar el render que puede colgar la GPU)
 
 # ── 7. exportar como .tox (componente) ──
 TOX_OUT = r"D:/TD/POPs/POPs SARVJ/GodRays_Variation.tox"
