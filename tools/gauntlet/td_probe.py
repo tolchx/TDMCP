@@ -46,11 +46,11 @@ def set_and_verify(g, path: str, values: dict, label: str = ""):
     (la tool puede responder ok sin aplicarlos).
     """
     g.call_ok("set_parameters", {"path": path, "values": values}, note=label)
+    # UN solo print, al final: `exec_code` parsea lo que sigue al PRIMER marcador.
     code = ("import json\no = op(%r)\nv = {}\nfor n in %r:\n"
             "    try:\n        v[n] = o.par[n].eval()\n"
             "    except Exception:\n        v[n] = 'ERR'\n"
             "print('<<JSON>>' + json.dumps(v))\n") % (path, list(values))
-    # UN solo print al final: `exec_code` parsea lo que sigue al PRIMER marcador.
     ok, got = g.exec_code(code)
     got = got if ok else {}
     bad = {}

@@ -16,13 +16,13 @@ OWNERS = {"td_chain.py", "td_probe.py"}
 RE_DEF = re.compile(r"\s*def (settle|px|render_is_ours)\s*\(")
 
 
-def violations(folder: str = HERE) -> list:
+def violations() -> list:
     """[(archivo, línea, texto)] de los consumidores que redefinen la medición."""
     out = []
-    for fn in sorted(os.listdir(folder)):
+    for fn in sorted(os.listdir(HERE)):
         if not fn.endswith(".py") or fn in OWNERS:
             continue
-        with open(os.path.join(folder, fn), encoding="utf-8") as f:
+        with open(os.path.join(HERE, fn), encoding="utf-8") as f:
             for i, line in enumerate(f, 1):
                 if RE_DEF.match(line):
                     out.append((fn, i, line.strip()))
