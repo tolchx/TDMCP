@@ -279,3 +279,26 @@ doc "de memoria" dice mal y lo que el `get_help` del build vivo devuelve:
 - **`set_parameters`** del MCP usa la clave **`values`** (no `params`).
 - **`view_operator` async**: primera llamada devuelve `{status: capturing, job_id, waitTime}`;
   la imagen se recupera con una segunda llamada `view_operator {path, job_id}` (sleep ~0.4s).
+
+---
+
+## C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29
+
+**Síntoma:** diálogo *"Vulkan Device Error"* → *"Fatal Error"* → TD se cierra y auto-guarda
+`CrashAutoSave...toe`. El MCP deja de responder (connection refused) porque **TD se crasheó**, no
+por el `.tox`.
+
+**Causa:** TDR (Timeout Detection and Recovery) de Windows — un shader GLSL tardó más de lo que
+el driver tolera y Windows mató el contexto Vulkan. Disparado por el fluid solver "Low
+Performances" de SARVJ: `glsl_addForces` (vorticidad ∇×u + gradiente |ω| + flotabilidad + no-slip
+BC) se calcula en **cada punto de la grilla R³**, y la presión se resuelve con Jacobi iterativo.
+Apilar un render más (God Rays + variación) sobre el mismo render pesado lo empujó al límite.
+
+**Mitigación (en orden):**
+1. Subir `TdrDelay` (registro): `reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay /t REG_DWORD /d 60 /f` (+ reiniciar).
+2. Bajar `SimRes` de la grilla (cada voxel extra = un punto más que cocina el shader de fuerzas).
+3. No apilar pases de post (God Rays + variaciones) sobre el render del solver al mismo tiempo.
+
+**Lección para el loop:** un "connection refused" del MCP ≠ `.tox` inactivo. Antes de pedirle al
+usuario que toquee el toggle, revisar si TD se crasheó (diálogo Vulkan/Fatal Error) o si hay un
+`CrashAutoSave.*.toe` recién escrito en la carpeta del proyecto.

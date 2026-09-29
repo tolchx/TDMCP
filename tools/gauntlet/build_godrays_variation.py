@@ -92,8 +92,10 @@ print('<<JSON>>' + json.dumps({{'pixeldat': str(gl.par.pixeldat.eval()), 'vec0':
 """)
 print("enlace shader:", ok, d if not ok else "")
 
-# ── 5. cablear al render del fluid solver ──
-g.call_ok("wiring", {"from_path": "/project1/render1", "to_path": ROOT + "/in1", "to_index": 0}, note="render1 → variación")
+# ── 5. fuente propia (no depender de render1: evita re-disparar el TDR del solver) ──
+g.call_ok("create_operator", {"parent_path": ROOT, "type": "noiseTOP", "name": "src_noise"}, note="fuente ligera standalone")
+g.call_ok("set_parameters", {"path": ROOT + "/src_noise", "values": {"type": "simplex", "resolutionw": 640, "resolutionh": 640}}, note="noise simplex 640")
+g.call_ok("wiring", {"from_path": ROOT + "/src_noise", "to_path": ROOT + "/in1", "to_index": 0}, note="src_noise → in1")
 
 # ── 6. verificar ──
 g.call("get_errors", {"path": ROOT}, note="errores de la variación")
@@ -106,9 +108,20 @@ r2 = g.call("view_operator", {"path": ROOT + "/out1", "job_id": job}, note=f"ret
 img = g.save_image(r2, os.path.join(g.out_dir, "godrays_variation.png"))
 g.call_ok("set_parameters", {"path": "/TDMCP", "values": {"Inlineimages": False}}, note="Inline Images OFF")
 
+# ── 7. exportar como .tox (componente) ──
+TOX_OUT = r"D:/TD/POPs/POPs SARVJ/GodRays_Variation.tox"
+ok_tox, d_tox = g.exec_code(f"""
+import json
+op('{ROOT}').save('{TOX_OUT}')
+import os
+print('<<JSON>>' + json.dumps({{'saved': os.path.isfile('{TOX_OUT}'), 'path': '{TOX_OUT}'}}))
+""")
+g.check("variación exportada a .tox", ok_tox and d_tox.get("saved"), json.dumps(d_tox, ensure_ascii=False)[:200])
+
 report = {"ok": len(g.failures) == 0, "failures": g.failures, "png": bool(img),
+          "tox": TOX_OUT if (ok_tox and d_tox.get("saved")) else None,
           "shader": VARIATION_SHADER, "tools": [l["tool"] for l in g.log]}
 with open(os.path.join(g.out_dir, "build-godrays-variation-report.json"), "w", encoding="utf-8") as f:
     json.dump(report, f, ensure_ascii=False, indent=2)
 print("\n=== VARIACIÓN ===")
-print("ok:", report["ok"], "| PNG:", report["png"], "| failures:", g.failures)
+print("ok:", report["ok"], "| PNG:", report["png"], "| .tox:", report["tox"], "| failures:", g.failures)

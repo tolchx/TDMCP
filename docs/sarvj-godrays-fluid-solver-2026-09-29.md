@@ -79,3 +79,18 @@ Engine (POPs only)`, `Skin Your Trails`, `post-rendered Lens Flare`, `GOD RAYS F
 
 `tools/gauntlet/results/shader_study/*.glsl` — copia local de los 12 shaders del solver +
 `god_rays_pixel` + `voxel_glsl_grille` para variación fuera de TD.
+
+## 6. Crash TDR registrado (2026-09-29)
+
+Al cablear la variación de God Rays sobre el render del solver, TD crasheó con **"Vulkan
+Device Error"** (TDR de GPU) y auto-guardó `CrashAutoSave...10.toe`. El proyecto se llama
+*"Low Performances"* por algo: el `glsl_addForces` (vorticidad + flotabilidad + no-slip) se
+cocina por voxel y la presión usa Jacobi iterativo. Ver **contrato C7** en
+`knowledge/contracts/VERIFIED_CONTRACTS.md` para la mitigación (TdrDelay, bajar SimRes, no
+apilar pases de post).
+
+## 7. Variación exportable
+
+`tools/gauntlet/build_godrays_variation.py` reconstruye `/project1/GodRays_Variation`
+(fuente `src_noise` propia, no depende del render pesado) y la exporta a
+`D:/TD/POPs/POPs SARVJ/GodRays_Variation.tox`.
