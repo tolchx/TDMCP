@@ -14,11 +14,8 @@ CPU). Contratos verificados en sondas 2026-09-28:
 """
 import json, os, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
-KB_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "knowledge"))
 sys.path.insert(0, HERE)
-sys.path.insert(0, KB_DIR)
 from gauntlet_client import Gauntlet
-import server as kb  # td-knowledge: las MISMAS funciones que sirve el MCP por stdio
 
 g = Gauntlet("f3-n6-glsl-pop")
 
@@ -40,26 +37,9 @@ void main()
 }
 """
 
-def kb_call(tool, args):
-    """Corre una tool de td-knowledge en el mismo proceso y la deja en el log."""
-    t0 = time.time()
-    try:
-        fn = getattr(kb, "t_" + tool)
-        r = fn(args)
-    except Exception as e:
-        r = {"error": f"{type(e).__name__}: {e}"}
-    entry = {"tool": f"td-knowledge:{tool}", "args": args,
-             "ms": round((time.time() - t0) * 1000, 1),
-             "note": "offline (sin TD)", "response": json.dumps(r, ensure_ascii=False)[:4000]}
-    g.log.append(entry)
-    with open(g.log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    print(f"  [kb ] {tool:<24} {entry['ms']:>6} ms  (offline)")
-    return r
-
 # ══ PARTE A: conocimiento offline ═══════════════════════════════════════
 print("  -- Parte A: glsl_analyze (offline, sin TD) --")
-bad = kb_call("glsl_analyze", {"code": BAD, "family": "pop"})
+bad = g.offline("glsl_analyze", {"code": BAD, "family": "pop"})
 g.check("analyzer rechaza el shader malo", bad.get("ok") is False, json.dumps(bad)[:200])
 g.check("detecta R2 sin TDIndex", any("R2" in e.get("regla", "") and "TDIndex" in e.get("mensaje", "")
                                       for e in bad.get("errores", [])), json.dumps(bad.get("errores"))[:250])
@@ -68,7 +48,7 @@ g.check("detecta R2 guarda de rango", any("R2" in e.get("regla", "") and "guarda
 g.check("detecta R4 (P leida y escrita)", any("R4" in e.get("regla", "")
                                               for e in bad.get("errores", [])), json.dumps(bad.get("errores"))[:250])
 
-good = kb_call("glsl_analyze", {"code": GOOD, "family": "pop"})
+good = g.offline("glsl_analyze", {"code": GOOD, "family": "pop"})
 g.check("analyzer acepta el shader bueno", good.get("ok") is True, json.dumps(good)[:250])
 g.check("sin errores en el bueno", not good.get("errores"), json.dumps(good.get("errores"))[:200])
 

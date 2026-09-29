@@ -8,6 +8,7 @@ knowledge/live.py para execute_code.
 from __future__ import annotations
 
 import base64
+import importlib.util
 import json
 import os
 import sys
@@ -20,6 +21,20 @@ TIMEOUT = float(os.environ.get("TDMCP_TIMEOUT", "120"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.join(HERE, "results")
 MARK = "<<JSON>>"
+
+_KNOWLEDGE = None
+
+
+def _knowledge():
+    """Carga knowledge/server.py por ruta (cacheado): las mismas funciones que sirve el MCP."""
+    global _KNOWLEDGE
+    if _KNOWLEDGE is None:
+        path = os.path.normpath(os.path.join(HERE, "..", "..", "knowledge", "server.py"))
+        spec = importlib.util.spec_from_file_location("td_knowledge_server", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _KNOWLEDGE = mod
+    return _KNOWLEDGE
 
 VERSION_ASSERT = "1.1.55"
 TOOLS_EXPECTED = 26
@@ -84,14 +99,33 @@ class Gauntlet:
         r = self._post({"jsonrpc": "2.0", "id": self._seq, "method": "tools/call",
                         "params": {"name": tool, "arguments": args or {}}}, timeout)
         ms = round((time.time() - t0) * 1000, 1)
-        entry = {"tool": tool, "args": args or {}, "ms": ms, "note": note,
-                 "response": self.text_of(r)[:4000]}
-        self.log.append(entry)
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        self._log({"tool": tool, "args": args or {}, "ms": ms, "note": note,
+                   "response": self.text_of(r)[:4000]})
         if not quiet:
             flag = "ERR" if self.is_err(r) else "ok "
             print(f"  [{flag}] {tool:<24} {ms:>7} ms  {note}")
+        return r
+
+    def _log(self, entry: dict) -> None:
+        """Registra una llamada (MCP u offline) en memoria y en el .jsonl de la fase."""
+        self.log.append(entry)
+        with open(self.log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    def offline(self, tool: str, args: dict | None = None, note: str = "offline (sin TD)") -> dict:
+        """Corre una tool de td-knowledge en este proceso (sin TD) y la registra como una más.
+
+        Es el ÚNICO wrapper del conocimiento offline: los scripts no copian el suyo.
+        """
+        t0 = time.time()
+        try:
+            r = getattr(_knowledge(), "t_" + tool)(args or {})
+        except Exception as e:
+            r = {"error": f"{type(e).__name__}: {e}"}
+        ms = round((time.time() - t0) * 1000, 1)
+        self._log({"tool": f"td-knowledge:{tool}", "args": args or {}, "ms": ms,
+                   "note": note, "response": json.dumps(r, ensure_ascii=False)[:4000]})
+        print(f"  [kb ] {tool:<24} {ms:>6} ms  ({note})")
         return r
 
     def call_ok(self, tool: str, args: dict | None = None, note: str = "",

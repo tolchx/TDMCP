@@ -38,6 +38,15 @@ def settle(n=4):
 parámetrizalo o cociná **su** cadena. Medido: togglear `torus1.render` en `/particle_swirl` sin
 cocinar la cadena de swirl no cambió nada (frame cacheado); al cocinarla, cayó a 0.
 
+⚠️ **Y no copies este `settle()`: la medición tiene un solo dueño.** Ya hubo tres copias del wrapper
+en el repo del gauntlet. El dueño es `tools/gauntlet/td_chain.py` — el programa que se **inyecta** en
+TD con `td_probe.chain_source(root)`: `settle()`, `px()` y `render_is_ours()` atados a *esa* red (y
+`selftest_render_ownership()` para probar que la guardia **puede fallar**). Los consumidores llaman a
+esos helpers en vez de re-implementarlos: `python tools/gauntlet/check_single_home.py` convierte la
+regla en algo ejecutable (exit 1 si alguien re-define `settle`/`px`/`render_is_ours`). Verificado
+2026-09-29: 0 violaciones, `python tools/gauntlet/td_probe.py` 5/5 y suite completa PASS
+(`results/20260929-032041`).
+
 Después de **cada** write relevante: `settle()` y recién ahí leer. Si dos lecturas seguidas no
 coinciden, faltan cooks (no "es aleatorio").
 

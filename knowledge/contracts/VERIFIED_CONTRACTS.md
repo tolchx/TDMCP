@@ -13,6 +13,18 @@ de `td-knowledge` y de la que se nutren las skills `td-*`.
 > `numBlocks`/docks perezosos, y la ampliación de `set_parameters` a los `vecNvaluex`.
 > Runs (0 fallos): `/curl_field` `results/20260929-025128` · `/particle_swirl` (arreglada)
 > `results/20260929-025059`.
+>
+> **2026-09-29 (pase 3):** C4 suma que un arg mal nombrado se ignora en silencio
+> (`list_operators` quiere `path`, no `parent_path` → default `/project1`). Runs 0 fallos:
+> `results/20260929-030521` (swirl) · `results/20260929-030548` (curl) ·
+> `results/20260929-030806` (regresión) · `results/20260929-030833` (F3.6).
+>
+> **2026-09-29 (ciclo diario):** re-verificado en vivo el arg mal nombrado (`parent_path` →
+> `Path not found: /project1`; `path` → 7 ops en `/curl_field`) y fijada la regla del **único dueño de
+> la medición**: el programa inyectado `tools/gauntlet/td_chain.py` (vía `td_probe.chain_source(root)`)
+> y el wrapper `Gauntlet.offline()`; ejecutable con `tools/gauntlet/check_single_home.py` (0
+> violaciones) y `python tools/gauntlet/td_probe.py` (5/5). Suite completa PASS
+> (`results/20260929-032041`).
 
 ---
 
@@ -207,6 +219,11 @@ pantalla). Moraleja: si tus "puntos" se ven como una pelotita de 2 px, subí **`
   `vecNvaluex` del `glslPOP`** (quería `uAmount=0.9`/`uScale=1.6`; quedaron en **0.5/0.5**, la tool
   respondió ok). Ojo: el `vecNname` **sí** aplica por `set_parameters`; los **valores** no. **Regla:
   tras cualquier write, releer y, si no cambió, escribir por `execute_code`** [V].
+- **Un arg con nombre equivocado se ignora en silencio.** `list_operators` toma **`path`** (no
+  `parent_path`, que es el nombre en `create_operator`/`build_network`/`annotation`): el nombre
+  equivocado NO da error, la tool cae a su default **`/project1`** y contesta `Path not found:
+  /project1` [V]. Si una tool falla con una ruta que vos no pediste, sospechá del nombre del arg;
+  `tools/list` da el `inputSchema` real de cada tool.
 - **`build_particle_fx`/scripts propios**: si un script de build no tiene `if __name__ ==
   '__main__'`, importarlo **ejecuta el build entero** (y su `sys.exit()` mata al importador).
 - **`annotation`** crea con `comment` (no `text`); **`edit_custom_parameters`** usa

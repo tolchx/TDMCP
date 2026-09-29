@@ -25,12 +25,9 @@ Re-ejecutable: borra /curl_field al empezar. Deja la red DE PIE.
 import json, os, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-KB_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "knowledge"))
 sys.path.insert(0, HERE)
-sys.path.insert(0, KB_DIR)
 from gauntlet_client import Gauntlet
 from td_probe import chain_source, png_stats, selftest_render_ownership, set_and_verify
-import server as kb
 
 ROOT = "/curl_field"
 
@@ -116,26 +113,10 @@ def find(kind, area, symptom, recipe_says, reality, fixed=""):
     return f
 
 
-def kb_call(tool, args):
-    t0 = time.time()
-    try:
-        r = getattr(kb, "t_" + tool)(args)
-    except Exception as e:
-        r = {"error": f"{type(e).__name__}: {e}"}
-    entry = {"tool": f"td-knowledge:{tool}", "args": args,
-             "ms": round((time.time() - t0) * 1000, 1), "note": "offline",
-             "response": json.dumps(r, ensure_ascii=False)[:4000]}
-    g.log.append(entry)
-    with open(g.log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    print(f"  [kb ] {tool:<14} {entry['ms']:>6} ms  (offline)")
-    return r
-
-
 def main():
     # ══ 0. conocimiento offline: validar el shader ANTES de tocar TD ═══
     print("== 0. glsl_analyze (offline, la receta lo exige primero) ==")
-    an = kb_call("glsl_analyze", {"code": SHADER, "family": "pop"})
+    an = g.offline("glsl_analyze", {"code": SHADER, "family": "pop"})
     g.check("shader pasa R1-R4 sin errores", an.get("ok") is True, json.dumps(an.get("errores"))[:400])
     r3 = next((n for n in an.get("notas", []) if isinstance(n, dict) and n.get("attr") == "Cd"), None)
     params_r3 = dict((r3 or {}).get("parametros", {}))
