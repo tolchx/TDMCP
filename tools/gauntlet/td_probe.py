@@ -16,7 +16,10 @@ Los scripts de build importan de acá en vez de copiar sus propias versiones.
 """
 from __future__ import annotations
 
+import contextlib
 import inspect
+import io
+import json
 from types import SimpleNamespace
 
 import td_chain
@@ -195,20 +198,29 @@ def _selftest_local() -> int:
     results.append(("chain_source mantiene válido un root con comilla",
                     chain_source("a'b").startswith('ROOT = "a\'b"')))
 
-    # un marcador por read-back: dos claves, un print (si no, `exec_code` no lo puede parsear)
-    seen = {}
+    # `set_and_verify` de punta a punta sin TD, con el cliente de mentira que parsea la
+    # salida igual que `exec_code`: un read-back que imprime de más tiene que caer acá.
+    vals = {"radx": 1.5, "rady": 1.5}
 
-    class _MarkerG:
+    class _Op:
+        par = {k: SimpleNamespace(eval=lambda v=v: v) for k, v in vals.items()}
+
+    class _ReadG:
         def call_ok(self, *a, **k):
             pass
 
         def exec_code(self, code):
-            seen["marks"] = code.count(MARK)
-            return True, {}
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                exec(code, {"op": lambda p: _Op()})
+            out = buf.getvalue()
+            marks = out.count(MARK)
+            got = json.loads(out.split(MARK, 1)[1].strip()) if marks else {}
+            return marks == 1, got
 
-    set_and_verify(_MarkerG(), "/x", {"radx": 1.5, "rady": 1.5})
-    results.append(("set_and_verify emite UN marcador por relectura",
-                    seen.get("marks") == 1))
+    bad, got = set_and_verify(_ReadG(), "/x", vals)
+    results.append(("set_and_verify relee lo escrito (un solo marcador)",
+                    got == vals and not bad))
 
     real_px, real_settle = td_chain.px, td_chain.settle
     td_chain.settle = lambda *a, **k: None          # sin TD no hay nada que asentar
