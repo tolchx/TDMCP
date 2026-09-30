@@ -602,16 +602,36 @@ Medido en `/pop_color_trails_attr` (2026-09-29 noche, 13/13):
 - El poptoCHOP no expone el Color recién creado EN el nodo que lo crea: aparece **aguas
   abajo** (trail/topoints) — medir el terminal, no el creador.
 
-### `rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V*]
-Cierre del hueco que dejó attributePOP (4 sondas sobre `/pop_color_trails_attr`, 2026-09-30):
+### `rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V] (CERRADO, proyecto 8)
+Cierre del hueco que dejó attributePOP (4 sondas sobre `/pop_color_trails_attr`, 2026-09-30;
+**CERRADO a [V]** en `/pop_field_trails` 16/16, run 20260930-033443):
 - **`rerangePOP` SÍ mapea atributo→atributo por punto**: `inputattrscope='PartVel'` +
   `outputattrscope='Color'` → el Color de salida ESPEJA PartVel (uniq 20, min/max idénticos,
   copia identidad con rangos default [0,1]→[0,1]) y crea el atributo él mismo.
-- Los rangos `fromlow/high_i → tolow/high_i` **aplican** a la componente 0 (verificado:
-  `from=[-6,0]→to=[0,1]` con PartVel_0=0 da `Color_0=1.0` = `(0+6)/6`), pero la
-  correspondencia **par↔componente con `parsize=3` NO es la ingenua**: comp 1 quedó espejo
-  (sin mapear) y comp 2 → 0 con los mismos rangos escritos y read-back ok — semántica
-  multi-componente **(abierto)**. Para color por velocidad fiable sin glsl HOY: usar el
-  rerangePOP como copia identidad (color = vector velocidad, material blanco) o glslPOP (C11).
+- **El rango escalar aplica a TODAS las componentes** [V, proyecto 8]: NoiseGradient→Color con
+  `from=[-0.5,0.5] → to=[0,1]` dio **corr(NoiseGradient_i, Color_i) = 1.0 exacta en las 3**
+  componentes y salida = entrada + 0.5 TÉRMINO A TÉRMINO (spans idénticos desplazados) —
+  mapeo lineal perfecto y uniforme, que es lo que el color necesita. (Queda abierto SOLO el
+  caso de rangos DISTINTOS por componente con `parsize>1`.)
+- Receta sin glsl: attributePOP CREA el attr (constante) y rerangePOP lo PUEBLA por punto;
+  material BLANCO (multiplica el Color).
 - `lookupchannelPOP` NO es el mapeador: su input es un CHOP (lookup index→canales de un CHOP),
   no atributo→atributo de un POP.
+
+---
+
+## C14 — Campo de estelas sin glsl (medido en `/pop_field_trails`, 2026-09-30, 16/16)
+
+### `noise_gradient_attr` — el noisePOP expone el campo vectorial por punto [V]
+`gradient=True` escribe `NoiseGradient_0..3` (spans ±2.5 con amp 0.4); `curl2d` escribe
+`NoiseCurl2_0/1`; el modo noise plano NO escribe attrs nuevos. Ese vector es la "velocidad" de
+un campo SIN simulación — la que se colorea y rutea sin glsl. Detectado por canales del
+poptoCHOP (los attrs de un POP no se enumeran con `pointAttrs`: td.Par no lo expone).
+
+### `td_slow_operation` — TD rechaza llamadas mientras se recupera [V]
+Operaciones pesadas repetidas dentro de UNA `execute_code` (loops de settle + sleeps) agotan a
+TD: responde "TouchDesigner is recovering from a slow operation. Wait 1.0s, then retry this
+exact call" y falla TODA la cola en cascada. Reglas del build: calentamientos suaves (settle +
+un sleep por llamada), y la guardia de propiedad del render AL FINAL de la corrida —
+`render_cache_vs_data` hizo que el primer `numpyArray()` tras el rebind de cámara leyera 0
+aunque `view_operator` veía contenido segundos después.

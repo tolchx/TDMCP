@@ -34,6 +34,7 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | **`build_pop_color_trails.py`** (proyecto F: estelas con color por velocidad) | `results/20260929-225109` — 14/14 cheks, 0 fallos, PNG 338 px → contratos C11 |
 | **`build_pop_color_trails_attr.py`** (proyecto F-var: attributePOP sin glsl) | `results/20260929-232452` — 13/13 cheks, 0 fallos, PNG 638 px verde — `attributePOP_no_mapea` (C11): attr constante sí, dup/ren no mapean |
 | **`build_pop_trails_floor.py`** (proyecto G: dardos apuntando según PartVel, coloreados por velocidad, iluminando el piso) | `results/20260930-030437` — 16/16 cheks, 0 fallos, PNG 13851 px — Euler del glslPOP verificados vs numpy (maxdiff 0.0) + `instancer_euler_xz`, `glslpop_custom_attr`, `curl_no_partvel`, `px_ciego_a_rotacion` (addendum C12) |
+| **`build_pop_field_trails.py`** (proyecto 8: campo de estelas DIRECTO coloreado por NoiseGradient con attributePOP+rerangePOP — cero glsl, cero convertPOP) | `results/20260930-033443` — 16/16 cheks, 0 fallos, PNG 2413 px — corr(NoiseGradient_i, Color_i)=1.0 cierra C11; `noise_gradient_attr` + `td_slow_operation` (C14); `rerangePOP_mapea` cerrado a [V] |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
 
@@ -100,6 +101,14 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   **C12** (`instancing_pop_crosscomp`, `instancecolormode_menu`, guardias multi-geometry) +
   addendum de flechas (`instancer_euler_xz`, `glslpop_custom_attr`, `curl_no_partvel`,
   `px_ciego_a_rotacion`).
+- **`/pop_field_trails`** ([build_pop_field_trails.py](../tools/gauntlet/build_pop_field_trails.py),
+  2026-09-30): **campo de estelas directo sin glsl ni convertPOP** (proyecto 8, 16/16) —
+  toro→sprinkle→noisePOP(simplex4d + `gradient=True`: escribe NoiseGradient_0..3, el vector
+  del campo por punto)→attributePOP (crea Color)→**rerangePOP** (NoiseGradient→Color,
+  corr = 1.0 por componente, cierre de C11)→trailPOP **directo** (`surftype='points'` + flags
+  en el propio trail, sin convertPOP — C8). Animación por t4d escalonado (C9); las estelas
+  acumulan el historial del campo (uniq de P_0 crece). Contratos **C14**
+  (`noise_gradient_attr`, `td_slow_operation`) + `rerangePOP_mapea` cerrado a [V].
 - Recetas reutilizables (estelas y campo 4D, con sus pitfalls) documentadas como skill
   **`td-pop-trails-fields`** en `skills-hermes/` (referenciada por `td-pop-family` y
   `td-pop-render-pipeline`).
@@ -148,3 +157,12 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   Sin verificación en vivo de nada (suite TD no corrida: escritor vivo en el mismo TouchDesigner +
   sandboxes de nombre fijo `/gauntlet_smoke`, `/gauntlet_core`). Evidencia completa:
   `docs/loop-run-2026-09-30.md`.
+
+- [ ] 5. **Cobertura POP en vivo: 15 de 101 tipos ejercitados — los otros 87 no tienen una sola medición.**
+  Brief `05_cobertura_pop_en_vivo.txt` (cola del 2026-09-30, pedido de Tolch: "pruebas dentro de TD usando
+  POPs y documentar"). Medido: los 8 proyectos de `tools/gauntlet/regression_pop.py` usan 15 tipos POP
+  (attribute, box, circle, convert, forceradial, glsl, grid, noise, null, particle, rerange, sphere,
+  sprinkle, torus, trail) sobre los 101 del build (`knowledge/kb/pops/operators/`). Qué hacer: 6 tipos
+  nuevos (mínimo 4) con red viva + script versionado + checks medidos, sumados a la batería; contratos
+  C15+ en `VERIFIED_CONTRACTS.md` y fila en *Estado verificado*. Un escritor por archivo: el Paso 0 del
+  brief es cerrar el WIP verde de la sesión anterior antes de abrir cobertura nueva.

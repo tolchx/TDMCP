@@ -1,6 +1,6 @@
 ---
 name: td-pop-trails-fields
-description: "Use when building motion trails (trailPOP), particle sims with feedback (particlePOP), speed-colored trails (glslPOP Color) or animated 4D noise fields (t4d). Recetas verificadas de /pop_streams, /pop_field, /pop_sim_trails y /pop_color_trails: cadena, parámetros reales del build y pitfalls de medición."
+description: "Use when building motion trails (trailPOP), particle sims with feedback (particlePOP), speed-colored trails (glslPOP Color or attributePOP+rerangePOP without shaders) or animated 4D noise fields (t4d). Recetas verificadas de /pop_streams, /pop_field, /pop_sim_trails, /pop_color_trails y /pop_field_trails: cadena, parámetros reales del build y pitfalls de medición."
 ---
 
 > **Adaptación Hermes.** Estas skills son del repo oficial `TouchDesigner/TDMCPSkills`
@@ -10,9 +10,10 @@ description: "Use when building motion trails (trailPOP), particle sims with fee
 > aparecen en el texto son de Claude Code/Codex: traducilos con ese prefijo.
 > Cargá **`td-general` primero** en cualquier tarea de TouchDesigner.
 
-> **Verificado en vivo (2026-09-29/30, TD 2025.32460 + TDMCP 1.1.55).** Recetas extraídas de cuatro
+> **Verificado en vivo (2026-09-29/30, TD 2025.32460 + TDMCP 1.1.55).** Recetas extraídas de cinco
 > redes construidas y verificadas en frío: **`/pop_streams`** (estelas), **`/pop_field`** (campo 4D),
-> **`/pop_sim_trails`** (simulación + estelas) y **`/pop_color_trails`** (color por velocidad).
+> **`/pop_sim_trails`** (simulación + estelas), **`/pop_color_trails`** (color por velocidad) y
+> **`/pop_field_trails`** (campo de estelas directo sin glsl, proyecto 8).
 > Qué corrida verificó cada una: `docs/BACKLOG.md → Estado verificado` (dueño único).
 > Contratos completos con evidencia: **C8–C11** de `knowledge/contracts/VERIFIED_CONTRACTS.md`
 > (tool offline `contracts`). La estructura de render (geometryCOMP, auto-torus, flags del
@@ -103,15 +104,31 @@ Consecuencias medidas:
 > diferenciales back-to-back (set → medir → restaurar dentro del mismo experimento), no conteos
 > absolutos.
 
-### Color por velocidad SIN glsl: attributePOP + rerangePOP (2026-09-30)
+### Color por velocidad SIN glsl: attributePOP + rerangePOP (2026-09-30, cerrado con proyecto 8 [V])
 El hueco del attributePOP (crea `Color` constante pero `dup`/`ren` no mapean) se cierra con
-**rerangePOP** como mapeador atributo→atributo: `inputattrscope='PartVel'` +
-`outputattrscope='Color'` (el atributo lo puede crear un attributePOP aguas arriba o el propio
-rerange). Verificado: el Color de salida ESPEJA PartVel por punto (copia identidad con rangos
-default). Los pares de re-rango `fromlow_i/high_i → tolow_i/high_i` aplican a la componente 0;
-la semántica multi-componente (`parsize=3`) es distinta de la ingenua y quedó **abierta**.
-`lookupchannelPOP` NO sirve para esto (su input es un CHOP). Detalle y evidencia: C11 en
-`knowledge/contracts/VERIFIED_CONTRACTS.md`.
+**rerangePOP** como mapeador atributo→atributo: `inputattrscope` + `outputattrscope` (el
+atributo lo puede crear un attributePOP aguas arriba o el propio rerange). Verificado dos veces:
+el Color de salida ESPEJA el atributo de entrada por punto, y con rangos `from=[-0.5,0.5] →
+to=[0,1]` la salida es **entrada + 0.5 término a término** — corr(N_i, C_i) = 1.0 en las 3
+componentes. El rango escalar aplica a TODAS las componentes (sólo queda abierto el caso de
+rangos DISTINTOS por componente con `parsize>1`). `lookupchannelPOP` NO sirve para esto (su
+input es un CHOP). Detalle y evidencia: C11 + C14 en `knowledge/contracts/VERIFIED_CONTRACTS.md`.
+
+### Receta E — campo de estelas CERO glsl, CERO convertPOP (proyecto 8 [V])
+```
+toro(r=2.2, tubo scale 0.55) → sprinkle(3000) → noisePOP(simplex4d + gradient=True)
+  → attributePOP(crea Color float4) → rerangePOP(NoiseGradient→Color) → trailPOP DIRECTO
+```
+- **`noisePOP.gradient=True` escribe `NoiseGradient_0..3`** (el vector del campo por punto =
+  la "velocidad" sin sim); `curl2d` escribe `NoiseCurl2_0/1`; el modo noise plano no escribe
+  nada. Los attrs de un POP no se enumeran con `pointAttrs` — se ven por canales del poptoCHOP.
+- El trail directo: `tr.par.surftype='points'` + flags `display`/`render` en el propio trail
+  (C8: `numPrims()==numPoints()` 1:1).
+- La animación va por `t4d` escalonado a mano (C9): las estelas acumulan el historial del campo
+  (el uniq de P_0 crece al escalonar).
+- Guardia de render AL FINAL de la corrida y calentamientos suaves: los loops de settle+sleep
+  dentro de una llamada agotan a TD (`td_slow_operation`, C14) y tras un rebind de cámara el
+  primer `numpyArray()` puede leer 0 aunque `view_operator` vea contenido (`render_cache_vs_data`).
 
 ### Variante corta: el trail renderiza solo con surftype='points' (head-to-head [V])
 Para estelas puras podés ahorrar el `convertPOP`: `tr.par.surftype = 'points'` + flags
@@ -134,6 +151,7 @@ sólo aplica al default 1.0 — con `pointsize>=2` el look directo es equivalent
 deja de ser necesaria para estelas puras.
 
 ## Receta B — campo 4D animado SIN simulación
+
 
 Cadena:
 

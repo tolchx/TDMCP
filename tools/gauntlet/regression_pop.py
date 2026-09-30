@@ -23,6 +23,7 @@ BATERIA = [
     ("build_pop_color_trails.py", "proyecto F: color por velocidad (/pop_color_trails)"),
     ("build_pop_color_trails_attr.py", "proyecto F-var: attributePOP sin glsl (/pop_color_trails_attr)"),
     ("build_pop_trails_floor.py", "proyecto G: dardos orientados por PartVel iluminando el piso (/pop_trails_floor)"),
+    ("build_pop_field_trails.py", "proyecto 8: campo de estelas directo sin glsl ni convertPOP (/pop_field_trails)"),
     ("build_monitor_pop.py", "monitor GPU: heatmap de P.y sobre la nube (/pop_sim_trails)"),
 ]
 
