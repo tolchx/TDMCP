@@ -1,6 +1,6 @@
 ---
 name: td-pop-trails-fields
-description: "Use when building motion trails (trailPOP) or animated 4D noise fields (noisePOP t4d) over POPs. Recetas verificadas de /pop_streams y /pop_field: cadena, parámetros reales del build y pitfalls de medición."
+description: "Use when building motion trails (trailPOP), particle sims with feedback (particlePOP), speed-colored trails (glslPOP Color) or animated 4D noise fields (t4d). Recetas verificadas de /pop_streams, /pop_field, /pop_sim_trails y /pop_color_trails: cadena, parámetros reales del build y pitfalls de medición."
 ---
 
 > **Adaptación Hermes.** Estas skills son del repo oficial `TouchDesigner/TDMCPSkills`
@@ -10,19 +10,22 @@ description: "Use when building motion trails (trailPOP) or animated 4D noise fi
 > aparecen en el texto son de Claude Code/Codex: traducilos con ese prefijo.
 > Cargá **`td-general` primero** en cualquier tarea de TouchDesigner.
 
-> **Verificado en vivo (2026-09-29, TD 2025.32460 + TDMCP 1.1.55).** Recetas extraídas de dos
-> redes construidas y verificadas en frío: **`/pop_streams`** (estelas) y **`/pop_field`**
-> (campo 4D). Qué corrida verificó cada una: `docs/BACKLOG.md → Estado verificado` (dueño único).
-> Contratos completos con evidencia: **C8** y **C9** de `knowledge/contracts/VERIFIED_CONTRACTS.md`
+> **Verificado en vivo (2026-09-29/30, TD 2025.32460 + TDMCP 1.1.55).** Recetas extraídas de cuatro
+> redes construidas y verificadas en frío: **`/pop_streams`** (estelas), **`/pop_field`** (campo 4D),
+> **`/pop_sim_trails`** (simulación + estelas) y **`/pop_color_trails`** (color por velocidad).
+> Qué corrida verificó cada una: `docs/BACKLOG.md → Estado verificado` (dueño único).
+> Contratos completos con evidencia: **C8–C11** de `knowledge/contracts/VERIFIED_CONTRACTS.md`
 > (tool offline `contracts`). La estructura de render (geometryCOMP, auto-torus, flags del
 > terminal, material, gradables) la da **`td-pop-render-pipeline`** — acá sólo lo específico de
-> trails y campos.
+> trails, sims y campos.
 
-# Estelas (trailPOP) y campos 4D animados (noisePOP t4d)
+# Estelas, sims y campos 4D
 
-Dos formas de mover puntos sin escribir shaders: el **trail** re-hornea historial de posición
-(estelas), el **campo 4D** desplaza puntos con ruido cuyo tiempo se escala a mano. Ambos terminan
-en `convertPOP(convert='topointprims')` + pointsprite (sin primitivas de punto NO dibujan).
+Cuatro formas de mover/pintar puntos: el **trail** re-hornea historial de posición (estelas), el
+**campo 4D** desplaza puntos con ruido cuyo tiempo se escala a mano, la **simulación** integra
+velocidades con un loop de feedback, y el **color por velocidad** pinta cada punto según su
+`PartVel`. Todas terminan en `convertPOP(convert='topointprims')` + pointsprite (sin primitivas
+de punto NO dibujan) — salvo el atajo del trail directo (más abajo).
 
 ## Receta A — estelas
 
@@ -110,13 +113,25 @@ la semántica multi-componente (`parsize=3`) es distinta de la ingenua y quedó 
 `lookupchannelPOP` NO sirve para esto (su input es un CHOP). Detalle y evidencia: C11 en
 `knowledge/contracts/VERIFIED_CONTRACTS.md`.
 
-### Variante corta: el trail renderiza solo con surftype='points'
+### Variante corta: el trail renderiza solo con surftype='points' (head-to-head [V])
 Para estelas puras podés ahorrar el `convertPOP`: `tr.par.surftype = 'points'` + flags
-`display`/`render` en el propio trailPOP → dibuja 1 sprite por sample de estela (gradable:
-`tr.numPrims() == tr.numPoints()` — es SIEMPRE 1:1 en rows/points, lo que cambia es el TIPO de
-primitiva). Con `rows` (default) el render muestra 0 px: las polilíneas de estela no son sprites.
-Ojo: los sprites del trail son de 1 px sin `pscale` — usalo con un material que escale, o
-mantené el `convertPOP` clásico (Receta A) cuando el look importa.
+`display`/`render` en el propio trailPOP. Comparación MISMO frame, misma red (2026-09-30):
+
+| modo | px | prims |
+|---|---|---|
+| clásico (`rows`→curl→`convertPOP`→terminal) | 6938 | 507/507 |
+| **directo** (`points` + flags del trail, sin `convertPOP`) | **7248** | 507/507 |
+| control (`rows` + flags del trail) | **0** | 507/507 |
+
+El directo no pierde píxeles: gana ~4,5% y ahorra el nodo de conversión. `numPrims()==numPoints()`
+es SIEMPRE 1:1 en rows/points (el gradable es el TIPO de primitiva, no el conteo): con `rows` son
+polilíneas que dibujan 0 sprites.
+
+**El look se iguala con `pointsize`** (sweep mismo frame, 2026-09-30): a `pointsize` 1/2/4 el
+directo EMPATA al clásico (ratio 1.02 / 1.00 / 0.99); a 8 pierde ~14% (16186 vs 18878 px — los
+samples del trail se solapan sobre sí mismos y saturan). O sea: la vieja advertencia de "1 px"
+sólo aplica al default 1.0 — con `pointsize>=2` el look directo es equivalente y la Receta A
+deja de ser necesaria para estelas puras.
 
 ## Receta B — campo 4D animado SIN simulación
 
@@ -136,6 +151,77 @@ convertPOP (topointprims)  →  nullPOP 'null_render'  +  pointspriteMAT
   (`torusPOP_rad`).
 - `sprinklePOP.numpoints` muestrea la superficie que le entra (3000 pts); `seed` hace el
   muestreo reproducible.
+
+## Receta C — simulación + estelas (particlePOP con fuerzas)
+
+Cadena dentro del `geometryCOMP` (run `/pop_sim_trails`, 13/13):
+
+```
+spherePOP (radx=rady=radz=0.3)  →  particlePOP (sim)  →  forceradialPOP (grav)  ─┬→ trailPOP
+      → noisePOP (curl 3D)  →  convertPOP (topointprims)  →  null_render        └→ nullPOP 'fb'
+                                  y  sim.par.targetpop = fb   (¡el LOOP de feedback!)
+```
+
+| nodo | par | valor | nota |
+|---|---|---|---|
+| spherePOP | `radx/rady/radz` | 0.3 | emisor chico; `radius` NO existe; `cols/rows` no aplican por set_parameters (C4) |
+| particlePOP | `timeintegration` | True | sin ON no integra nada (C6) |
+| particlePOP | `birthrate`/`life`/`maxparticles` | 60 / 1.2 / 2000 | el reciclado lo hace `life` contra el timeline |
+| particlePOP | `targetpop` | la ruta del `fb` | **SIN el loop cerrado la integración se descarta**: `PartForce`/`PartVel` se escriben pero P queda clavado en el emisor (`particle_feedback_loop`, C10) |
+| forceradialPOP | `globforcemult` + `globforcey` | 1 + -2/-6 | sin el mult la fuerza global no hace nada (C6); toggles radial/axial/spiral/planar en 0 |
+| trailPOP | `lengthunit='frames'`, `length` | 16 | el trail re-hornea cada frame: la estela SIGUE a la sim |
+| noisePOP | curl 3D | amp 0.35 | turbulencia opcional sobre las estelas |
+
+**LO QUE NO HACER [V]:** `initializepulse` + `preroll` — hinchan el buffer del loop (30k-103k
+"samples" con maxparticles=2000) y la red queda enferma (`particle_initialize_enferma`, C10).
+
+**Verificación (C1-friendly):** la palanca es la **gravedad** y va en llamadas MCP separadas —
+dentro de una llamada no corre nada; entre llamadas el timeline sí corre y `life` recicla la
+población. Escalá `globforcey` -6 → -14, esperá 2.5 s (host) y medí **P_1.min** (lista EXACTA de
+canales: un `startswith('P')` pesca PartVel/PartId): medido -1.89 → -5.03 en la sim y
+-3.45 → -10.11 en el terminal. La población viva se mide por **`PartId`** (respeta
+`maxparticles`), no por `numSamples` (el buffer arrastra slots muertos).
+
+## Receta D — color por velocidad (glslPOP ANTES del trail)
+
+Cadena (run `/pop_color_trails`, 14/14): igual a la Receta C pero con un `glslPOP` 'shade'
+**entre curl y trail** — la estela arrastra el color que el punto tenía en cada frame:
+
+```
+sim → grav → curl → shade(glslPOP) → trailPOP → convertPOP → null_render    (+ fb desde grav)
+```
+
+Setup del shader (C3/C11, todo por execute_code, el DAT **antes** que attr/vec):
+1. `textDAT` hermano con `language='glsl'` + `shade.par.computedat = dat`.
+2. Main canónico (el `id` y la guardia los escribís VOS):
+
+```glsl
+void main()
+{
+    const uint id = TDIndex();
+    if (id >= TDNumElements())
+        return;
+    float v = length(TDIn_PartVel());
+    float t = clamp(v * uSpeedScale, 0.0, 1.0);
+    Color[id] = vec4(mix(vec3(0.15, 0.30, 1.0), vec3(1.0, 0.85, 0.25), t), 1.0);
+}
+```
+
+3. `outputattrs='Color'` + **crear** el atributo: `attr0name='color'`, `attr0numcomps='4'`
+   (menú directo del build; `glsl_analyze` sugiere 'custom'+'customname' — otra era).
+4. Uniform palanca: `vec0name='uSpeedScale'`, `vec0valuex=0.4` (después del bind).
+5. Los inputs de ENTRADA se leen con **`TDIn_PartVel()`** (helper), NO como buffers —
+   `PartVel[id]` compila con `"'PartVel' : undeclared identifier"` (`glsl_input_attrs_por_helper`).
+6. El log del compilador vive en el DAT perezoso `<nombre>_info`.
+
+Material pointsprite **BLANCO** (multiplica el Color del punto; un material coloreado
+distorsiona el rampa). Sin shader, la variante sin glsl es attributePOP+rerangePOP (sección de
+arriba); el attributePOP solo da color constante.
+
+**Gradables del color** (canales `Color_0/1/2` del poptoCHOP, lista EXACTA): rango de `Color_2`
+> 0.1 · la media de `Color_0` cambia > 0.02 al escalar `uSpeedScale` (medido 0.547 → 0.300) ·
+el trail arrastra HISTORIAL: uniq del terminal > uniq de shade y max del terminal > max de shade
+(medido 0.943 vs 0.626). **`n` (numSamples) NO es la señal** (buffer con slots muertos, C10).
 
 ## Animación por números (el reloj no corre en `execute_code`)
 
@@ -168,8 +254,8 @@ una simulación al escalar gravedad), no para campos que mueven cada punto disti
   medición de cámara (detalle en C10).
 - **Trails sobre simulación**: el `particlePOP` necesita su **loop de feedback cerrado**
   (rama a un `nullPOP` + par `targetpop`) o la integración se descarta y las estelas no siguen
-  nada. Receta y evidencia: C10 (`particle_feedback_loop`) en
-  `knowledge/contracts/VERIFIED_CONTRACTS.md` y `docs/BACKLOG.md → Proyectos POP`.
+  nada. Receta completa arriba (**Receta C**) y evidencia: C10 (`particle_feedback_loop`) en
+  `knowledge/contracts/VERIFIED_CONTRACTS.md`.
 - **Memoria del trail**: `length` está en **unidades de tiempo** (`lengthunit`: seconds/frames),
   no en puntos — el buffer escala con el tiempo de estela × puntos. La receta oficial que habla
   de "trail segment count" miente en la semántica; sus pars de color/velocidad no existen (ver
