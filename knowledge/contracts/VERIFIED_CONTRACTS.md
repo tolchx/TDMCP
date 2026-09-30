@@ -230,6 +230,9 @@ pantalla). Moraleja: si tus "puntos" se ven como una pelotita de 2 px, subí **`
   equivocado NO da error, la tool cae a su default **`/project1`** y contesta `Path not found:
   /project1` [V]. Si una tool falla con una ruta que vos no pediste, sospechá del nombre del arg;
   `tools/list` da el `inputSchema` real de cada tool.
+- **Los pars MENÚ rechazan valores inválidos en silencio [V].** Escribir `par.ageattr = 'myage'
+  (menú real {none, seconds, frames}) no da error y `eval()` sigue en 'none'. Tras escribir un
+  menú, releé y assertá el valor (mismo hábito que C4 para `set_parameters`).
 - **`build_particle_fx`/scripts propios**: si un script de build no tiene `if __name__ ==
   '__main__'`, importarlo **ejecuta el build entero** (y su `sys.exit()` mata al importador).
 - **`annotation`** crea con `comment` (no `text`); **`edit_custom_parameters`** usa
@@ -356,6 +359,29 @@ receta también inventa pars para noisePOP (`amplitude`/`period`/`harmonics`: el
 spherePOP (`radius`: es `rad` XYZW). Regla: pars de una receta KB → auditar con dump de
 `op.pars()` antes de confiar. Receta corregida: skill `td-pop-trails-fields`.
 
+**Semántica de los demás pars (medida en vivo en la misma sonda):** `inc`+`incunit` = cadencia
+de muestreo de la estela (inc=5 → ~2× menos samples que inc=1); `maxls` = cap Int (default 4096,
+0.3 se recorta a 1); `ageattr` ∈ {none, seconds, frames} — no es un nombre libre (un string
+desconocido se rechaza en silencio, ver C4) y con 'none' no agrega canal; `attrname` (StrMenu de
+atributos existentes) + `attrmatch` = corte por atributo **(abierto)**: el conteo quedó
+contaminado por drift del buffer; `oldestpointfirst` cambia el primer sample [V*] (inversión o
+re-horneo, indistinguible en red viva); `closed` sin efecto en px con pointsprites (9477=9477);
+`surftype` = conectividad del trail {none, points, rows (default), cols, rowcol, triangles,
+alttriangles, quads} — hipótesis abierta: `'points'` renderizaría estelas sin topointprims.
+**Lección de medición:** en red viva con simulación, `n(tr)` derrapa (el buffer del trail también
+arrastra slots muertos: 49664 → ~900 al tocar un par) — usar fingerprints diferenciales
+back-to-back, no conteos absolutos.
+
+**Auditoría del RESTO de la receta oficial (scratch + dump de `op.pars()`, 2026-09-29 noche):**
+spherePOP: `radius` NO existe (reales `radx/y/z`; `cols`/`rows`/`freq` sí, Int); particlePOP:
+`birth`/`lifevar`/`speedvar` NO (reales `birthrate`/`lifevariance`; `life`/`speed`/
+`maxparticles` sí); noisePOP: `amplitude`/`harmonics` NO (real `amp`) pero **`period` SÍ existe
+y aplica**; y **`renderPOP` NO EXISTE en el build** (ni entre los 89 POPs del build ni creable:
+`create(renderPOP,...)` → NameError) — el render 3D real es geometryCOMP+renderTOP (C2) y para
+POP→textura está `poptoTOP` (sin camera/pointscale). Moraleja del write/read: los pars Int
+clampean (3.25→3) y los menús rechazan strings en silencio (C4) — el dump de `op.pars()` es el
+que decide existencia; un write/read mal diseñado da falsos negativos.
+
 ---
 
 ## C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)
@@ -448,3 +474,18 @@ vs 0.626): HISTORIAL de color, la señal honesta de que la estela arrastra veloc
 - El trail arrastra historial: **valores distintos** (uniq) del terminal > shade, y max del
   terminal > max de shade. **`n` (numSamples) NO es la señal**: el buffer de shade arrastra
   slots muertos del loop (C10) y el trail sólo guarda historial reciente.
+
+### `attributePOP_no_mapea` — attributePOP crea constantes; NO copia atributo→atributo [V]
+Medido en `/pop_color_trails_attr` (2026-09-29 noche, 13/13):
+- **`attr` (constantes) FUNCIONA**: `attr0name='color'` + `attr0numcomps='4'` crea el atributo
+  `Color` (inspect_values: `pointAttributesChanged: ['Color']`) y el valor constante SOBREVIVE
+  toda la cadena (tint → trail → topoints → null_render → render: poptoCHOP del terminal lo
+  muestra intacto). Color fijo por red: la vía sin shaders.
+- **`dup` (duplicar) y `ren` (renombrar) son INEFFECTIVOS en el build vivo**: read-back ok
+  (`dup0name='PartVel'` queda escrito, el menú sí lo contiene) y CERO efecto — ni siquiera
+  copian sobre un atributo destino YA CREADO por `attr`. No hay mapeo por punto con este nodo:
+  el color variable necesita glslPOP (C11) u otro POP de mapping aún no explorado.
+- Peculiaridades de las secuencias del attributePOP: no pueden volver a **0 bloques**
+  (`Minimum size is 1 block`) — se deshabilitan **vaciando el nombre** del bloque.
+- El poptoCHOP no expone el Color recién creado EN el nodo que lo crea: aparece **aguas
+  abajo** (trail/topoints) — medir el terminal, no el creador.

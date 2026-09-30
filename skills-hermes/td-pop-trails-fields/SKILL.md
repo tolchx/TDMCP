@@ -50,10 +50,21 @@ Pars reales del build (releídos, NO los que sugiere `get_help`):
 > sugerencias para el trailPOP, **sólo `length` existe**. **Mienten** (no existen en el build):
 > `velocityscale`, `color1r/g/b`, `color2r/g/b`. El trailPOP del build tiene 37 pars y NINGUNO de
 > color/fade/opacity/tint — el color de las estelas lo pone el **material** (pointsprite
-> `colorr/g/b`), no el nodo. Otros pars reales útiles: `inc`/`incunit`, `maxls`, `ageattr`,
-> `attrname`/`attrmatch` (trail por atributo), `oldestpointfirst`, `closed`, `fillmissedframes`,
-> `surftype` (semántica no auditada aún). La misma receta también inventa pars para noisePOP
-> (`amplitude`/`period`/`harmonics`: el real es `amp`) y spherePOP (`radius`: es `rad` XYZW).
+> `colorr/g/b`), no el nodo. La semántica de los demás pars reales está en la tabla de arriba.
+
+### Auditoría COMPLETA de la receta oficial (scratch en vivo + dump `op.pars()`, 2026-09-29 noche)
+
+| nodo que usa la receta | veredicto | realidad del build |
+|---|---|---|
+| spherePOP | `radius` **NO existe** | `radx`/`rady`/`radz` (XYZW). `cols`/`rows`/`freq` SÍ existen (Int). 42 pars |
+| particlePOP | `birth`, `lifevar`, `speedvar` **NO existen** | reales: `birthrate`, `lifevariance`. `life`/`speed`/`maxparticles` SÍ (53 pars; también `birthattr`, `jitterbirthpos/time`, `pointidreuse`) |
+| noisePOP | `amplitude`, `harmonics` **NO existen** | real: `amp`. **`period` SÍ existe y aplica** (única sugerencia acertada junto a `type`). Menús: {perlin,simplex}×{2d,3d,4d} · {performance, quality}. 62 pars |
+| renderPOP | **EL NODO NO EXISTE** en este build | no está entre los 89 POPs del build ni es creable (`create` → NameError). El render 3D real: `geometryCOMP` + `renderTOP` (`td-pop-render-pipeline`); para POP→textura existe `poptoTOP` (28 pars: `fillmode`, `rgbamode`, `toptype`… — sin camera/pointscale) |
+| trailPOP | ver tabla de Receta A arriba | `velocityscale`/`color1*`/`color2*` inventados; `length` es TIEMPO |
+
+> Nota de método: los pars Int clampean (escribir 3.25 → 3) y los MENÚ rechazan strings en
+> silencio (C4) — un write/read mal diseñado da falsos negativos de existencia; el dump de
+> `op.pars()` es el que decide.
 
 ### El trail ACUMULA el campo (`trail_moves_points`) [V]
 
@@ -69,6 +80,25 @@ Consecuencias medidas:
    compará **el P de UN punto** (`inspect_values`, `max_points=1`) antes/después de escalar la
    palanca — y **`trail.par.reset.pulse()`** antes de re-medir, para que la estela re-hornee con
    el campo nuevo.
+
+### Semántica de los demás pars del trailPOP (medidos en vivo, 2026-09-29 noche)
+
+| par | menú / default | qué hace (medido) |
+|---|---|---|
+| `inc` + `incunit` | float, default 1 · {seconds, frames} | **cadencia de muestreo**: cada cuánto se agrega un sample a la estela. inc=5 → ~2× menos samples que inc=1 (636 vs 1139, medido back-to-back) |
+| `maxls` | Int, default 4096 | cap duro del trail (0.3 se recorta a 1: cast entero). El control fino del tamaño es `length`+`inc` |
+| `ageattr` | {none, seconds, frames} | qué edad emite el PROPIO trail (no un nombre libre: `'myage'` se rechaza en silencio y queda 'none'). Con 'none' no agrega canal — el `PartAge` del sim aguas arriba pasa igual |
+| `attrname` + `attrmatch` | StrMenu de atributos EXISTENTES (P(0..2), PartAge, PartId, PartVel…) + on/off | probable corte de estela por cambios de atributo; el efecto sobre el conteo quedó contaminado por drift del buffer → **(abierto)** |
+| `oldestpointfirst` | on/off | el flip cambia el primer sample de la primitiva [V*]: consistente con inversión de orden, no distinguible del re-horneo en red viva |
+| `closed` | on/off | sin efecto en píxeles a escala de pointsprites (9477 = 9477 px); importa con `surftype` de superficies |
+| `surftype` | {none, points, rows, cols, rowcol, triangles, alttriangles, quads} | conectividad de las primitivas del trail (default `rows` = polilíneas). **Hipótesis sin probar**: `'points'` renderizaría estelas sin `convertPOP(topointprims)` |
+| `fillmissedframes` | on/off | sin semántica probada |
+
+> **Lección de medición:** en una red viva con simulación, `n(tr)` DERRAPA entre llamadas (el
+> buffer del trail también arrastra slots muertos — 49664 samples en el baseline que bajaron a
+> ~900 al tocar un par — y la sim alimenta puntos continuo). Para semántica, usar fingerprints
+> diferenciales back-to-back (set → medir → restaurar dentro del mismo experimento), no conteos
+> absolutos.
 
 ## Receta B — campo 4D animado SIN simulación
 
