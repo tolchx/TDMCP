@@ -41,6 +41,12 @@ snapshot at creation; renaming the TOP later does NOT follow them.)
 3. Write/sync the shader into `<name>_pixel` (already wired to `pixeldat`).
 4. Keep `<name>_info` for compile-error visibility.
 
+**Which DAT slot [V]** (C13 in `knowledge/contracts/VERIFIED_CONTRACTS.md`): the PIXEL shader
+goes in `pixeldat`; `computedat` is the glslPOP-style compute slot (that's where a glslPOP's
+shader goes, not here). Symptom of the wrong slot [2026-09-30, `/pop_sim_trails` monitor]:
+`.errors()` comes back EMPTY and the output COPIES the input texture unprocessed — it reads as
+a wiring problem, not a shader problem.
+
 **glslPOP/glslcopyPOP**: los DATs dockeados (`<name>_compute`, `<name>_ptCompute`, `<name>_info`)
 **NO existen al crear el nodo** — aparecen perezosamente al cocinar/enlazar `computedat` [V]. O sea:
 justo cuando querés escribir el shader, no están. El flujo que funciona **siempre** es un **textDAT
@@ -100,6 +106,7 @@ To use N uniforms, first set the sequence block count, then access `vec0name`, `
 ## Key Rules
 
 - **Always `TDOutputSwizzle()`** on all color outputs — wrong channel ordering without it
+- **glslTOP pixel main needs `out vec4 fragColor;` declared** — see the verified main below (C13)
 - **No `#version` statement** — TD auto-injects it
 - **`texture()` not `texture2D()`** — old GLSL 1.20 names don't work
 - **`nonuniformEXT()`** for dynamically-indexed sampler arrays (Vulkan requirement)
@@ -107,6 +114,31 @@ To use N uniforms, first set the sequence block count, then access `vec0name`, `
 - **`rgba32float` format** for data textures — 8-bit clamps to [0,1]
 - **Expression-driven resolutions** — never hardcode `resolutionw`/`resolutionh`
 - **Prefer nodes over GLSL** — use built-in operators for common operations (circleTOP for splats, noiseCHOP for motion, lookupCHOP for curves) instead of reimplementing in shaders. Reserve GLSL for operations that truly need custom GPU code (advection, pressure solving, etc.)
+
+## glslTOP Pixel Main [V] (2026-09-30, `/pop_sim_trails` monitor, C13)
+
+The pixel shader REQUIRES the output declared and swizzled — the exact shape the default docked
+DAT template shows:
+
+```glsl
+out vec4 fragColor;
+
+void main()
+{
+    vec4 c = texture(sTD2DInputs[0], vUV.st);
+    fragColor = TDOutputSwizzle(vec4(/* r, g, b, a */));
+}
+```
+
+- A glslPOP-style main (`fragColor = vec4(...)` WITHOUT declaring `out vec4 fragColor;`) does
+  NOT compile — and there is **no visible error**: `.errors()` is empty and the output stays a
+  passthrough of the input, so you doubt the pipeline instead of the shader. Read `<name>_info`
+  for the compiler log.
+- Unlike glslPOP attributes, the glslTOP pixel output is NOT auto-declared — write the `out`.
+- Uniforms: same `vec` sequence as glslPOP (`vec0name`/`vec0valuex`, bump
+  `par.vec.sequence.numBlocks` first), but TOP does NOT auto-declare them — the shader needs
+  `uniform float uName;` (see Uniforms above). Access the blocks via `op.pars('vec*')`;
+  `op.par.vec2` does not exist (`td.ParCollection` does not expose sequence blocks as attrs).
 
 ## Feedback Pattern
 
@@ -132,6 +164,8 @@ See the `td-dat-family` skill for the full canonical flow.
 - **TDPerlinNoise() in GLSL POP** — not available in compute shaders, only TOP/MAT
 - **Creating separate textDATs for glslTOP** — rename and reuse auto-created docked DATs
 - **Not checking `<name>_info` for compile errors** — `.errors()` only shows "Compile failed"; read the docked infoDAT for actual line numbers and error details
+- **Pixel shader written into `computedat`** — that slot is glslPOP-style compute; wrong slot = empty errors + output passthrough of the input (C13 `pixeldat_no_computedat`)
+- **glslTOP main without `out vec4 fragColor;`** — does NOT compile and shows NO error: output stays passthrough of input; declare the out and wrap outputs with `TDOutputSwizzle()` (C13 `glsltop_pixel_main`)
 - **feedbackTOP before wiring** — outputs 2D texture, causes 3D compile errors downstream
 - **Inline noise functions** — use noiseTOP as sampler input instead
 - **Delta time** — `me.time.step` doesn't exist, use `1.0/me.time.rate` or `absTime.stepSeconds`
