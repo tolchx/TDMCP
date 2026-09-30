@@ -91,7 +91,7 @@ Consecuencias medidas:
 | `attrname` + `attrmatch` | StrMenu de atributos EXISTENTES (P(0..2), PartAge, PartId, PartVel…) + on/off | probable corte de estela por cambios de atributo; el efecto sobre el conteo quedó contaminado por drift del buffer → **(abierto)** |
 | `oldestpointfirst` | on/off | el flip cambia el primer sample de la primitiva [V*]: consistente con inversión de orden, no distinguible del re-horneo en red viva |
 | `closed` | on/off | sin efecto en píxeles a escala de pointsprites (9477 = 9477 px); importa con `surftype` de superficies |
-| `surftype` | {none, points, rows, cols, rowcol, triangles, alttriangles, quads} | conectividad de las primitivas del trail (default `rows` = polilíneas). **Hipótesis sin probar**: `'points'` renderizaría estelas sin `convertPOP(topointprims)` |
+| `surftype` | {none, points, rows, cols, rowcol, triangles, alttriangles, quads} | conectividad del trail (default `rows`). **VERIFICADO 2026-09-29 noche**: `'points'` entrega las primitivas de punto y el trail **renderiza sin `convertPOP`** (nube aislada: 0 px con `rows` vs 5495 px con `points`, mismo frame). `none` → 0 prims (nada); `triangles` → 0 prims sin fuentes de superficie |
 | `fillmissedframes` | on/off | sin semántica probada |
 
 > **Lección de medición:** en una red viva con simulación, `n(tr)` DERRAPA entre llamadas (el
@@ -99,6 +99,24 @@ Consecuencias medidas:
 > ~900 al tocar un par — y la sim alimenta puntos continuo). Para semántica, usar fingerprints
 > diferenciales back-to-back (set → medir → restaurar dentro del mismo experimento), no conteos
 > absolutos.
+
+### Color por velocidad SIN glsl: attributePOP + rerangePOP (2026-09-30)
+El hueco del attributePOP (crea `Color` constante pero `dup`/`ren` no mapean) se cierra con
+**rerangePOP** como mapeador atributo→atributo: `inputattrscope='PartVel'` +
+`outputattrscope='Color'` (el atributo lo puede crear un attributePOP aguas arriba o el propio
+rerange). Verificado: el Color de salida ESPEJA PartVel por punto (copia identidad con rangos
+default). Los pares de re-rango `fromlow_i/high_i → tolow_i/high_i` aplican a la componente 0;
+la semántica multi-componente (`parsize=3`) es distinta de la ingenua y quedó **abierta**.
+`lookupchannelPOP` NO sirve para esto (su input es un CHOP). Detalle y evidencia: C11 en
+`knowledge/contracts/VERIFIED_CONTRACTS.md`.
+
+### Variante corta: el trail renderiza solo con surftype='points'
+Para estelas puras podés ahorrar el `convertPOP`: `tr.par.surftype = 'points'` + flags
+`display`/`render` en el propio trailPOP → dibuja 1 sprite por sample de estela (gradable:
+`tr.numPrims() == tr.numPoints()` — es SIEMPRE 1:1 en rows/points, lo que cambia es el TIPO de
+primitiva). Con `rows` (default) el render muestra 0 px: las polilíneas de estela no son sprites.
+Ojo: los sprites del trail son de 1 px sin `pscale` — usalo con un material que escale, o
+mantené el `convertPOP` clásico (Receta A) cuando el look importa.
 
 ## Receta B — campo 4D animado SIN simulación
 

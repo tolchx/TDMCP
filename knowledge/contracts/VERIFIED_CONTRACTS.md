@@ -367,7 +367,12 @@ atributos existentes) + `attrmatch` = corte por atributo **(abierto)**: el conte
 contaminado por drift del buffer; `oldestpointfirst` cambia el primer sample [V*] (inversión o
 re-horneo, indistinguible en red viva); `closed` sin efecto en px con pointsprites (9477=9477);
 `surftype` = conectividad del trail {none, points, rows (default), cols, rowcol, triangles,
-alttriangles, quads} — hipótesis abierta: `'points'` renderizaría estelas sin topointprims.
+alttriangles, quads} — **hipótesis CERRADA [V]:** `'points'` renderiza el trail SIN
+`convertPOP(topointprims)`: nube aislada (terminal apagado), mismo frame: `rows` → **0 px**
+vs `points` → **5495 px**; `none`/`triangles` → 0 prims (nada que dibujar). Gradable correcto:
+`numPrims()==numPoints()` es SIEMPRE 1:1 en rows/points (el trail ya trae sus primitivas);
+lo que cambia es el TIPO — con `rows` son polilíneas que no dibujan sprites. Los sprites del
+trail sin `pscale` son de 1 px: para look con peso, mantener el convertPOP clásico.
 **Lección de medición:** en red viva con simulación, `n(tr)` derrapa (el buffer del trail también
 arrastra slots muertos: 49664 → ~900 al tocar un par) — usar fingerprints diferenciales
 back-to-back, no conteos absolutos.
@@ -381,6 +386,44 @@ y aplica**; y **`renderPOP` NO EXISTE en el build** (ni entre los 89 POPs del bu
 POP→textura está `poptoTOP` (sin camera/pointscale). Moraleja del write/read: los pars Int
 clampean (3.25→3) y los menús rechazan strings en silencio (C4) — el dump de `op.pars()` es el
 que decide existencia; un write/read mal diseñado da falsos negativos.
+
+### `poptoTOP_no_renderiza` — poptoTOP es conversión de DATOS, no un renderizador [V]
+Probado en vivo (nube grid 12×12 → topointprims compartida, dos salidas, 2026-09-29 noche):
+- **renderTOP clásico** (geometryCOMP+pointspriteMAT+cam): textura **480×270**, 1264 px con
+  contenido, color del material, cámara 3D → lo que dibuja en pantalla.
+- **poptoTOP** (par `pop` enlazado a la misma nube): textura **12×12** — UN píxel por PUNTO,
+  con los atributos como canales (`attribscope='P'` mapea P.x/P.y normalizados a RGBA). Sin
+  cámara, sin perspectiva, sin material. No llena la pantalla: mapea atributos a píxeles.
+- Uso real: buffer GPU de atributos para samplers/glslTOP (formato hasta rgba32float, `dim`
+  2d/3d, `layout` square/onerow/wrapped/popdim, `extract` point/primitive/vertex). Para
+  renderizar puntos: **siempre geometryCOMP+renderTOP** (C2).
+- Enlace: par `pop` acepta OP directo por `execute_code`; 28 pars.
+
+---
+
+## C12 — Instancing: fuente de datos y guardias (medido en `/pop_trails_floor`, 2026-09-30)
+
+### `instancing_pop_crosscomp` — la fuente POP directa NO cruza COMPs [V]
+**Síntoma [V]:** `geo_cubes.par.instancetop = op('/root/geo_data/tr_out')` (POP en OTRO
+geometryCOMP) → **`geo_c.errors()` = "POP with point count info on GPU can only be the main
+OP"** y 0 cubos dibujados (el render no marca error: mirar los errores del geometryCOMP).
+**Contrato [V]:** la fuente de instancing POP sólo vale DENTRO de la misma COMP. Para datos de
+otra COMP: **poptoCHOP** como fuente de canales (`instancetop = poptoCHOP`, selectores
+`P_0/P_1/P_2` — nombres de canal CHOP, NO `P(0)`) — verificado: 0 errores y ~13k px de cubos.
+Por eso la doc dice "CHOP = lo más común".
+
+### `instancecolormode_menu` — el menú real no es 'op' (doc) [V]
+`instancecolorop` + selectores `Color_0/1/2` pintan las instancias; `instancecolormode` se
+elega del **menú vivo** (`menuNames`), no del valor 'op' que sugiere la doc de Hermes. Verificar
+por color en el render: mean RGB azul-dominante + brightest ámbar con el rampa frío→caliente.
+
+### Guardias para escenas MULTI-geometry [V]
+Con `ren.par.geometry = [geoA, geoB]` (lista, C8) no hay UN solo terminal: las guardias son por
+**toggle estructural** — flags `render` de cada chain (reflejan seguro, C1) y el toggle de
+`instancing` (PAR) necesita **rebind de `ren.par.geometry` + cocinar** antes de leer. El color
+por velocidad se gradable por **datos** (max `Color_0` del buffer del trail: el min es el piso
+frío de los recién nacidos; min `PartVel_1`: la caída profundiza) — la cámara fija queda ciega
+cuando la nube cae fuera del frustum. Phong: los pars de color son `diffr/g/b` (no `diffuser`).
 
 ---
 
@@ -483,9 +526,23 @@ Medido en `/pop_color_trails_attr` (2026-09-29 noche, 13/13):
   muestra intacto). Color fijo por red: la vía sin shaders.
 - **`dup` (duplicar) y `ren` (renombrar) son INEFFECTIVOS en el build vivo**: read-back ok
   (`dup0name='PartVel'` queda escrito, el menú sí lo contiene) y CERO efecto — ni siquiera
-  copian sobre un atributo destino YA CREADO por `attr`. No hay mapeo por punto con este nodo:
-  el color variable necesita glslPOP (C11) u otro POP de mapping aún no explorado.
+  copian sobre un atributo destino YA CREADO por `attr`. El mapeo por punto acá NO existe:
+  el resolutor es el **rerangePOP** (abajo).
 - Peculiaridades de las secuencias del attributePOP: no pueden volver a **0 bloques**
   (`Minimum size is 1 block`) — se deshabilitan **vaciando el nombre** del bloque.
 - El poptoCHOP no expone el Color recién creado EN el nodo que lo crea: aparece **aguas
   abajo** (trail/topoints) — medir el terminal, no el creador.
+
+### `rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V*]
+Cierre del hueco que dejó attributePOP (4 sondas sobre `/pop_color_trails_attr`, 2026-09-30):
+- **`rerangePOP` SÍ mapea atributo→atributo por punto**: `inputattrscope='PartVel'` +
+  `outputattrscope='Color'` → el Color de salida ESPEJA PartVel (uniq 20, min/max idénticos,
+  copia identidad con rangos default [0,1]→[0,1]) y crea el atributo él mismo.
+- Los rangos `fromlow/high_i → tolow/high_i` **aplican** a la componente 0 (verificado:
+  `from=[-6,0]→to=[0,1]` con PartVel_0=0 da `Color_0=1.0` = `(0+6)/6`), pero la
+  correspondencia **par↔componente con `parsize=3` NO es la ingenua**: comp 1 quedó espejo
+  (sin mapear) y comp 2 → 0 con los mismos rangos escritos y read-back ok — semántica
+  multi-componente **(abierto)**. Para color por velocidad fiable sin glsl HOY: usar el
+  rerangePOP como copia identidad (color = vector velocidad, material blanco) o glslPOP (C11).
+- `lookupchannelPOP` NO es el mapeador: su input es un CHOP (lookup index→canales de un CHOP),
+  no atributo→atributo de un POP.
