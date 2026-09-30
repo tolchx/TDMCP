@@ -5,3 +5,6 @@
 - 2026-09-29T06:22:40+00:00 | gate | — | commit sobre 12 archivo(s) | ALLOW | gate.yaml
 - 2026-09-29T06:24:36+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | gate.yaml
 - 2026-09-29T06:26:08+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | gate.yaml
+- 2026-09-30T03:08:02+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 4 | loop-candidates.json
+- 2026-09-30T03:14:07+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | gate.yaml
+- 2026-09-30T03:16:43+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | gate.yaml

@@ -117,3 +117,19 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   pasan. Qué hacer: cerrar con `git add <paths explícitos>` (nunca `-A`) y abortar el cierre si
   aparecen archivos nuevos/modificados que la corrida no tocó. Detectado por: el ciclo diario
   (comparando `git status` antes/después del add).
+
+- [ ] 4. **Hallado por el loop (triage automático)** — 4 archivo(s) modificados sin commitear. Evidencia: knowledge/contracts/VERIFIED_CONTRACTS.md; knowledge/selftest_protocol.json; skills-hermes/td-pop-trails-fields/SKILL.md; tools/gauntlet/build_pop_trails_floor.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `b6e661339e23a028`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+  **DECISIÓN 2026-09-30 (ciclo diario, intento 1): NO commitear y NO revertir — ítem ABIERTO.**
+  Los 4 archivos los está escribiendo **una sesión viva en el mismo working tree** (mtimes
+  23:59:08–00:08:36; `build_pop_trails_floor.py` reescrito a las 00:08:36 y re-corrido a las 00:08:56;
+  ventanas de 45 s con escrituras hasta 00:12). Publicar WIP ajeno es el modo de falla del ítem 3 y
+  revertir sería destructivo sobre trabajo vivo. Por archivo: los 2 de documentación
+  (`contracts/VERIFIED_CONTRACTS.md` +19, `skills-hermes/td-pop-trails-fields/SKILL.md` +10) tienen
+  **evidencia real** (`results/20260929-235821/probe-surftype2.jsonl`: mismo frame, 380 prims/380 pts,
+  `surftype=rows` → 0 px vs `points` → **5495 px**) y los commitea su propia sesión;
+  `knowledge/selftest_protocol.json` es **artefacto generado** por `knowledge/test_protocol.py`;
+  `tools/gauntlet/build_pop_trails_floor.py` (nuevo, 418 líneas) está **en rojo** en sus dos corridas
+  (`results/20260930-000700` ok=false 6/13 checks False; `results/20260930-000856` ok=false 5/13).
+  Sin verificación en vivo de nada (suite TD no corrida: escritor vivo en el mismo TouchDesigner +
+  sandboxes de nombre fijo `/gauntlet_smoke`, `/gauntlet_core`). Evidencia completa:
+  `docs/loop-run-2026-09-30.md`.
