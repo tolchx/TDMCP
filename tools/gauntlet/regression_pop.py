@@ -24,6 +24,12 @@ BATERIA = [
     ("build_pop_color_trails_attr.py", "proyecto F-var: attributePOP sin glsl (/pop_color_trails_attr)"),
     ("build_pop_trails_floor.py", "proyecto G: dardos orientados por PartVel iluminando el piso (/pop_trails_floor)"),
     ("build_pop_field_trails.py", "proyecto 8: campo de estelas directo sin glsl ni convertPOP (/pop_field_trails)"),
+    ("build_pop_transform.py", "cobertura: transformPOP + groupPOP scoping (/pop_transform)"),
+    ("build_pop_quantize.py", "cobertura: quantizePOP round/floor (/pop_quantize)"),
+    ("build_pop_limit.py", "cobertura: limitPOP clamp/loop (/pop_limit)"),
+    ("build_pop_sort.py", "cobertura: sortPOP vector/rev/seed/shift (/pop_sort)"),
+    ("build_pop_neighbor.py", "cobertura: neighborPOP distancia + avg (/pop_neighbor)"),
+    ("build_pop_connectivity.py", "cobertura: connectivityPOP tabla de prims (/pop_connectivity)"),
     ("build_monitor_pop.py", "monitor GPU: heatmap de P.y sobre la nube (/pop_sim_trails)"),
 ]
 

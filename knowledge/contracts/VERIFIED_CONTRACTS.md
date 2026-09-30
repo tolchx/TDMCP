@@ -635,3 +635,89 @@ exact call" y falla TODA la cola en cascada. Reglas del build: calentamientos su
 un sleep por llamada), y la guardia de propiedad del render AL FINAL de la corrida —
 `render_cache_vs_data` hizo que el primer `numpyArray()` tras el rebind de cámara leyera 0
 aunque `view_operator` veía contenido segundos después.
+## C15 — Cuatro POPs de estructura, medidos en vivo (2026-09-30, batería reg-20260930-094856, 14/14)
+
+Evidencia por build: `results/reg-20260930-094856/build-pop-<tipo>-report.json` (y el PNG del run).
+Corridas individuales previas: transform `20260930-092753` · quantize `20260930-093549` ·
+limit `20260930-093555` · sort `20260930-094803` · neighbor `20260930-094811` ·
+connectivity `20260930-094654`.
+
+### `poptochop_sprinkle_soltero` — sprinklePOP sin input alimenta a poptoCHOP [V]
+El poptoCHOP vio `sprinklePOP` DIRECTO 0 canales y con un nullPOP intermedio también 0
+(sonda hypo4); con `torusPOP → sprinklePOP` los canales `P_0..2` aparecen (n=300/400). El
+sprinkle distribuye puntos SOBRE la geometría de entrada: sin input no hay nada que leer por
+ese camino, aunque el POP "exista". Regla: todo POP generador de superficie va sobre una
+geometría base (toro/grilla) antes de medirlo.
+
+### `poptochop_doble_cook` — la primera lectura tras cambiar de POP puede venir rancia [V]
+Cambiar `chk.par.pop` y hacer UN `cook(force=True)` devolvió `n=0` canales y `moved=0` que
+no eran del dato: con `settle(2)` + doble cook + sleep la misma red dio los números correctos.
+Refuerza C4 y la regla de medición: nunca confiar en la primera lectura tras rebind/re-cook.
+
+### `grouppop_debugcolor` — debugcolor convierte la membresía de grupo en dato medible [V]
+groupPOP con `grname='mitad'` + `attr0inattr='P.x'` + `attr0func='gte'` + `attr0value=0.0` +
+`debugcolor=True` escribe Color=0.8 dentro / 0.2 fuera: sobre el toro 213/400 == exactamente
+los puntos con P.x≥0 (medido; 18/36 en grilla). Sin `debugcolor` el grupo no deja canal
+alguno: no hay otra forma de leer membresía por poptoCHOP. Nombres REALES (get_help live,
+`results/20260930-090146/help/live-groupPOP.json`): `grname`, `entity` (point/primitive),
+`attr0inattr/attr0func/attr0value` (lt/lte/gt/gte/eq/ne), `thinenabled/thinoutrange/
+thinrangestart/thinrangelength`, `pattern0pattern` ('[0-17]' etc.).
+
+### `transformpop_group_sin_poblacion_no_filtra` — grupo vacío o inexistente mueve TODO [V]
+`transformPOP.group='mitad'` (poblado por groupPOP) mueve EXACTAMENTE los marcados:
+moved_08=213==dentro, moved_02=0. Pero `group='noexiste'` o `group=''` mueven 400/400 —
+el mismo efecto que sin filtro. Un agente que escriba el nombre mal obtiene el opuesto
+silencioso de lo que quiere. (Addendum C12: los strings de grupo no se validan.)
+
+### `transformpop_mapeo_exacto` — T/R/S es una matriz, punto a punto, con pivot real [V]
+Sobre grilla determinista 6x6: rz=90 da `P' = (-y, x, z)` con max err 0.0; con pivot
+(2.2,0,0) da `P' = (2.2-y, x-2.2, z)` con max err 0.0; tx=10 se suma después del pivot
+(cx: 0.052 → 2.201 → 12.201). La rotación Z también intercambia las distribuciones de N:
+pstdev(N_0) 1.0851↔1.0992 (swap exacto). Una lectura ANTES de setear tx dio cx=0.052 y
+"ancho colapsado" que no era del operador (el pivot se midió con el tx viejo).
+
+### `quantizepop_inplace` — scope de salida vacío NO es no-op: cuantiza el mismo atributo [V]
+quantizePOP con `outputattrscope=''` (DEFAULT) aplicó round 0.25 EN SITIO: salida
+[-0.5,-0.25,0,0.25,0.5] idéntica al caso `outputattrscope='P'` (elemento a elemento, sonda
+noop). Con scope 'P': exactamente 5 niveles y `out==round(v/0.25)*0.25` con err<1e-6.
+floor 0.3: `out==floor(v/0.3)*0.3` err 0.0 y BAJA los negativos fuera del rango de entrada
+(32/64 puntos con |out|>|in|; 0.5→0.3, −0.3571→−0.6). Nombres REALES (live-quantizePOP.json):
+`quantize0/quantstep0` (sufijo 0 por parsize; menú real off/floor/round/ceiling/gt/gteq/eq/
+neq/lteq/lt — la doc decía otro orden), `attrdefaultval0..3`.
+
+### `limitpop_loop_ventana` — 'loop' NO envuelve en [min,max]: shift por una ventana [V]
+limitPOP clamp: max_x=0.3, min_x=-0.3 y saturan EXACTAMENTE los |P.x| fuera del rango
+(16+16, err 0.0); sólo-min deja volar el techo (0.5 vuelve) con el piso en −0.3.
+`maxtype0='loop'` con max0=0.3 (sólo máximo activo): los valores >0.3 se desplazan UNA
+VENTANA COMPLETA w=max0−min0=0.6 → 0.5→−0.1, 0.3571→−0.243 (err<1e-4), NO quedan dentro
+de [−0.3,0.3]; los valores bajo el mínimo pasan derechos (mintype0='off'). Nombres REALES
+(live-limitPOP.json): `mintype0/maxtype0/min0/max0/positive0` (menú off/clamp/loop/zigzag).
+
+### `neighborpop_arrays_y_avg` — la vecindad por distancia y el promedio opt-in [V]
+Grilla 6x6 (spacing 0.2) + maxdistance 0.3 + maxneighbors 8: NumNebrs 3 (4 esquinas) a 8
+(16 interiores), n=36. Con `nebroutput='nebr'`: llegan `Nebr_0_..7_` (índices),
+`NebrP_0_..` (posición del vecino i-ésimo) y `Dist_0_..` con dodist (max 0.2828=√2·0.2).
+`nebroutput='avg'` NO promedia nada sin `nebrptattrs` (default '' → P crudo, max 0.5);
+con `nebrptattrs='P'` P pasa al promedio de vecinos: esquina raw (±0.5,±0.5) → (0.4,∓0.4)
+con nn=3, interior (0.1,0.1) → (0.1,0.1). NumNebrs TAMBIÉN se promedia en modo avg
+(interior muestra 12.0 = suma de 8 vecinos+query). Nombres REALES (live-neighborPOP.json):
+`nebrtype/maxdistance/maxneighbors/nebroutput/nebrs/numnebrs/dodist/nebrptattrs`.
+
+### `connectivitypop_tabla_prims` — reconecta sin tocar puntos; el cerrojo sólo entra por firstdim [V]
+Grilla 4x4 (16 pts, 9 quads nativos) re-conectada (prims medidos): points=16, lines=12,
+linestrips=4, triangles=18, alttriangles=18, quads=9, none=0; los PUNTOS no cambian en
+ningún modo. `firstdimclosed` en lines: 12→16 (+1 cerrojo por FILA); `seconddimclosed`
+NO agrega prims (16→16, medido dos veces) y linestrips cerradas tampoco (4→4). Nombres
+REALES (live-connectivityPOP.json): `surftype` (mismo menú que trailPOP: none/points/lines/
+linestrips/linestripperplane/zigzagperplane/spiralperplane/triangles/alttriangles/quads),
+`firstdim/seconddim/firstdimclosed/seconddimclosed/reorderpoints`.
+
+### `pop_help_no_existe` — dos tipos de la lista de prioridad NO existen en el build [V]
+`get_help {'types':['mathMixPOP','lookupAttributePOP']}` respondió verbatim
+`"error": "Not found", "code": "unknown_operator_type"` (evidencia:
+`results/20260930-090146/help/help-mathMixPOP.txt` y `help-lookupAttributePOP.txt`); el
+build vivo declara 98 familias POP vs 101 docs en `knowledge/kb/pops/operators/`. Los
+nombres reales del resto salieron de `get_help {'types':[...],'verbose':true}` (firma
+validada; `operator_type` no existe) + `get_parameters(path, include_defaults=true,
+include_menus=true)` sobre instancias vivas — los valores de menú del help estático venían
+stale ("menuDataStale: 2025.33070 vs build 2025.32460").

@@ -35,6 +35,13 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | **`build_pop_color_trails_attr.py`** (proyecto F-var: attributePOP sin glsl) | `results/20260929-232452` — 13/13 cheks, 0 fallos, PNG 638 px verde — `attributePOP_no_mapea` (C11): attr constante sí, dup/ren no mapean |
 | **`build_pop_trails_floor.py`** (proyecto G: dardos apuntando según PartVel, coloreados por velocidad, iluminando el piso) | `results/20260930-030437` — 16/16 cheks, 0 fallos, PNG 13851 px — Euler del glslPOP verificados vs numpy (maxdiff 0.0) + `instancer_euler_xz`, `glslpop_custom_attr`, `curl_no_partvel`, `px_ciego_a_rotacion` (addendum C12) |
 | **`build_pop_field_trails.py`** (proyecto 8: campo de estelas DIRECTO coloreado por NoiseGradient con attributePOP+rerangePOP — cero glsl, cero convertPOP) | `results/20260930-033443` — 16/16 cheks, 0 fallos, PNG 2413 px — corr(NoiseGradient_i, Color_i)=1.0 cierra C11; `noise_gradient_attr` + `td_slow_operation` (C14); `rerangePOP_mapea` cerrado a [V] |
+| **`build_pop_transform.py`** (cobertura: transformPOP + groupPOP como apoyo) | `results/reg-20260930-094856` — 12/12 cheks, 0 fallos, PNG con contenido — group scoping exacto (moved 213==dentro, 0 fuera), grupo sin población NO filtra (400/400), mapeo T/R/S punto a punto err 0.0, swap pstdev N 1.0851↔1.0992 → C15 |
+| **`build_pop_quantize.py`** (cobertura: quantizePOP) | `results/reg-20260930-094856` — 12/12 cheks, 0 fallos — round 0.25 → 5 niveles exactos err<1e-6, floor 0.3 err 0.0 (baja negativos 32/64), scope vacío = in-place → C15 |
+| **`build_pop_limit.py`** (cobertura: limitPOP) | `results/reg-20260930-094856` — 10/10 cheks, 0 fallos — clamp saturación exacta 16+16 err 0.0, sólo-min vuela el techo, loop = shift por ventana w=0.6 (0.5→−0.1) → C15 |
+| **`build_pop_sort.py`** (cobertura: sortPOP) | `results/reg-20260930-094856` — 13/13 cheks, 0 fallos — vector ordena el buffer (148→0 descensos, multiset intacto), rev/seed/shift reversibles → C15 |
+| **`build_pop_neighbor.py`** (cobertura: neighborPOP) | `results/reg-20260930-094856` — 12/12 cheks, 0 fallos — NumNebrs 3..8 (4 esquinas, 16 interiores), Dist max 0.2828, avg opt-in esquina 0.5→0.4 → C15 |
+| **`build_pop_connectivity.py`** (cobertura: connectivityPOP) | `results/reg-20260930-094856` — 10/10 cheks, 0 fallos — tabla de prims exacta (lines 12, strips 4, tris 18, quads 9, none 0; pts 16 siempre), closed +1/fila → C15 |
+| batería completa 14 builds (8 proyectos + 6 cobertura) | `results/reg-20260930-094856` — 14/14 exit 0, 83.3 s |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
 
@@ -158,11 +165,16 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   sandboxes de nombre fijo `/gauntlet_smoke`, `/gauntlet_core`). Evidencia completa:
   `docs/loop-run-2026-09-30.md`.
 
-- [ ] 5. **Cobertura POP en vivo: 15 de 101 tipos ejercitados — los otros 87 no tienen una sola medición.**
-  Brief `05_cobertura_pop_en_vivo.txt` (cola del 2026-09-30, pedido de Tolch: "pruebas dentro de TD usando
-  POPs y documentar"). Medido: los 8 proyectos de `tools/gauntlet/regression_pop.py` usan 15 tipos POP
-  (attribute, box, circle, convert, forceradial, glsl, grid, noise, null, particle, rerange, sphere,
-  sprinkle, torus, trail) sobre los 101 del build (`knowledge/kb/pops/operators/`). Qué hacer: 6 tipos
-  nuevos (mínimo 4) con red viva + script versionado + checks medidos, sumados a la batería; contratos
-  C15+ en `VERIFIED_CONTRACTS.md` y fila en *Estado verificado*. Un escritor por archivo: el Paso 0 del
-  brief es cerrar el WIP verde de la sesión anterior antes de abrir cobertura nueva.
+- [x] 5. **Cobertura POP en vivo: CERRADO el 2026-09-30 con 6 tipos nuevos medidos y commiteados.**
+  Eran 15 de 101 tipos ejercitados; se sumaron transformPOP, quantizePOP, limitPOP, sortPOP,
+  neighborPOP y connectivityPOP con red viva + script versionado + checks con número (21 → 27 tipos
+  ejercitados). Batería 14/14 exit 0 (`results/reg-20260930-094856`, 83.3 s); contratos C15 en
+  `VERIFIED_CONTRACTS.md` (incluye los 2 tipos de la lista que NO existen: mathMixPOP,
+  lookupAttributePOP — `unknown_operator_type`, guardado verbatim). Filas por build en
+  *Estado verificado*. Quedan 74 tipos sin medir para futuros ítems.
+- [ ] 5b. **Cobertura POP (continúa): 74 de 101 tipos siguen sin una sola medición.**
+  Prioridad restante de la lista del ítem 5: groupPOP (medido como apoyo en C15: falta red propia),
+  proximityPOP, mathMixPOP y lookupAttributePOP (NO existen en el build — removerlos de la lista),
+  facetPOP, subdividePOP, triangulatePOP, extrudePOP, revolvePOP, tubePOP, topologyPOP, patternPOP,
+  randomPOP, lookupTexturePOP. Mismo patrón: build versionado + checks con número + fila en
+  *Estado verificado* + contrato si hay sorpresa.

@@ -129,3 +129,12 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **`display`/`render` son PROPIEDADES del OP, no params** — `op.display = True` / `op.render = True`. `op.par.display` da `AttributeError: 'td.ParCollection' object has no attribute 'display'`
 - **poptoCHOP: `.chans()` y `.numSamples`** — NO `.channels` (método vs atributo). `poptoCHOP.par.pop` toma ruta **absoluta** (relativa `./geo/x` → warning "Invalid path")
 - **`set_parameters` del MCP usa clave `values`** — `{"path":..., "values":{...}}`, no `params`
+- **mathMixPOP y lookupAttributePOP NO existen en el build** — `get_help` responde `unknown_operator_type` verbatim (98 familias POP reales vs 101 docs de la KB); nunca asumir que un tipo de la lista de la KB existe
+- **sprinklePOP sin input alimenta 0 canales al poptoCHOP** — necesita geometría debajo (toro/grilla): los generadores de superficie no generan nada solos
+- **groupPOP `debugcolor=1` es el único camino para LEER membresía de grupo** — escribe Color=0.8 dentro / 0.2 fuera; sin él el grupo no deja canal alguno; condición por `attr0inattr/attr0func/attr0value`
+- **transformPOP.group con grupo vacío o mal escrito NO filtra: mueve TODO** — el string no se valida; para excluir hace falta un groupPOP aguas arriba
+- **quantizePOP y limitPOP aplican EN SITIO con `outputattrscope` vacío (default)** — no son no-op; y `limitPOP maxtype0='loop'` desplaza UNA ventana completa w=max0−min0 (0.5→−0.1), no envuelve dentro del rango
+- **sortPOP `ptmethod='vector'` reordena el BUFFER** (0 descensos, multiset intacto); escribir `pointdirx/y/z` explícitos y releerlos; `seed` es determinístico por semilla; `pointshift` permuta reversiblemente
+- **neighborPOP `nebroutput='avg'` no promedia nada sin `nebrptattrs='P'`** (default '' → P crudo); en modo avg también promedia NumNebrs; arrays por vecino llegan como `Nebr_0_`, `NebrP_0_`, `Dist_0_` (con doble underscore final)
+- **connectivityPOP reconecta sin tocar puntos** — grilla 4x4: lines 12, linestrips 4, triangles 18, quads 9, points 16, none 0; `firstdimclosed` agrega +1 cerrojo por fila (12→16) y `seconddimclosed` no agrega nada
+- **`get_help` usa firma `{'types':[...], 'verbose':true}`** — `operator_type` no existe; y sus menús vienen stale (`menuDataStale`): valores de menú reales con `get_parameters(path, include_defaults=true, include_menus=true)` sobre un op vivo
