@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""regression_pop.py — batería de regresión de los 7 proyectos POP (runs verdes en TD vivo).
+"""regression_pop.py — batería de regresión de los 13 proyectos POP (runs verdes en TD vivo).
 
 Corre los builds en orden; cada uno DESTRUYE y reconstruye su red ROOT (verificación en
 frío), así que el orden sólo importa para no pisar la misma red dos veces: el monitor
@@ -30,6 +30,12 @@ BATERIA = [
     ("build_pop_sort.py", "cobertura: sortPOP vector/rev/seed/shift (/pop_sort)"),
     ("build_pop_neighbor.py", "cobertura: neighborPOP distancia + avg (/pop_neighbor)"),
     ("build_pop_connectivity.py", "cobertura: connectivityPOP tabla de prims (/pop_connectivity)"),
+    ("build_pop_facet.py", "cobertura: facetPOP unique/cusp/conspoints (/pop_facet)"),
+    ("build_pop_subdivide.py", "cobertura: subdividePOP escalado exacto (/pop_subdivide)"),
+    ("build_pop_triangulate.py", "cobertura: triangulatePOP quads->tris (/pop_triangulate)"),
+    ("build_pop_extrude.py", "cobertura: extrudePOP jaula + distance/axis (/pop_extrude)"),
+    ("build_pop_pattern.py", "cobertura: patternPOP ramp/sin/random (/pop_pattern)"),
+    ("build_pop_random.py", "cobertura: randomPOP add/set/gaussian/extrapts (/pop_random)"),
     ("build_monitor_pop.py", "monitor GPU: heatmap de P.y sobre la nube (/pop_sim_trails)"),
 ]
 

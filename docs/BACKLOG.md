@@ -41,7 +41,13 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | **`build_pop_sort.py`** (cobertura: sortPOP) | `results/reg-20260930-094856` — 13/13 cheks, 0 fallos — vector ordena el buffer (148→0 descensos, multiset intacto), rev/seed/shift reversibles → C15 |
 | **`build_pop_neighbor.py`** (cobertura: neighborPOP) | `results/reg-20260930-094856` — 12/12 cheks, 0 fallos — NumNebrs 3..8 (4 esquinas, 16 interiores), Dist max 0.2828, avg opt-in esquina 0.5→0.4 → C15 |
 | **`build_pop_connectivity.py`** (cobertura: connectivityPOP) | `results/reg-20260930-094856` — 10/10 cheks, 0 fallos — tabla de prims exacta (lines 12, strips 4, tris 18, quads 9, none 0; pts 16 siempre), closed +1/fila → C15 |
-| batería completa 14 builds (8 proyectos + 6 cobertura) | `results/reg-20260930-094856` — 14/14 exit 0, 83.3 s |
+| **`build_pop_facet.py`** (cobertura: facetPOP) | `results/reg-20260930-131003` — 11/11 cheks, 0 fallos — unique 16→36 (grilla) y 800→3200 (toro) con prims intactas, cusp angle=20 no corta / angle=1 sí, conspoints 0.3→16 pts / 0.5→1 → C16 |
+| **`build_pop_subdivide.py`** (cobertura: subdividePOP) | `results/reg-20260930-131003` — 12/12 cheks, 0 fallos — escalado exacto 16/9→49/72→169/288, bb y planaridad preservados, creaseweight desplaza sin cambiar conteos → C16 |
+| **`build_pop_triangulate.py`** (cobertura: triangulatePOP) | `results/reg-20260930-131003` — 10/10 cheks, 0 fallos — toggle triangulatequads necesario (off pasa intacta), on 9→18 (grilla) y 800→1600 (toro) con pts intactos → C16 |
+| **`build_pop_extrude.py`** (cobertura: extrudePOP) | `results/reg-20260930-131003` — 12/12 cheks, 0 fallos — jaula 25/20 incluso con distance=0 (grid 4x4: 52/45), P_2=[0,distance], axis=y mueve el rango, taper no cambia conteos → C16 |
+| **`build_pop_pattern.py`** (cobertura: patternPOP) | `results/reg-20260930-131003` — 13/13 cheks, 0 fallos — ramp exacto err<2e-8, tabla prims linestrip 1 / lines 5 / points 6 / none 0, sin 2 ciclos err 3.4e-7, random determinístico por índice → C16 |
+| **`build_pop_random.py`** (cobertura: randomPOP) | `results/reg-20260930-131003` — 14/14 cheks, 0 fallos — add in-place deltas uniformes [0,1], set+scope vacío NO-OP, amp NO escala el uniforme, gaussian ≈N(0,1), extrapts multiplica (9→18→27) → C16 |
+| batería completa 20 builds (8 proyectos + 12 cobertura) | `results/reg-20260930-131003` — 20/20 exit 0, 121.6 s |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
 
@@ -172,9 +178,15 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `VERIFIED_CONTRACTS.md` (incluye los 2 tipos de la lista que NO existen: mathMixPOP,
   lookupAttributePOP — `unknown_operator_type`, guardado verbatim). Filas por build en
   *Estado verificado*. Quedan 74 tipos sin medir para futuros ítems.
-- [ ] 5b. **Cobertura POP (continúa): 74 de 101 tipos siguen sin una sola medición.**
+- [x] 5b. **Cobertura POP (tramo 2) CERRADO el 2026-09-30: 6 tipos nuevos — facetPOP, subdividePOP,
+  triangulatePOP, extrudePOP, patternPOP y randomPOP — medidos con el patrón del ítem 5.**
+  27 → 33 de 101 tipos ejercitados. Batería 20/20 exit 0 (`results/reg-20260930-131003`, 121.6 s);
+  contratos C16 en `VERIFIED_CONTRACTS.md` (sorpresas: triangulatequads default OFF,
+  jaula de extrude existe con distance=0, el 'set' de randomPOP es NO-OP con scope vacío y amp
+  no escala el uniforme, el random de pattern genera por índice). 6 filas nuevas arriba. Helps y
+  live-params en `results/20260930-124833/help/`. Quedan 68 tipos sin medir → ítem 5c.
+- [ ] 5c. **Cobertura POP (continúa): 68 de 101 tipos siguen sin una sola medición.**
   Prioridad restante de la lista del ítem 5: groupPOP (medido como apoyo en C15: falta red propia),
-  proximityPOP, mathMixPOP y lookupAttributePOP (NO existen en el build — removerlos de la lista),
-  facetPOP, subdividePOP, triangulatePOP, extrudePOP, revolvePOP, tubePOP, topologyPOP, patternPOP,
-  randomPOP, lookupTexturePOP. Mismo patrón: build versionado + checks con número + fila en
-  *Estado verificado* + contrato si hay sorpresa.
+  proximityPOP, revolvePOP, tubePOP, topologyPOP, lookupTexturePOP. (mathMixPOP y
+  lookupAttributePOP NO existen en el build — removidos, ver C15.) Mismo patrón: build versionado
+  + checks con número + fila en *Estado verificado* + contrato si hay sorpresa.

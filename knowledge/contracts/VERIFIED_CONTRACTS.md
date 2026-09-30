@@ -721,3 +721,65 @@ nombres reales del resto salieron de `get_help {'types':[...],'verbose':true}` (
 validada; `operator_type` no existe) + `get_parameters(path, include_defaults=true,
 include_menus=true)` sobre instancias vivas — los valores de menú del help estático venían
 stale ("menuDataStale: 2025.33070 vs build 2025.32460").
+
+## C16 — Seis POPs de topología y patrones, medidos en vivo (2026-09-30, batería reg-20260930-131003, 20/20)
+
+### `facetpop_unique_prims_intactas` — unique des-duplica puntos y NUNCA toca primitivas [V]
+grid 4x4 (16 pts, 9 quads): `operation='unique'` abre a 36 pts (9 prims intactas); toro
+(800 pts, 800 quads): 800→3200 = 4 puntos por quad. `cusp` depende del ángulo: con el
+default real `angle=20` NO corta el toro continuo (800→800, las normales no superan el
+umbral) y con angle=1 sí (→3200): menor ángulo = más cortes. `conspoints` colapsa por
+distancia con prims intactas: dist=0.3 deja 16 pts (el espaciado 1/3 > 0.3), dist=0.5
+funde TODO a 1 punto, dist=0.0001 deja 16. Nombres REALES (live-facetPOP.json):
+`operation` (menú none/unique/cusp/conspoints), `angle` (default 20.0, la KB decía 89.5),
+`dist` (default 0.0001), `technique` (bruteforce/sharedmemory/spatialgrid/...).
+
+### `subdividepop_escalado_exacto` — iterations es scaling de topología determinístico [V]
+grid 4x4 (16/9): it0 identidad 16/9, it1 EXACTO 49 pts / 72 prims, it2 EXACTO 169/288
+(los quads se multiplican x4 por nivel: 36→144). El bounding box NO cambia (P_0 y P_1 en
+[−0.5, 0.5]) y la superficie plana queda plana (P_2 max abs = 0 en it1 y con crease).
+`creaseweight=1` desplaza los puntos (la nube ya no coincide) sin cambiar los conteos
+(49/72). Nombres REALES (live-subdividePOP.json): `iterations`, `creaseweight`,
+`simplecoeffs`, `cpureadback`.
+
+### `triangulatepop_toggle_necesario` — sin `triangulatequads=on` NO triangula nada [V]
+El toggle viene **false** en el build vivo (2025.32460): con off, grid 4x4 pasa INTACTA
+(16 pts, 9 quads). Con on: 9→18 tris en la grilla, 800→1600 en el toro (x2 exacto),
+SIEMPRE con los puntos intactos. `mode='concave'` sobre quads convexos da el mismo 18
+(el modo importa en polígonos cóncavos). La KB no documentaba el par. Nombres REALES
+(live-triangulatePOP.json): `mode` (convex/concave), `triangulatequads`, `lsmaxverts`,
+`setmaxiter`, `maxiter`.
+
+### `extrudepop_jaula_siempre` — la jaula existe incluso con distance=0 [V]
+grid 3x3 (9 pts, 4 quads) → 25 pts / 20 prims INCLUSO con `distance=0` (8 caras copiadas
++ 12 quads laterales); grid 4x4 → 52/45. `distance` escala la altura: rango P_2 = [0,
+distance] con axis z (d=1 → [0,1], d=2 → [0,2]) y la base en 0. `axis='y'` mueve el rango
+al eje (P_1 = [−0.5, 2.5] con d=2; P_2 plano). `taper=0.5` deforma sin cambiar conteos
+(25/20). Nombres REALES (live-extrudePOP.json): `axis` (normal/x/y/z), `distance`,
+`taper`, `peredge`, `maxprimsperpoint`, `normal` (none/pointNormals/vertNormals).
+
+### `patternpop_genera_por_indice` — ramp/sin exactos; el random no depende de numpoints [V]
+Generator (sin input): ramp 4 pts → P_0 [0, 1/3, 2/3, 1] (err < 2e-8), 6 pts paso 0.2;
+`reverse0` invierte; `tolow0/tohigh0=10/20` remapea exacto (0→10, 1→20). Tabla de prims
+con 6 pts: linestrip=1, lines=5 (n−1), points=6, none=0 (con 4 pts: 3 y 4). sin 2 ciclos
+en 8 pts cuadra con math.sin(2π·2·i/7) punto a punto (err 3.4e-7). `Tex` rampstartend
+reproduce el ramp en Tex_0. `type='random'` es determinístico por seed (2 lecturas
+iguales, cambia 3≠9) y genera POR ÍNDICE: los primeros 4 valores son idénticos con
+numpoints 4 y 8. Fuera de checks (no deducido): `type='index'` produce [0,2,0,2] en 4 pts.
+Nombres REALES (live-patternPOP.json): `type0/1/2` por parsize (menú zero/one/ramp/
+.../sin/cos/tri/square/pulse/random/randomcycle/index), `numcycles0..2`, `seed`,
+`outputattrscope` default 'P' — el 'set' del generador SÍ escribe.
+
+### `randompop_set_scope_noop` — el 'set' de randomPOP contradice el default in-place de la familia [V]
+Sobre grilla 3x3 con `combineop='add'`, `amp0=1`: deltas P punto a punto uniformes en
+[0,1] (9/9), determinístico por seed, cambia con la semilla (3≠7). `combineop='set'` con
+`outputattrscope=''` (default del op) es NO-OP: P vuelve EXACTO a la grilla base — lo
+contrario que quantizePOP/limitPOP, que con scope vacío aplican en sitio. Con
+`outputattrscope='P'` el set escribe uniformes en [0,1]. **amp NO escala ni acota el
+uniforme**: con la misma seed, amp=0.5 produce los MISMOS valores que amp=1.0 (delta máx
+medido 0.97 > 0.5). `type='gaussian'` con amp=1 ≈ N(0,1) (n=200: media 0.083, stdev
+1.033, rango 6.73). `extrapts` MULTIPLICA los puntos: total = N·max(1, extrapts)
+(9→18 con e=2, 9→27 con e=3, estables re-cocinando; e=1 deja 9). Nombres REALES
+(live-randomPOP.json): `type` (none/twovalues/uniform/gaussian/insidesphere/direction/
+exponential/lognormal/cauchylorentz/customramp), `combineop` (set/add/mult/
+translatealongnormal), `seed`, `amp0`, `valuea0/valueb0`, `extrapts`.
