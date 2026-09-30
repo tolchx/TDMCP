@@ -7,10 +7,13 @@ Receta (td-geometry-instancing + td-pop-trails-fields + C8/C10/C11):
     emit(sphere) → sim(particlePOP) → grav(forceradial) ─┬→ fb (targetpop, C10)
                                   └→ curl(noise) → shade(glslPOP: Color = rampa(|PartVel|))
                                      → tr(trailPOP 16 FRAMES) → tr_out(nullPOP)
-  geo_cubes: boxPOP (plantilla) + phongMAT + instancing ON:
+  geo_cubes: boxPOP (plantilla DARDO 0.12x0.45x0.04, largo en +Y) + phongMAT + instancing ON:
     fuente = tr_out DIRECTO por POP (sin poptoCHOP): instancetx='P(0)'...
     color por instancia: instancecolorop + instancer='Color(0)'... (el trail arrastra el
     historial de color: cada cubo pinta la velocidad que había cuando ese sample nació)
+    ROTACIÓN por instancia (flechas): el glslPOP shade calcula los EULER de la skill
+    (rx=degrees(atan(dz,|dxy|)), rz=degrees(atan(-dx,dy))) en GPU y escribe el attr custom
+    'Rot' (el trail lo arrastra como el Color); instancerop=src + instancerx/ry/rz='Rot_0/1/2'
   geo_floor: gridPOP grande rotada a XZ + phongMAT oscuro (el piso que reciben las luces)
   ren.par.geometry = LISTA [geo_cubes, geo_floor] (C8: es multi-valor — acá es la feature)
 
@@ -42,14 +45,25 @@ SHADER = """void main()
     const uint id = TDIndex();
     if (id >= TDNumElements())
         return;
-    float v = length(TDIn_PartVel());
+    vec3 pv = TDIn_PartVel();
+    float v = length(pv);
     float t = clamp(v * uSpeedScale, 0.0, 1.0);
     Color[id] = vec4(mix(vec3(0.15, 0.30, 1.0), vec3(1.0, 0.85, 0.25), t), 1.0);
+    // flechas: +Y de la plantilla apunta según la velocidad (fórmulas de Euler de la skill,
+    // verificadas contra numpy: maxdiff 0.0). atan(y,x) de GLSL es atan2.
+    if (v < 1e-4) {
+        Rot[id] = vec3(0.0);
+    } else {
+        float rx = degrees(atan(pv.z, length(pv.xy)));
+        float rz = degrees(atan(-pv.x, pv.y));
+        Rot[id] = vec3(rx, 0.0, rz);
+    }
 }
 """
 
 report = {"run_id": RUN,
-          "objetivo": "estelas de cubos coloreados por velocidad (instancing) iluminando el piso",
+          "objetivo": "estelas de DARDOS coloreados por velocidad y apuntando según PartVel "
+                     "(instancing + Euler del glslPOP) iluminando el piso",
           "ok": False, "cheks": []}
 
 
@@ -164,6 +178,9 @@ sim.par.birthrate = 60
 sim.par.life = 1.2
 sim.par.maxparticles = 2000
 sim.par.initvelocityy = 0
+sim.par.initvelocityx = 1.2   # velocidad horizontal variada: sin esto PartVel_0/2 son
+sim.par.initvelocityz = 0.8   # exactamente 0 (el curl 3D del noisePOP NO toca PartVel) y
+                              # los dardos caen en 2D (rotación invisible)
 sim.par.preroll = 0
 gv.par.globforcemult = 1
 gv.par.globforcey = -2
@@ -174,11 +191,17 @@ gv.par.planar = 0
 curl.par.mode = 'quality'
 curl.par.type = 'simplex3d'
 curl.par.amp = 0.35
-curl.par.curl3d = True
-shade.par.outputattrs = 'Color'
-shade.par.attr.sequence.numBlocks = 1
+curl.par.curl3d = True   # NOTA [V]: el curl NO toca PartVel (escribe attrs propios,
+                         # curl3doutputattrscope) — la variedad de dirección viene del sim
+shade.par.outputattrs = 'Color Rot'
+shade.par.attr.sequence.numBlocks = 2
 shade.par.attr0name = 'color'
 shade.par.attr0numcomps = '4'
+# attr PROPIO: name es un MENÚ (va 'custom') y el nombre real va en customname;
+# el out NO se declara en el GLSL (el glslPOP lo auto-declara por el config)
+shade.par.attr1name = 'custom'
+shade.par.attr1customname = 'Rot'
+shade.par.attr1numcomps = '3'
 shade.par.vec0name = 'uSpeedScale'
 shade.par.vec0valuex = 0.2   # sin saturar el clamp: g=-2 -> t~0.72, g=-10 -> t=1.0 (diferenciable)
 tr.par.lengthunit = 'frames'
@@ -226,6 +249,12 @@ geo_c.par.instancecolorop = src
 geo_c.par.instancer = 'Color_0'
 geo_c.par.instanceg = 'Color_1'
 geo_c.par.instanceb = 'Color_2'
+# flechas: los EULER vienen del attr Rot (calculado en GPU por el glslPOP); los pars
+# REALES son instancerx/y/z (los u/v/w son del rotate-to-vector, doc los confunde)
+geo_c.par.instancerop = src
+geo_c.par.instancerx = 'Rot_0'
+geo_c.par.instancery = 'Rot_1'
+geo_c.par.instancerz = 'Rot_2'
 mn = list(geo_c.par.instancecolormode.menuNames or [])
 elegido = 'op' if 'op' in mn else ('replace' if 'replace' in mn else '')
 if elegido:
@@ -274,8 +303,8 @@ floor = op(ROOT + '/geo_floor/floor')
 floor.display = True
 floor.render = True
 box.par.sizex = 0.12
-box.par.sizey = 0.12
-box.par.sizez = 0.12
+box.par.sizey = 0.45    # dardo: largo en Y (eje que alinea la rotación), fino en Z
+box.par.sizez = 0.04
 floor.par.cols = 2
 floor.par.rows = 2
 floor.par.sizex = 30
@@ -489,6 +518,123 @@ time.sleep(2.0)
 print('<<JSON>>' + json.dumps(dict(fy=gv.par.globforcey.eval())))
 """ % (ROOT, ROOT))
 chek("estado canónico restaurado (g=-2)", ok and d.get("fy") == -2, d)
+
+# ── 11b. FLECHAS: los dardos apuntan según PartVel (Euler de la skill, verificados) ──
+ok, d = g.exec_code(CHAIN + """
+import json
+import math
+import time
+src = op(ROOT + '/src')
+src.cook(force=True)
+time.sleep(0.3)
+src.cook(force=True)
+ch = {}
+for c in src.chans():
+    ch[c.name] = list(c.vals)
+worst, n = None, 0
+if all(k in ch for k in ('Rot_0', 'Rot_2', 'PartVel_0', 'PartVel_1', 'PartVel_2')):
+    d0, d1, d2 = ch['PartVel_0'], ch['PartVel_1'], ch['PartVel_2']
+    r0, r2 = ch['Rot_0'], ch['Rot_2']
+    n = min(len(d0), len(r0))
+    worst = 0.0
+    for i in range(n):
+        v = math.sqrt(d0[i] * d0[i] + d1[i] * d1[i] + d2[i] * d2[i])
+        if v < 1e-4:
+            wx, wz = 0.0, 0.0
+        else:
+            wx = math.degrees(math.atan2(d2[i], math.hypot(d0[i], d1[i])))
+            wz = math.degrees(math.atan2(-d0[i], d1[i]))
+        worst = max(worst, abs(r0[i] - wx), abs(r2[i] - wz))
+print('<<JSON>>' + json.dumps(dict(maxdiff=round(worst, 4) if worst is not None else None,
+                                   n=n,
+                                   rx_span=[round(min(ch['Rot_0']), 1), round(max(ch['Rot_0']), 1)] if 'Rot_0' in ch else None,
+                                   rz_span=[round(min(ch['Rot_2']), 1), round(max(ch['Rot_2']), 1)] if 'Rot_2' in ch else None)))
+""")
+flechas = d if ok else {}
+report["flechas_datos"] = flechas
+chek("los EULER del attr Rot son las fórmulas de la skill (maxdiff < 0.01 vs numpy)",
+     flechas.get("maxdiff") is not None and flechas["maxdiff"] < 0.01, flechas)
+
+# la rotación se VE: A/B congelado (C1) — imagen con y sin instancerx/y/z
+ok, d = g.exec_code(CHAIN + """
+import json
+import time
+geo_c = op(ROOT + '/geo_cubes')
+ren = op(ROOT + '/ren')
+GEOM = [op(ROOT + '/geo_cubes'), op(ROOT + '/geo_floor')]
+
+
+def snap():
+    for o in (geo_c, ren):
+        o.cook(force=True)
+    time.sleep(0.08)
+    for o in (geo_c, ren):
+        o.cook(force=True)
+    return ren.numpyArray()
+
+
+geo_c.par.instancerx = 'Rot_0'
+geo_c.par.instancery = 'Rot_1'
+geo_c.par.instancerz = 'Rot_2'
+a_on = snap()
+geo_c.par.instancerx = ''
+geo_c.par.instancery = ''
+geo_c.par.instancerz = ''
+a_off = snap()
+geo_c.par.instancerx = 'Rot_0'
+geo_c.par.instancery = 'Rot_1'
+geo_c.par.instancerz = 'Rot_2'
+geo_c.par.instancing = True
+ren.par.geometry = GEOM
+print('<<JSON>>' + json.dumps(dict(diff=round(float(abs(a_on - a_off).mean()), 5),
+                                   frac=round(float((abs(a_on - a_off).max(2) > 0.05).mean()), 4),
+                                   err=str(geo_c.errors() or '')[:100])))
+""")
+ab = d if ok else {}
+chek("la rotación se ve en el render (A/B congelado: diff > 0.001, >3% de px cambian)",
+     (ab.get("diff") or 0) > 0.001 and (ab.get("frac") or 0) > 0.03, ab)
+
+# el camino alternativo (rotate-to-vector con PartVel directo) también orienta
+ok, d = g.exec_code(CHAIN + """
+import json
+import time
+geo_c = op(ROOT + '/geo_cubes')
+ren = op(ROOT + '/ren')
+GEOM = [op(ROOT + '/geo_cubes'), op(ROOT + '/geo_floor')]
+
+
+def snap():
+    for o in (geo_c, ren):
+        o.cook(force=True)
+    time.sleep(0.08)
+    for o in (geo_c, ren):
+        o.cook(force=True)
+    return ren.numpyArray()
+
+
+geo_c.par.instancerx = ''
+geo_c.par.instancery = ''
+geo_c.par.instancerz = ''
+a_off = snap()
+geo_c.par.instancerottoop = op(ROOT + '/src')
+geo_c.par.instancerottox = 'PartVel_0'
+geo_c.par.instancerottoy = 'PartVel_1'
+geo_c.par.instancerottoz = 'PartVel_2'
+a_rt = snap()
+geo_c.par.instancerottoop = ''
+geo_c.par.instancerottox = ''
+geo_c.par.instancerottoy = ''
+geo_c.par.instancerottoz = ''
+geo_c.par.instancerx = 'Rot_0'
+geo_c.par.instancery = 'Rot_1'
+geo_c.par.instancerz = 'Rot_2'
+geo_c.par.instancing = True
+ren.par.geometry = GEOM
+print('<<JSON>>' + json.dumps(dict(diff=round(float(abs(a_rt - a_off).mean()), 5))))
+""")
+rt = d if ok else {}
+chek("el camino rotate-to-vector (PartVel directo) también orienta (diff > 0.001)",
+     (rt.get("diff") or 0) > 0.001, rt)
 
 # ── 12. errores + evidencia visual ──
 g.call("get_errors", {"path": ROOT}, note="errores de la red")

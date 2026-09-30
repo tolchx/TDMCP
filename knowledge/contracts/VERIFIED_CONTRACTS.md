@@ -367,12 +367,14 @@ atributos existentes) + `attrmatch` = corte por atributo **(abierto)**: el conte
 contaminado por drift del buffer; `oldestpointfirst` cambia el primer sample [V*] (inversión o
 re-horneo, indistinguible en red viva); `closed` sin efecto en px con pointsprites (9477=9477);
 `surftype` = conectividad del trail {none, points, rows (default), cols, rowcol, triangles,
-alttriangles, quads} — **hipótesis CERRADA [V]:** `'points'` renderiza el trail SIN
-`convertPOP(topointprims)`: nube aislada (terminal apagado), mismo frame: `rows` → **0 px**
-vs `points` → **5495 px**; `none`/`triangles` → 0 prims (nada que dibujar). Gradable correcto:
+alttriangles, quads} — **hipótesis CERRADA [V] con head-to-head (2026-09-30):** mismo frame,
+misma red: clásico (`rows`→curl→`convertPOP`→terminal) **6938 px**/507 prims vs directo
+(`points` + flags del trail, sin convertPOP) **7248 px**/507 prims — el directo no pierde
+píxeles: gana ~4,5% y ahorra el nodo. Control: `rows` + flags del trail = **0 px** (las
+polilíneas no dibujan sprites); `none`/`triangles` → 0 prims. Gradable correcto:
 `numPrims()==numPoints()` es SIEMPRE 1:1 en rows/points (el trail ya trae sus primitivas);
-lo que cambia es el TIPO — con `rows` son polilíneas que no dibujan sprites. Los sprites del
-trail sin `pscale` son de 1 px: para look con peso, mantener el convertPOP clásico.
+lo que cambia es el TIPO — con `rows` son polilíneas. Los sprites del trail sin `pscale` son
+de 1 px: para look con peso, mantener el convertPOP clásico.
 **Lección de medición:** en red viva con simulación, `n(tr)` derrapa (el buffer del trail también
 arrastra slots muertos: 49664 → ~900 al tocar un par) — usar fingerprints diferenciales
 back-to-back, no conteos absolutos.
@@ -424,6 +426,73 @@ Con `ren.par.geometry = [geoA, geoB]` (lista, C8) no hay UN solo terminal: las g
 por velocidad se gradable por **datos** (max `Color_0` del buffer del trail: el min es el piso
 frío de los recién nacidos; min `PartVel_1`: la caída profundiza) — la cámara fija queda ciega
 cuando la nube cae fuera del frustum. Phong: los pars de color son `diffr/g/b` (no `diffuser`).
+
+### Addendum (2026-09-30): orientar instancias según PartVel (flechas) [V]
+Verificado en `/pop_trails_floor` elevado (16/16, run 20260930-030437):
+
+- **`instancer_euler_xz`**: los pars de Euler por instancia son `instancerx/y/z` (+ `instancerop`);
+  los `instancerotu/v/w` son OTRO grupo (UV del rotate-to-vector, junto a `instancerotto*`).
+  Las fórmulas de la skill (rx=degrees(atan2(dz,√(dx²+dy²))), rz=degrees(atan2(-dx,dy)))
+  **verificadas contra numpy: maxdiff 0.0** calculadas en GLSL del glslPOP con
+  `degrees(atan(y,x))`.
+- **`glslpop_custom_attr`** (extiende C11/`color_es_atributo`): un attr PROPIO del glslPOP se
+  configura con `attrNname='custom'` (es MENÚ) + `attrNcustomname='Rot'` + `attrNnumcomps='3'` y
+  el out **NO se declara en el GLSL** — el glslPOP lo auto-declara por el config (declararlo
+  igual compila dos veces o falla: en esta sesión compiló SIN declarar). El trail ARRASTRA el
+  attr como arrastra `Color`: llega al poptoCHOP como `Rot_0/1/2`.
+- **`curl_no_partvel`**: el curl 3D del noisePOP **NO toca `PartVel`** (escribe attrs propios:
+  `curl3doutputattrscope`) — la "turbulencia" de la receta era inerte (PV_0/PV_2 exactamente 0
+  con amp=1.0 verificado por readback). La variedad de dirección por partícula sale del
+  **particlePOP**: `initvelocityx/z != 0` (velocidad inicial multi-eje).
+- **`px_ciego_a_rotacion`**: el conteo de px es CIEGO a la rotación (cubos centro-simétricos:
+  72694 px idénticos on/off; `PartId` como ángulo también dio 0 con caja simétrica). El gradable
+  de la rotación es el **A/B congelado** (C1): diff medio del array y % de px cambiados
+  (medido 0.0054 / 6% con el dardo; el px total con plantilla simétrica no sirve).
+- **Plantilla asimétrica**: para VER la orientación la plantilla no puede ser simétrica
+  (0.12³ invisible); dardo 0.12×0.45×0.04 (largo en +Y, el eje que alinea).
+- El camino **rotate-to-vector** (`instancerottoop` + `instancerottox/y/z`='PartVel_0/1/2',
+  `instancerottoposy` para el eje) también orienta (diff 0.0084) y es más barato de cablear:
+  sin glslPOP ni attr — pero los ángulos no quedan inspeccionables en el buffer.
+
+---
+
+## C13 — poptoTOP → glslTOP: la nube como textura de datos (2026-09-30, `/pop_sim_trails`)
+
+Pipeline verificado de punta a punta: `poptoTOP 'data' (par.pop=terminal, attribscope='P')` →
+`glslTOP 'proc'` (pixel shader en `pixeldat`, uniform en la secuencia `vec`).
+
+### `pixeldat_no_computedat` — el pixel shader del glslTOP va en `pixeldat` [V]
+Los pars son TRES: `pixeldat` (pixel shader), `computedat` (compute — es donde va el shader del
+**glslPOP**, no acá) y `vertexdat`. El glslTOP auto-crea sus DATs docked (`<nombre>_pixel` /
+`_compute` / `_info`) al crearse. Síntoma del slot equivocado: errores vacíos y el output
+**copiando la textura de entrada** sin procesar.
+
+### `glsltop_pixel_main` — el pixel shader exige `out fragColor` + `TDOutputSwizzle` [V]
+Síntoma [V]: un main tipo glslPOP (`fragColor = vec4(...)` sin declarar) **NO compila y no hay
+error visible**: el output queda como passthrough del input (te hace dudar del pipeline, no del
+shader). El template default que auto-crea el nodo lo muestra: `out vec4 fragColor;` +
+`fragColor = TDOutputSwizzle(color);`. Uniforms: secuencia `vec` igual que el glslPOP
+(`vec0name`/`vec0valuex`) y se leen con `uniform float uGain;` declarado en el shader.
+
+### `poptotop_textura_cruda` — la textura trae valores CRUDOS; el rango va por uniform [V]
+(REEPLAZA la creencia "renormaliza": poptoTOP NO re-normaliza) La textura trae atributos CRUDOS:
+con `attribscope='P PartId'`, RGBA = (P.x, P.y, P.z, flag de vivo) — P.y crudo −4.9..0.4 en la
+textura, el max idéntico al del poptoCHOP. **`PartId` no llega a ningún canal**: alpha es 0/1
+(vivo) y los slots muertos del trail llegan como (0,0,0,0) — diluyen cualquier estadística del
+buffer COMPLETO; la población viva se cuenta con `step(0.5, c.a)`. Síntoma del primer montaje [V]:
+máscara sobre `c.b` (que es P.z, con negativos) → warm_frac ~0.02 plano para CUALQUIER uFrac.
+La palanca va por uniforms del glslTOP: calibrando uLo/uHi con cuantiles VIVOS del buffer (p02/p98
+del poptoCHOP), la fracción clasificada es LIBRE DE ESCALA (g=-6 vs g=-12: |Δ| < 0.03) pero SÍ ve
+la demografía del buffer (post-reset: n_alive 4332→1728 Y la fracción sale de la banda madura).
+`uFrac` es umbral sobre el valor NORMALIZADO, no un percentil: los extremos saturan (0.0 → ~0.01,
+1.0 → 1.0 entre vivos) aunque la población derive. El tamaño de la textura es señal VIVA (6000→
+14000 texels siguiendo al trail). `layout='onerow'` = 1 píxel por punto EN ORDEN; `'square'`
+entrelaza por filas (rompe la correspondencia índice↔punto). `attribscope` controla qué entra
+(con `'*'` entró `PartId` y saturó el shader).
+
+Acceso a los uniforms: los bloques de la secuencia `vec` NO son `heat.par.vec2`
+(`td.ParCollection` no expone los bloques como atributos, y `td.Par` no es subscriptable) — se
+enumeran con `heat.pars('vec*')` y se escriben `vec2valuex`.
 
 ---
 

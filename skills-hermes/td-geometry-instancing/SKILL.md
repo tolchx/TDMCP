@@ -40,7 +40,7 @@ Split sources: `instancetop` (translate), `instancerop` (rotate), `instancesop` 
 Each group has an OP override + X/Y/Z channel selectors:
 
 - **Translate**: `instancetop`, `instancetx/ty/tz`
-- **Rotate**: `instancerop`, `instancerx/ry/rz`
+- **Rotate**: `instancerop`, `instancerx/ry/rz` (Euler, degrees). Do NOT confuse with `instancerotu/v/w` — that trio is the UVW of rotate-to-vector, not Euler [V]
 - **Scale**: `instancesop`, `instancesx/sy/sz`
 - **Pivot**: `instancepop`, `instancepx/py/pz`
 - **Rotate-to-vector**: `instancerottoop`, `instancerottox/y/z`
@@ -65,7 +65,9 @@ Orient instances along a direction vector instead of Euler angles.
 To align Y-axis geometry (tube) with direction (dx, dy, dz), with default `instrord` (intrinsic xyz):
 - `rx = atan2(dz, sqrt(dx² + dy²))`, `ry = 0`, `rz = atan2(-dx, dy)`
 
-Changing `instrord` changes which formula is correct. Use `functionCHOP(atan2)` + `mathCHOP(chanop=len)` for compiled computation.
+Changing `instrord` changes which formula is correct.
+
+**Verified workflow (2026-09-30, pop_sim)**: compute the angles IN the glslPOP from `TDIn_PartVel()` — GLSL `atan(y,x)` is atan2 — write them to a custom attribute (`attrNname='custom'` + `attrNcustomname='Rot'`, `numcomps=3`; do NOT declare the out in GLSL, the glslPOP auto-declares it), let the trailPOP drag it like Color, and consume it from the poptoCHOP with `instancerop=src` + `instancerx/y/z='Rot_0/1/2'`. Verified against numpy: maxdiff 0.0°. The CHOP-only route (functionCHOP/mathCHOP) has UNVERIFIED parameter names in 2025.32460 (`tochan*`/`names`/`renames`/`func` did not resolve) — prefer the glslPOP path.
 
 ## Color & Texture
 
@@ -79,6 +81,7 @@ Changing `instrord` changes which formula is correct. Use `functionCHOP(atan2)` 
 - **POP-driven (direct, same COMP)** — POP → nullPOP → `instancetop`/`instanceop`, channels `P(0)/P(1)/P(2)`. No poptoCHOP round-trip — but it fails if the POP is in another geometryCOMP
 - **POP-driven (CHOP, cross-COMP)** — POP → nullPOP → poptoCHOP → nullCHOP → `instanceop`, selectors `P_0/P_1/P_2`. Required when the data lives in another COMP (or the channels are needed elsewhere)
 - **TOP-driven** — noiseTOP → `instanceop`, pixel data drives transforms
+- **Velocity-aligned darts [V]** — glslPOP writes Euler from `TDIn_PartVel()` to custom attr `Rot` → trail drags it → poptoCHOP `src` → `instancerop=src`, `instancerx/y/z='Rot_0/1/2'`. Template must be ASYMMETRIC (e.g. box 0.12×0.45×0.04, long on +Y) or the rotation is invisible. Alternative: rotate-to-vector with `PartVel_0/1/2` directly (no glsl, angles not inspectable)
 
 ## Pitfalls
 
@@ -88,3 +91,6 @@ Changing `instrord` changes which formula is correct. Use `functionCHOP(atan2)` 
 - **Missing `instanceop`** — no data source = no instances
 - **Instance OP paths from geometryCOMP** — OP reference params resolve from inside the COMP. `../sibling` won't work. Use parent shortcut expressions: `{"expr": "parent.Shortcut.op('chop_name')"}`
 - **POP source in another geometryCOMP** — the geometryCOMP errors with "POP with point count info on GPU can only be the main OP" while the render looks fine and draws 0 instances. Route the data through a poptoCHOP with `P_0/P_1/P_2` selectors (C12 in `knowledge/contracts/VERIFIED_CONTRACTS.md`)
+- **Rotation graded by pixel count is blind [V]** — a symmetric template (cube) renders identical pixel counts rotated or not (72694 px identical on/off, even with absurd angles). Grade orientation with a frozen A/B diff (cook, snapshot array; toggle; cook, snapshot; mean diff + % of changed px > 3%)
+- **curl does NOT touch PartVel [V]** — noisePOP curl 3D writes its own attributes (`curl3doutputattrscope`); amp=1.0 left PartVel_0/2 exactly 0. Direction variety per particle comes from the particlePOP (`initvelocityx/z`)
+- **Custom output attributes are a menu pair [V]** — `attrNname='custom'` (menu) + `attrNcustomname='Rot'`; declaring the out in GLSL is unnecessary (auto-declared from the config) and mistaking the menu for a text field silently renames nothing

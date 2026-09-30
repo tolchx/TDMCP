@@ -33,7 +33,7 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | auditoría `trailPOP` de la receta oficial (`probe_auditrail*`, sonda desechable) | `velocityscale`/`color1*`/`color2*` NO existen; `length` es tiempo (`lengthunit`) → contrato `trailPOP_pars` en C8 |
 | **`build_pop_color_trails.py`** (proyecto F: estelas con color por velocidad) | `results/20260929-225109` — 14/14 cheks, 0 fallos, PNG 338 px → contratos C11 |
 | **`build_pop_color_trails_attr.py`** (proyecto F-var: attributePOP sin glsl) | `results/20260929-232452` — 13/13 cheks, 0 fallos, PNG 638 px verde — `attributePOP_no_mapea` (C11): attr constante sí, dup/ren no mapean |
-| **`build_pop_trails_floor.py`** (proyecto G: estelas instanciadas iluminando el piso) | `results/20260930-002731` — 13/13 cheks, 0 fallos, PNG 13680 px — `instancing_pop_crosscomp` + `instancecolormode_menu` (C12) |
+| **`build_pop_trails_floor.py`** (proyecto G: dardos apuntando según PartVel, coloreados por velocidad, iluminando el piso) | `results/20260930-030437` — 16/16 cheks, 0 fallos, PNG 13851 px — Euler del glslPOP verificados vs numpy (maxdiff 0.0) + `instancer_euler_xz`, `glslpop_custom_attr`, `curl_no_partvel`, `px_ciego_a_rotacion` (addendum C12) |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
 
@@ -87,13 +87,19 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   cero efecto) — el color por velocidad con rampa sigue necesitando glslPOP (proyecto F).
   Contrato `attributePOP_no_mapea` en C11.
 - **`/pop_trails_floor`** ([build_pop_trails_floor.py](../tools/gauntlet/build_pop_trails_floor.py),
-  2026-09-30): **estelas de cubos coloreados por velocidad iluminando el piso** — cadena del
-  proyecto F (sim+feedback, glsl rampa, trail) como DATOS en `geo_data`, `geo_cubes` con
-  `boxPOP`+phong+**instancing** (fuente = poptoCHOP `src` sobre `tr_out`: la fuente POP directa
-  NO cruza COMPs, C12), color por instancia vía `Color_0/1/2`, `geo_floor` phong oscuro en XZ,
-  `ren.par.geometry` como LISTA de 2 COMPs. Gradables: toggles estructurales por chain + color
-  por datos (max `Color_0` 0.68 → 1.0 al escalar gravedad; brightest del PNG ámbar). Contratos
-  **C12** (`instancing_pop_crosscomp`, `instancecolormode_menu`, guardias multi-geometry).
+  2026-09-30): **estelas de DARDOS coloreados por velocidad y apuntando según PartVel**
+  (elevación del proyecto G, 16/16) — cadena del proyecto F (sim+feedback, glsl rampa, trail)
+  como DATOS en `geo_data`, `geo_cubes` con `boxPOP`+phong+**instancing** (fuente = poptoCHOP
+  `src` sobre `tr_out`: la fuente POP directa NO cruza COMPs, C12), color por instancia vía
+  `Color_0/1/2` **y orientación por instancia**: el glslPOP calcula los Euler de la skill en GPU
+  (rx=degrees(atan2(dz,√(dx²+dy²))), rz=degrees(atan2(-dx,dy)) — maxdiff 0.0 vs numpy) en el
+  attr custom `Rot` que el trail arrastra; `instancerop=src` + `instancerx/y/z='Rot_0/1/2'`.
+  `geo_floor` phong oscuro en XZ, `ren.par.geometry` como LISTA de 2 COMPs. Gradables: toggles
+  estructurales por chain, color por datos (max `Color_0`) y orientación por **A/B congelado**
+  (diff 0.0054, 6% de px — el px total es ciego a la rotación, plantilla simétrica). Contratos
+  **C12** (`instancing_pop_crosscomp`, `instancecolormode_menu`, guardias multi-geometry) +
+  addendum de flechas (`instancer_euler_xz`, `glslpop_custom_attr`, `curl_no_partvel`,
+  `px_ciego_a_rotacion`).
 - Recetas reutilizables (estelas y campo 4D, con sus pitfalls) documentadas como skill
   **`td-pop-trails-fields`** en `skills-hermes/` (referenciada por `td-pop-family` y
   `td-pop-render-pipeline`).
