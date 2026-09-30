@@ -2,24 +2,105 @@
 
 (El triage del loop los agrega automáticamente.)
 
+## Estado verificado — dueño único
+
+Acá vive **el estado real**: qué suites existen, quién las corre, qué quedó probado y con qué
+corrida. Los demás docs y skills **señalan acá** en vez de repetirlo — ya derivó una vez (el
+2026-09-29 cuatro sitios afirmaban "0 violaciones" mientras el árbol tenía dos).
+
+**Quién corre qué** — no hay otro runner:
+
+`python scripts/loop_gate.py --action commit` → `scripts/loop_gate.py::run_tests`, en orden:
+`knowledge/server.py --selftest` · `knowledge/test_protocol.py` · `run_regression.py --quick` (exige
+TD: exit 2 = entorno caído → se saltea, no es rojo) · `tools/gauntlet/check_single_home.py` ·
+`tools/gauntlet/td_probe.py`. Con `requireGreenTests: true`, cualquiera que se ponga rojo deja el
+commit en **BLOCK**.
+
+Probado el 2026-09-29 sobre el árbol de la sesión:
+
+| qué | corrida / salida real |
+|---|---|
+| gate, `--paths` con los paths del cambio (≤ `maxFiles`) | `ALLOW · ✔ dentro de gate.yaml (…) suites verdes` · exit 0 |
+| gate, invariante sembrada (`_seed_single_home.py`) | `BLOCK · ✖ las suites no están verdes` · exit 2 · `--json`: `single_home exit=1` |
+| gate, entrada sin `--paths` (paths derivados de git) | `BLOCK · ✖ 15 archivos > maxFiles=12` · exit 2 — **sólo por tamaño**: es el diff acumulado de la sesión, no un rojo de suites |
+| `build_pop_fountain.py` (asienta por `chain_source`) | `results/20260929-150850` — 8/8 cheks, 0 fallos |
+| `build_godrays_particles.py` (asienta por `chain_source`) | `results/20260929-150924` — 0 fallos |
+| `build_pop_curlfield.py` (incluye `selftest_render_ownership`) | `results/20260929-150538` — 45 calls, 0 fallos |
+| `build_particle_fx.py` (`px` + `render_is_ours`) | `results/20260929-150904` — 42 calls, 0 fallos |
+| **`build_pop_streams.py`** (proyecto C: estelas circle→trail→noise→topointprims) | `results/20260929-161923` — 11/11 cheks, 0 fallos, PNG 177 px |
+| **`build_pop_field.py`** (proyecto D: campo 4D toro→sprinkle→noise) | `results/20260929-162735` — 9/9 cheks, 0 fallos, PNG 1443 px |
+| **`build_pop_sim_trails.py`** (proyecto E: sim con feedback + estelas) | `results/20260929-221732` — 13/13 cheks, 0 fallos, PNG 304 px |
+| auditoría `trailPOP` de la receta oficial (`probe_auditrail*`, sonda desechable) | `velocityscale`/`color1*`/`color2*` NO existen; `length` es tiempo (`lengthunit`) → contrato `trailPOP_pars` en C8 |
+| **`build_pop_color_trails.py`** (proyecto F: estelas con color por velocidad) | `results/20260929-225109` — 14/14 cheks, 0 fallos, PNG 338 px → contratos C11 |
+| `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
+| `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
+
+La guardia de propiedad del render, enfrentada a terminales que **no** son el par `geo`/`ren` (redes
+scratch, construidas y destruidas en el mismo pase):
+
+| caso | resultado |
+|---|---|
+| control `geo`+`ren` · geometry llamada `geoB` · renderTOP llamado `render_out` | `[True, 615, 0]` |
+| terminal vacío (decoy) con `render=true` · terminal de **otra** red | `[False, 615, 615]` — niega, no afirma |
+| red inexistente | `RuntimeError: no existe la red /X` — falla cerrado y con mensaje |
+
+**Sigue sin probarse:** F3–F4 del gauntlet sobre este árbol (ninguna fase F3 usa `td_chain`; F1+F2 sí
+corren dentro del gate) · el gate con el juez externo encendido (`--no-judge` en las corridas de
+arriba) · `render_is_ours` contra el camino de excepción de `px()`.
+
+## Proyectos POP (2026-09-29, tarde)
+
+Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medición del dueño único
+(`chain_source` → `settle`/`px`/`render_is_ours`):
+
+- **`/pop_streams`** ([build_pop_streams.py](../tools/gauntlet/build_pop_streams.py)): anillo
+  `circlePOP` → estelas `trailPOP` → `noisePOP` curl → `topointprims` → pointsprite. 256 pts/256
+  prims, guardia `[True, 4315, 0]`. Aprendizaje: el trail ACUMULA el campo y el enjambre migra del
+  anillo — la cámara se centra en el centroide de P (`cam_follows_data`), no en el origen.
+- **`/pop_field`** ([build_pop_field.py](../tools/gauntlet/build_pop_field.py)): superficie de
+  `torusPOP` → `sprinklePOP` 3000 pts → `noisePOP` **4D** animado por `t4d` (el tiempo escalonado
+  es lo que mueve el campo sin simulación) → `topointprims`. 3000 pts, PNG 1443 px.
+- **`/pop_sim_trails`** ([build_pop_sim_trails.py](../tools/gauntlet/build_pop_sim_trails.py),
+  noche): **simulación + estelas** — `spherePOP` → `particlePOP` (life=1.2, sin initialize/preroll)
+  → `forceradialPOP` → `trailPOP` → curl → `topointprims`, con rama `grav` → `fb` (nullPOP) y
+  `targetpop=fb`: **sin el loop de feedback la integración se descarta** (P clavado en el emisor).
+  Animación verificada escalando `globforcey` -6 → -14 entre llamadas: `P_1.min` de sim
+  -1.89 → -5.03, terminal -3.45 → -10.11; población viva por `PartId` (≤ 701), buffer con slots
+  muertos (30k) documentado. Contratos nuevos: **C10** en
+  `knowledge/contracts/VERIFIED_CONTRACTS.md`.
+- Contratos nuevos en `knowledge/contracts/VERIFIED_CONTRACTS.md`: **C8** (trails/cámara/
+  renderTOP-lista/noisesize-writeonly/wiring-inputs), **C9** (ruido 4D + torusPOP) y **C10**
+  (loop de feedback, initialize-enferma, canales Part*, spherePOP radz/cols).
+- **`/pop_color_trails`** ([build_pop_color_trails.py](../tools/gauntlet/build_pop_color_trails.py),
+  noche): **estelas con color por velocidad** — sim (C10) → curl → `glslPOP` 'shade' escribe
+  `Color` desde `PartVel` (uniform `uSpeedScale`, rampa frío→caliente) ANTES del trail: la estela
+  arrastra historial de color. Material blanco (multiplica), trail 16 FRAMES. Palanca por
+  números: media Color_0 0.547 → 0.300 al comprimir el rampa; colores históricos (max terminal
+  0.943 > max shade 0.626). Contratos nuevos: **C11** (main canónico con `TDIndex()` guardia,
+  inputs por `TDIn_*` no buffers, `Color` float4 por `attr0name='color'`, gradables de color).
+- Recetas reutilizables (estelas y campo 4D, con sus pitfalls) documentadas como skill
+  **`td-pop-trails-fields`** en `skills-hermes/` (referenciada por `td-pop-family` y
+  `td-pop-render-pipeline`).
+
+## Items
+
 - [x] 1. Hallado por el loop (triage automático, id `arbol-sucio`, huella `63cc9331b8a0d0a5`):
   9 archivos modificados sin commitear. **CERRADO 2026-09-29** (ciclo diario, intento 1): eran **un
   solo trabajo coherente**, no residuo — el refactor "un solo dueño de la medición" (`td_chain.py`
   inyectado por `td_probe.chain_source`, `Gauntlet.offline()` como único wrapper de td-knowledge,
   `check_single_home.py` como regla ejecutable). Verificado con gauntlet completo **PASS**
-  (`results/20260929-032041`), `td_probe` 5/5 y `check_single_home` 0 violaciones; gate **ALLOW**;
+  (`results/20260929-032041`), las dos suites de host verdes (hoy las corre el gate); gate **ALLOW**;
   commit `bdee341` (árbol limpio al cerrar). Evidencia: `docs/loop-run-2026-09-29.md`.
   Razón del cierre: un árbol sucio contamina al juez externo y re-dispara el candidato cada día.
 
-- [ ] 2. **El gate no corre `check_single_home.py`: un archivo que re-implementa la medición pasa
-  igual.** Evidencia real (2026-09-29, ciclo diario): `python tools/gauntlet/check_single_home.py` →
-  `VIOLACION build_pop_fountain.py:136: def settle(n=6):` · `1 violaciones` · exit 1, con ese archivo
-  ya publicado en `6cab054` y el gate habiendo dado ALLOW (sus suites son `server.py --selftest`,
-  `test_protocol.py` y `run_regression.py --quick`; el guard no está cableado). Qué hacer: cablear
-  `check_single_home.py` como parte de las suites que exige `requireGreenTests` (`gate.yaml` /
-  `loop_gate.run_tests`) y cerrar la violación de `build_pop_fountain.py` (usar `td_probe.chain_source`
-  en vez de su `settle()` inyectado a mano). Detectado por: el ciclo diario, verificando el árbol
-  publicado.
+- [x] 2. **El gate ya corre `check_single_home.py`. CERRADO 2026-09-29 (auditoría).** Evidencia
+  original (ciclo diario): un archivo que re-implementaba la medición pasaba igual —
+  `VIOLACION build_pop_fountain.py:128: def settle(n=8):` · exit 1, con ese archivo ya publicado en
+  `6cab054` y el gate habiendo dado ALLOW (sus suites eran las de arriba, sin el guard). Fix:
+  `check_single_home.py` y la autoprueba `td_probe.py` son pasos de `loop_gate.run_tests`, y los dos
+  builds que violaban la regla (`build_pop_fountain.py`, `build_godrays_particles.py`) asientan con
+  `td_probe.chain_source` (probado con la invariante sembrada: ver *Estado verificado*). Detectado
+  por: el ciclo diario, verificando el árbol publicado.
 
 - [ ] 3. **El cierre del ciclo commitea con `git add -A` y publica WIP de un escritor concurrente.**
   Evidencia real (2026-09-29): el commit de cierre `6cab054` barrió `tools/gauntlet/build_pop_fountain.py`

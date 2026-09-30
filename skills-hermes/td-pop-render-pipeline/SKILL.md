@@ -15,7 +15,8 @@ description: "Use when a POP/GLSL effect must actually appear on screen. geometr
 > enjambre: run `results/20260929-014634`, **0 fallos**. En ese pase se descubrió que **la versión
 > anterior de esta receta estaba mal** en su punto central (ver §1). Detalle: secciones C1–C5 de
 > `knowledge/contracts/VERIFIED_CONTRACTS.md` o la tool offline `contracts`. Metodología de
-> medición: skill **`td-live-verification`**.
+> medición: skill **`td-live-verification`**. Recetas específicas de **estelas (trailPOP)** y
+> **campos 4D animados (noisePOP t4d)**: skill **`td-pop-trails-fields`**.
 
 ---
 

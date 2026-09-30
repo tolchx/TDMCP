@@ -11,20 +11,26 @@ de `td-knowledge` y de la que se nutren las skills `td-*`.
 > era **falso** → reemplazado por `points_need_pointprims`; `pointsprite_pars` corregido
 > (**`pointsize`**, no `attensizenear`); sumados `autotorus_masks_render`, `glslPOP`
 > `numBlocks`/docks perezosos, y la ampliación de `set_parameters` a los `vecNvaluex`.
-> Runs (0 fallos): `/curl_field` `results/20260929-025128` · `/particle_swirl` (arreglada)
-> `results/20260929-025059`.
 >
 > **2026-09-29 (pase 3):** C4 suma que un arg mal nombrado se ignora en silencio
-> (`list_operators` quiere `path`, no `parent_path` → default `/project1`). Runs 0 fallos:
-> `results/20260929-030521` (swirl) · `results/20260929-030548` (curl) ·
-> `results/20260929-030806` (regresión) · `results/20260929-030833` (F3.6).
+> (`list_operators` quiere `path`, no `parent_path` → default `/project1`).
 >
-> **2026-09-29 (ciclo diario):** re-verificado en vivo el arg mal nombrado (`parent_path` →
-> `Path not found: /project1`; `path` → 7 ops en `/curl_field`) y fijada la regla del **único dueño de
-> la medición**: el programa inyectado `tools/gauntlet/td_chain.py` (vía `td_probe.chain_source(root)`)
-> y el wrapper `Gauntlet.offline()`; ejecutable con `tools/gauntlet/check_single_home.py` (0
-> violaciones) y `python tools/gauntlet/td_probe.py` (5/5). Suite completa PASS
-> (`results/20260929-032041`).
+> **2026-09-29 (ciclo diario):** fijada la regla del **único dueño de la medición**: el programa
+> inyectado `tools/gauntlet/td_chain.py` (vía `td_probe.chain_source(root)`) y el wrapper
+> `Gauntlet.offline()`; ejecutable con `tools/gauntlet/check_single_home.py`, que corre el gate.
+>
+> **Qué quedó probado y con qué corrida: `docs/BACKLOG.md` → *Estado verificado*** (dueño único).
+> Acá no se repiten conteos ni corridas: ya derivaron una vez.
+>
+> **2026-09-29 (proyectos POP):** C8 abajo (trails/cámara/renderTOP-lista/noisesize-writeonly)
+> y C9 (ruido 4D).
+>
+> **2026-09-29 (noche, proyecto sim+trails):** C10 abajo (el loop de feedback del particlePOP
+> es obligatorio; initializepulse/preroll enferman el buffer; canales Part* del poptoCHOP;
+> spherePOP radz/cols) y update de C8 (noisesize: el valor de atasco varía).
+>
+> **2026-09-29 (noche, proyecto color):** C11 abajo (glslPOP para colorear: main canónico,
+> inputs por TDIn_*, Color float4 por attr, gradables de color e historial del trail).
 
 ---
 
@@ -302,3 +308,143 @@ Apilar un render más (God Rays + variación) sobre el mismo render pesado lo em
 **Lección para el loop:** un "connection refused" del MCP ≠ `.tox` inactivo. Antes de pedirle al
 usuario que toquee el toggle, revisar si TD se crasheó (diálogo Vulkan/Fatal Error) o si hay un
 `CrashAutoSave.*.toe` recién escrito en la carpeta del proyecto.
+
+---
+
+## C8 — Trails, cámara y renderTOP (medido en `/pop_streams`, 2026-09-29)
+
+### `trail_moves_points` — trailPOP acumula desplazamiento: el enjambre SALE del anillo
+**Síntoma [V]:** con `circlePOP(r=2.2) → trailPOP → noisePOP`, el P-medio del terminal era
+`(7.1, 7.0, 7.0)` — no el anillo. Con `amp=0` del ruido el anillo quedaba en el origen.
+
+**Contrato [V]:** el trailP re-hornea los samples acumulando el campo de desplazamiento a lo largo
+de la estela: cada cook, los puntos NUEVOS arrancan del anillo pero el historial quedó donde lo
+dejo el campo. No es un bug: es la definición de estela. Consecuencia práctica: **la cámara no
+debe apuntar al origen**, apunta al centroide de P (ver abajo).
+
+### `cam_follows_data` — la cámara se centra en el centroide de P medido, no en el origen
+**Contrato [V]:** en redes cuyo generador se desplaza (trails, partículas con fuerzas), leer el
+centroide de P por `poptoCHOP` y posicionar `cam.par.t` ahí (+distancia). Con cámara en `(0,0,5)`
+default y P-centro `(7,7,7)`: **0 px**; con cámara al dato: **4315 px** (misma red, mismo frame).
+
+### `renderTOP_geometry_is_a_list` — crear OTRO geometryCOMP lo AGREGA a `ren.par.geometry`
+**Síntoma [V]:** un `geometryCOMP` de prueba creado en la misma red apareció **concatenado** en
+`ren.par.geometry` (`"[type:geometryCOMP path:/a/geo, type:geometryCOMP path:/a/geo_probe]"`),
+heredando la cámara del render.
+
+**Contrato [V]:** `ren.par.geometry` es **multi-valor**: no confíes en lo que ya tenía; reasigná
+`ren.par.geometry = geo` en cada build y borrá cualquier COMP de prueba (o van a renderizar juntos).
+
+### `noisesize_writeonly` — `noisePOP.noisesize` no cambia aunque lo escribas [V*]
+Medido: `par.val = 1.2` por `execute_code` **y** por `set_parameters`: `eval()` sigue `'2'` (str).
+Los menús reales del build: `mode` ∈ {performance, quality} (NO "turb" — el get_help miente, es el
+label), `type` ∈ {perlin2d/3d/4d, simplex2d/3d/4d}. La escala default (2) sirve para el look.
+> **[2026-09-29 noche]** el valor de atasco **depende del contexto**: en `/pop_sim_trails` quedó
+> clavado en `'3'` (se pidió 1.2). El contrato es "NO aplica lo escrito", no "queda en 2".
+
+### `POP_wiring_inputs_declarados` — wiring falla si el destino declara 0 inputs [V]
+`wiring` con destino de 0 inputs responde `"vel has 0 input(s), to_index=0 out of range"`. En la
+práctica: cadena POP lineal (un input por nodo), `to_index=0`, sin nodos transformadores sin input.
+
+### `trailPOP_pars` — la receta oficial inventa pars del trailPOP; `length` es TIEMPO [V]
+Auditoría contra el build vivo (dump de los 37 pars del trailPOP de `/pop_sim_trails`, 2026-09-29
+noche): de lo que sugiere la receta `particle-system-pop` de la KB, **sólo `length` existe**.
+**NO existen**: `velocityscale`, `color1r/g/b`, `color2r/g/b` — el nodo no tiene NINGÚN par de
+color/fade/opacity (el color de las estelas lo pone el material). Y `length` NO es "cantidad de
+segmentos": es tiempo de estela, con `lengthunit` ∈ {seconds, frames} (default seconds). La misma
+receta también inventa pars para noisePOP (`amplitude`/`period`/`harmonics`: el real es `amp`) y
+spherePOP (`radius`: es `rad` XYZW). Regla: pars de una receta KB → auditar con dump de
+`op.pars()` antes de confiar. Receta corregida: skill `td-pop-trails-fields`.
+
+---
+
+## C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)
+
+**`t4d_needs_4d_type` [V]:** el par `t4d` (tiempo del ruido) **sólo mueve puntos si `type` es
+**4D** (`simplex4d`/`perlin4d`). Con `simplex3d` y `t4d` escalonado 0→3.5, el P del punto era
+**idéntico**; con `simplex4d`, cambió. Es la forma de animar un campo sin simulación: escaloná
+`t4d` (el reloj no corre en `execute_code`, C1/clock_stopped) y medí por punto con
+`inspect_values` — el min/max de P es insensible porque cada punto se mueve distinto.
+
+**`torusPOP_rad` [V]:** `rad` es XYZW (`radx`/`rady`); el grosor del tubo NO es `radz`: es
+`scale`. `sprinklePOP.numpoints` muestrea la superficie que le entra (3000 pts sobre el toro).
+
+---
+
+## C10 — Simulación de partículas: el loop de feedback es obligatorio (medido en `/pop_sim_trails`, 2026-09-29 noche)
+
+### `particle_feedback_loop` — sin `targetpop` cerrado, la integración se descarta
+**Síntoma [V]:** `particlePOP` con `timeintegration=ON`, `initvelocityy=3`, y un
+`forceradialPOP` aguas abajo con `globforcemult=1` + `globforcey=-14`: el atributo `PartForce_1`
+llega a **-14** y `PartVel_1` a **3**, pero **P no se mueve jamás** (min/max clavados en el
+emisor). La fuerza integrada a la salida no sirve: el integrador ya pasó.
+
+**Contrato [V]:** el `particlePOP` integra posición **sólo si se cierra el loop de feedback**:
+rama del stream aguas abajo a un `nullPOP` (`fb`) y `sim.par.targetpop = fb` (es un PAR, no una
+conexión). El get_help lo dice ("*used in a Particle POP loop*") y la receta
+`particle-system-pop` de la KB lo especifica con dos gotchas que resultaron ciertos: el target es
+un **nullPOP** (no nullTOP) y la fuerza debe viajar ENTRE sim y el feedback. Evidencia al
+cerrarlo: `P_1.min` de sim cae **-1.89 → -5.03** al escalar `globforcey` -6 → -14; `PartVel_1`
+hasta -16.8; el terminal (estelas) acordeonea la caída **-3.45 → -10.11**.
+
+**Regla (C1-friendly):** para probar la integración sin GUI ni reloj, escaloná la FUERZA
+(`globforcey`) y la medición en **llamadas MCP separadas**: dentro de una llamada no corre nada
+(C1/clock_stopped); entre llamadas el timeline sí corre, y `life` recicla la población. Cada
+medición que registre `absTime.seconds` como evidencia de cuánto pasó.
+
+### `particle_initialize_enferma` — `initializepulse` + `preroll` hinchan el buffer del loop
+**Síntoma [V]:** con `preroll=1.0` + `initializepulse`, el poptoCHOP sobre sim reporta
+**62k-103k samples** con `maxparticles=2000`, los rangos de P explotan y el trail ve 2-18 puntos.
+**Contrato [V]:** NO usar `initializepulse`/`preroll` en builds MCP: el reciclado lo hace `life`
+(1.2 s) contra el timeline. La población **viva** respeta el cap aunque el buffer del loop
+arrastre slots muertos (30k): medir `PartId` (vivos), no `numSamples` (buffer), para hablar de
+población.
+
+### `popto_chop_part_channels` — los canales `Part*` engañan a un filtro por prefijo
+**Contrato [V]:** el poptoCHOP sobre una cadena con particlePOP expone `P_0/1/2`,
+`PartVel_0/1/2`, `PartId`, `PartAge`, `PartLifeSpan`, `PartDrag`, `PartMass`, `PartForce_0/1/2`.
+Un filtro `name.startswith('P')` mezcla posición con velocidad/ids/fuerza: usar la lista
+**exacta** de canales (esto sesgó la primera medición de la cámara).
+
+### `sphere_pop_radz` — la esfera se achica por `radz` (execute_code); `cols`/`rows` no aplican
+**Síntoma [V]:** `set_parameters {cols: 8, rows: 8}` respondía ok y al releer seguían en 20
+(default, C4 otra vez). `radz` **existe** (el dump de la receta KB dice `radius`: miente, no
+existe en este build).
+**Regla:** esfera emisora chica por `execute_code`: `radx=rady=radz=0.3`.
+
+### (abierto) `steppulse` no integra el estado
+El par `steppulse` ("Step Pulse") del particlePOP **no movió** P ni edad en la sonda 5 (con loop
+cerrado): la integración por pulsos queda sin explicar — la vía probada es la del timeline entre
+llamadas. Si alguien necesita sim determinista frame a frame, retomar desde acá.
+
+---
+
+## C11 — GlslPOP para COLOREAR (medido en `/pop_color_trails`, 2026-09-29 noche)
+
+### `glsl_compute_canonical_main` — el main se escribe COMPLETO: `id` y guardia incluidos
+**Síntoma [V]:** un main sin declarar `id` falla con `"'id' : undeclared identifier"`. El template
+del glslPOP lo muestra: `const uint id = TDIndex();` + guardia `if (id >= TDNumElements()) return;`.
+
+### `glsl_input_attrs_por_helper` — los atributos de ENTRADA no son buffers: se leen con `TDIn_*`
+**Síntoma [V]:** `PartVel[id]` → `"'PartVel' : undeclared identifier"` aunque el atributo llegue
+por el stream. Se lee **`TDIn_PartVel()`** (helper por punto, con o sin args). La regla C3 de
+`outputattrs` es para ESCRIBIR; leer no requiere declararlo (y el log del compilador vive en el
+DAT perezoso `<name>_info`, C3).
+
+### `color_es_atributo` — el color de render es `Color` float4 y se CREA con attr0name='color'
+**Contrato [V]:** `attr0name` tiene menú {custom, n, **color**, tex, pointscale, linewidth}:
+`attr0name='color'` + `attr0numcomps='4'` crea el atributo Color; `outputattrs='Color'`
+(StrMenu) lo marca para escritura. NOTA: `glsl_analyze` sugirió `attr0name='custom' +
+attr0customname='Color'` (valdable en 2025.31760) pero el menú del build vivo tiene la opción
+directa — usarla. El material multiplica: para el rampa puro, pointsprite **blanco**
+(colorr/g/b=1). Para pintar por velocidad, el glsl va ANTES del trail: la estela re-hornea
+samples con el color del frame — el terminal muestra colores que shade ya no tiene (max 0.943
+vs 0.626): HISTORIAL de color, la señal honesta de que la estela arrastra velocidad pintada.
+
+### Gradables del color [V] (canales `Color_0/1/2` del poptoCHOP, lista EXACTA)
+- Color presente y variando: rango de `Color_2` > 0.1.
+- La palanca pinta: media de `Color_0` cambia (> 0.02) al escalar el uniform (`uSpeedScale`
+  0.4 → 0.15: media 0.547 → 0.300).
+- El trail arrastra historial: **valores distintos** (uniq) del terminal > shade, y max del
+  terminal > max de shade. **`n` (numSamples) NO es la señal**: el buffer de shade arrastra
+  slots muertos del loop (C10) y el trail sólo guarda historial reciente.

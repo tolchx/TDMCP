@@ -86,6 +86,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Basic point cloud**: `gridPOP → noisePOP → nullPOP`
 - **Particle sim**: `sourcePOP → feedbackPOP → [forces] → nullPOP`
 - **Built-in particles**: `pointgeneratorPOP → particlePOP → [forces/bounce] → nullPOP`
+- **Trails / animated 4D fields**: `trailPOP` (ACUMULA el campo: el enjambre migra y la cámara
+  va al centroide de P, no al origen) y `noisePOP` con `type` 4D animado por `t4d` (sólo mueve
+  puntos con tipo 4D). Recetas verificadas y pars reales del build: skill **`td-pop-trails-fields`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
