@@ -4,7 +4,8 @@
 > (`deleteprims` = nube que dibuja) resultó **falsa**: `deleteprims` deja 0 primitivas y el render
 > sale **negro**. La verificación se apoyaba en el `torus1` que el `geometryCOMP` auto-crea. Leé
 > primero `docs/td-curl-field-2026-09-29.md` y la receta corregida en
-> `skills-hermes/td-pop-render-pipeline/SKILL.md`.
+> `skills-hermes/td-pop-render-pipeline/SKILL.md`. El estado verificado del toolkit (qué suites
+existen y con qué corrida) vive en **`docs/BACKLOG.md` → *Estado verificado***, no acá.
 
 **Sesiones:** 2026-09-28 (gauntlet de migración al TDMCP oficial) y 2026-09-29 (efecto
 `/particle_swirl` de POPs GLSL).
@@ -24,7 +25,7 @@ tres lugares (ver §6, el ritual).
 | Sesión | Entregable | Verificación |
 |---|---|---|
 | 2026-09-28 | Migración al TDMCP oficial + gauntlet F1–F6 (offscreen, core, TOP/CHOP/DAT/COMP, GLSL POP) | 8 fases PASS; informe `docs/tdmcp-gauntlet-2026-09-28.md`; 7 issues upstream en `docs/issues-filed/` |
-| 2026-09-29 | `/particle_swirl` — enjambre de POPs GLSL animado (`spherePOP → deleteprims → glslPOP → nullPOP`, `pointspriteMAT` aditivo, `renderTOP`) | run verde 35/35 (`tools/gauntlet/build_particle_fx.py`), animación probada por `poptoCHOP`, captura PNG decodificada con PIL |
+| 2026-09-29 | `/particle_swirl` — enjambre de POPs GLSL animado (`spherePOP → topointprims → glslPOP → nullPOP`, `pointspriteMAT` aditivo, `renderTOP`) | run verde 35/35 (`tools/gauntlet/build_particle_fx.py`), animación probada por `poptoCHOP`, captura PNG decodificada con PIL. ⚠️ El "35/35" de entonces medía el auto-torus; la receta se corrigió en el pase 2 |
 
 ## 2. Las cinco lecciones que más costaron (y cómo evitarlas)
 
@@ -40,9 +41,10 @@ re-sube geometría POP ante cambios de datos (uTime, uSwirl, `radx`). **Regla:**
 verifican por `poptoCHOP` (GPU→CPU); los píxeles responden "¿hay algo dibujado?" y "¿de qué color?".
 
 ### 2.3 Superficie ≠ nube de partículas
-`spherePOP` con defaults = **252 pts / 500 prims**. Sin `convertPOP(convert='deleteprims')` el render
-dibuja un blob sólido: eso era el "blob blanco" que parecía un fallo del material. Con deleteprims:
-252 pts / **0 prims**.
+`spherePOP` con defaults = **252 pts / 500 prims** y el render dibuja un blob sólido: eran las
+primitivas de la superficie, no un fallo del material. Lo que lo arregla es
+`convertPOP(convert='topointprims')` → **252 pts / 252 prims** (una primitiva de punto por punto).
+Ojo: `deleteprims` deja **0 prims** y el render sale **negro** — ver el aviso de arriba y C2.
 
 ### 2.4 El reloj puede estar parado (y eso no es un bug del efecto)
 En remoto, `absTime.seconds` **no avanza** dentro de un `execute_code`; `absTime` no tiene `.play` y
@@ -62,12 +64,13 @@ con coordenadas locales, y desconfiar de un PASS que no se puede explicar.
   `render=true`; `renderTOP` (TOP, no `renderCOMP`) con bindings OP por `execute_code`; la luz es el
   par **`lights`** (plural).
 - **POPs:** `numPoints`/`numPrims` son **método** en POPs y **propiedad** en SOPs; `convertPOP`
-  `deleteprims` para partículas; `ParMode` es enum (`str`, no `int`); clases `spherePOP`/`sphereSOP`.
+  **`topointprims`** para partículas (`deleteprims` deja 0 prims = render **negro**); `ParMode` es
+  enum (`str`, no `int`); clases `spherePOP`/`sphereSOP`.
 - **glslPOP:** `outputattrs` para atributos re-escritos (si no, `undeclared identifier`); Create
   Attributes con `attr0name='custom'` lowercase + `attr0customname`/`numcomps`; bindear `computedat`
   **antes** de setear la secuencia `vec` (enlazar la resetea).
-- **pointspriteMAT:** `constatten` + `attensizenear` en píxeles (default **20** = blob); blending
-  aditivo `sa/one`; `colorr/g/b` multiplica el `Cd` del punto.
+- **pointspriteMAT:** `constatten` + **`pointsize`** (default **1.0** ≈ 2 px; `attensizenear` queda
+  **inerte** con `attenpscale=0`); blending aditivo `sa/one`; `colorr/g/b` multiplica el `Cd` del punto.
 - **Tools TDMCP:** `set_parameters` = solo constantes y **puede no aplicar un par respondiendo ok**
   (releer siempre); `annotation` usa `comment`; `edit_custom_parameters` con `{path, page, add:[...]}`;
   `edit_operator` renombra con `name` y clona con `copy_to`.
@@ -78,7 +81,8 @@ con coordenadas locales, y desconfiar de un PASS que no se puede explicar.
 
 | Artefacto | Para qué |
 |---|---|
-| `tools/gauntlet/td_probe.py` | **el único lugar para medir**: `chain_source(root)` (inyecta `settle()`/`px()`/`render_is_ours()`), `set_and_verify()` (escribe-y-relee), `stats_of`/`png_stats`/`grid_cells` (PIL), `selftest_render_ownership()` |
+| `tools/gauntlet/td_chain.py` | el programa que se **inyecta** en TD: `settle()`/`px()`/`render_is_ours()`. **Dueño único** de la medición — `check_single_home.py` lo hace cumplir y el gate lo corre |
+| `tools/gauntlet/td_probe.py` | los helpers del **host**: `chain_source(root)` (serializa `td_chain.py` con `ROOT` fijo), `set_and_verify()` (escribe-y-relee), `stats_of`/`png_stats`/`grid_cells` (PIL), `selftest_render_ownership()` |
 | `tools/gauntlet/build_particle_fx.py` | build + verificación del efecto; re-ejecutable; deja `/particle_swirl` de pie |
 | `tools/gauntlet/build_pop_curlfield.py` | segunda red POP (curl-noise) y playtest de la receta, con el experimento `deleteprims` vs `topointprims` |
 | `tools/gauntlet/verify_visual.py` | decodifica los PNG del build (frame + grid) con PIL y reporta métricas |
@@ -107,8 +111,9 @@ Cuando una sesión descubre algo (un contrato nuevo, un par que no se aplica, un
    cómo se verificó. Es el único lugar que debe estar completo y citable.
 3. **Llevá el contrato a la skill correspondiente** (una línea con el síntoma, no la teoría) y, si es
    un tema nuevo, creá una skill `td-*` (patrón: `Use when …` + secciones cortas + pitfalls).
-4. **Dejá la herramienta**: si lo que aprendiste se puede automatizar, agregalo a `td_probe.py` o al
-   script de la fase (mejor un helper que una nota).
+4. **Dejá la herramienta**: si lo que aprendiste se puede automatizar, agregalo a `td_chain.py` (si se
+   inyecta en TD) o a `td_probe.py` (si mide desde el host) — no a una copia local: el script de la
+   fase importa, y `check_single_home.py` falla si lo re-implementa.
 5. **Registrá la sesión** en un `docs/*-YYYY-MM-DD.md` con el run id de la evidencia, y ampliá
    `FORK-NOTES.md` si cambió el inventario del fork.
 6. **Corré la verificación de la capa**: `python knowledge/server.py --selftest` y

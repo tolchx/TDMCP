@@ -26,7 +26,7 @@ la capa offline es `knowledge/` (21 tools, stdio). Este fork es el que se auto-m
 | Skills | ✅ `skills-hermes/td-*` (19) + `knowledge/contracts/VERIFIED_CONTRACTS.md` |
 | Conectores (MCP) | ✅ MCP oficial en `127.0.0.1:13316/mcp`, `td-knowledge` offline, juez externo `jev`, `mnemosyne` |
 | Sub-agentes maker/checker | ✅ **agente del ciclo** = implementer; **juez externo (`jev_audit_diff.py`) + `tools/gauntlet`** = verifier; el verifier NO marca su propio trabajo |
-| Memoria / estado | ✅ `STATE.md`, `docs/BACKLOG.md`, `.freebuff_tasks/BACKLOG.md`, `mcp_daily_done.txt`, `loop-run-log.md`, `loop-candidates.json`, `loop-ledger.json`, vault + Mnemosyne |
+| Memoria / estado | ✅ **dueño único: `docs/BACKLOG.md`** (items + sección *Estado verificado*), `STATE.md`, `mcp_daily_done.txt`, `loop-run-log.md`, `loop-candidates.json`, `loop-ledger.json`, vault + Mnemosyne. `.freebuff_tasks/BACKLOG.md` es sólo un puntero al dueño |
 
 ## Loops activos
 

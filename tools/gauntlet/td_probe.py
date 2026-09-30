@@ -120,68 +120,18 @@ def grid_cells(path: str, n: int = 4):
 
 # ── autoprueba de la guardia de propiedad del render ────────────────────────
 def selftest_render_ownership(g, root: str = "/guard_selftest"):
-    """Prueba CONTRA TD que `render_is_ours` puede FALLAR.
+    """Prueba CONTRA TD que `render_is_ours` puede FALLAR. Devuelve (ok, evidencia).
 
-    Monta una escena donde el `torus1` auto-creado dibuja además de la cadena de puntos y
-    exige que la guardia devuelva False (hay píxeles, pero no son del terminal); borrado el
-    torus, exige True. Además fuerza un error de `px()` con el terminal apagado y exige que
-    el flag `render` vuelva a su valor. Borra el scratch. Devuelve (ok, evidencia).
+    La escena la arma `td_chain.ownership_selftest` (el programa inyectado tiene un solo dueño);
+    acá sólo se exige el veredicto: con el auto-torus dibujando, la guardia dice que los píxeles
+    NO son del terminal; sin torus, que sí; y el flag `render` vuelve aunque `px()` explote.
     """
-    code = chain_source(root) + """
-import json
-root = %r
-old = op(root)
-if old:
-    old.destroy()
-c = op('/').create(baseCOMP, 'guard_selftest')
-geo = c.create(geometryCOMP, 'geo')                 # auto-crea torus1 (y dibuja)
-sph = geo.create(spherePOP, 'sphere_emit')
-conv = geo.create(convertPOP, 'topoints')
-conv.par.convert = 'topointprims'
-sph.outputConnectors[0].connect(conv)
-term = geo.create(nullPOP, 'null_render')
-conv.outputConnectors[0].connect(term)
-term.display = True
-term.render = True
-geo.par.material = geo.create(pointspriteMAT, 'pointsprite_mat')
-cam = c.create(cameraCOMP, 'cam')
-cam.par.tz = 5.0
-ren = c.create(renderTOP, 'ren')
-ren.par.camera = cam
-ren.par.geometry = geo
-ren.par.resolutionw = 320
-ren.par.resolutionh = 240
-res = {}
-res['with_torus'] = list(render_is_ours(term))
-# camino de error: px() explota MIENTRAS el terminal esta apagado -> el flag debe volver
-before = bool(term.render)
-calls = {'n': 0}
-real_px = px
-def boom():
-    calls['n'] += 1
-    if calls['n'] == 2:
-        raise RuntimeError('sabotaje de px')
-    return real_px()
-px = boom
-raised = False
-try:
-    render_is_ours(term)
-except RuntimeError:
-    raised = True
-px = real_px
-res['restored_on_error'] = [raised, bool(term.render) == before]
-for n in [x.name for x in geo.children if x.name.lower().startswith('torus')]:
-    geo.op(n).destroy()
-res['without_torus'] = list(render_is_ours(term))
-op(root).destroy()
-print('<<JSON>>' + json.dumps(res))
-""" % root
-    ok, d = g.exec_code(code)
-    with_t = (d or {}).get("with_torus")
-    without_t = (d or {}).get("without_torus")
-    restored = (d or {}).get("restored_on_error")
-    # con el torus hay píxeles pero la guardia dice que NO son nuestros; sin él, son nuestros;
-    # y un error en el medio igual deja el flag `render` como estaba.
+    call = "ownership_selftest(%r)" % root
+    ok, d = g.exec_code(chain_source(root) + "\nimport json\nprint('<<JSON>>' + json.dumps(" + call + "))\n")
+    d = d or {}
+    with_t = d.get("with_torus")
+    without_t = d.get("without_torus")
+    restored = d.get("restored_on_error")
     good = bool(ok and with_t and without_t and restored
                 and with_t[1] > 0 and not with_t[0] and without_t[0]
                 and restored[0] and restored[1])

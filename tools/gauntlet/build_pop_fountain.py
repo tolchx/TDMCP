@@ -16,6 +16,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from gauntlet_client import Gauntlet  # noqa: E402
+from td_probe import chain_source  # noqa: E402
 
 RUN = os.environ.get("GAUNTLET_RUN_ID") or time.strftime("%Y%m%d-%H%M%S")
 g = Gauntlet(phase="build-fountain", run_id=RUN)
@@ -23,6 +24,7 @@ g.init()
 
 ROOT = "/fountain_demo"
 GEO = ROOT + "/geo"
+CHAIN = chain_source(ROOT)   # settle()/px()/render_is_ours() no se copian: se importan
 report = {"run_id": RUN, "objetivo": "fuente de partículas POP (sphere→particle→gravedad→topointprims)",
           "ok": False, "cheks": []}
 
@@ -122,18 +124,13 @@ m.par.pointsize = 4
 print('<<JSON>>' + json.dumps({{'mat': str(geo.par.material.eval())}}))""")
 report["cheks"].append(("material asignado", ok and "sprite_mat" in d.get("mat", "")))
 
-# ── 10. settle + verificación GPU->CPU ──
+# ── 10. asentar (helper compartido) + verificación GPU->CPU ──
 ok, d = g.exec_code(f"""
-import json, time
-def settle(n=8):
-    for _ in range(n):
-        for p in ['{GEO}/emit','{GEO}/particles','{GEO}/gravity','{GEO}/topoints','{GEO}/null_render']:
-            try: op(p).cook(force=True)
-            except: pass
-        time.sleep(0.05)
-settle()
+import json
+{CHAIN}
 pc = op('{ROOT}/check')
 pc.par.pop = '{GEO}/null_render'
+settle()
 pc.cook(force=True)
 chans = [c.name for c in pc.chans()]
 n = pc.numSamples

@@ -53,7 +53,7 @@ tools nuevas/quitadas, cambios de versión/build y fases que cambiaron de veredi
 | `verify_visual.py` / `make_preview.py` | métricas de los PNG del build (PIL) y HTML de preview con las imágenes embebidas |
 | `td_chain.py` | **el programa que se inyecta en TD** por `execute_code`: `settle()`, `px()` y `render_is_ours()`, con `ROOT` fijado por `chain_source()`. Es código importable, así que se prueba sin TD con un `op`/`px` de mentira |
 | `td_probe.py` | los helpers del **host**: `chain_source(root)` (serializa `td_chain.py` con `ROOT` fijo), `set_and_verify()` (escribir-y-releer, contrato C4), `stats_of()` / `png_stats()` / `grid_cells()` (PIL) y `selftest_render_ownership()` (contra TD: prueba que la guardia puede **FALLAR**). `python td_probe.py` corre los chequeos locales |
-| `check_single_home.py` | hace ejecutable la regla del único dueño: exit 1 si un consumidor redefine `settle` / `px` / `render_is_ours` en vez de importarlos de `td_probe`. Los builds y `verify_visual` importan de acá: no copies versiones paralelas |
+| `check_single_home.py` | hace ejecutable la regla del único dueño: exit 1 si un consumidor redefine `settle` / `px` / `render_is_ours` en vez de importarlos de `td_probe`. Los builds y `verify_visual` importan de acá: no copies versiones paralelas. Lo corre el gate, junto con `td_probe.py`, como paso de `scripts/loop_gate.py::run_tests` |
 | `results/<run_id>/` | logs por fase (`.jsonl`), summaries, PNGs, reportes |
 
 ## Antes de improvisar: leé los contratos

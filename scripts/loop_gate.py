@@ -79,7 +79,9 @@ def sh(args: list[str], timeout: int = 1800) -> tuple[int, str]:
     try:
         r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
                            errors="replace", timeout=timeout, shell=os.name == "nt")
-        return r.returncode, (r.stdout or "") + (r.stderr or "")
+        # Sólo stdout: `git` manda los avisos de LF→CRLF por stderr y, mezclados, `changed_paths()`
+        # los cuenta como archivos (16 reales → 29) y el gate bloquea por maxFiles sin motivo.
+        return r.returncode, (r.stdout or "")
     except Exception as e:  # noqa: BLE001
         return 1, f"{type(e).__name__}: {e}"
 
@@ -237,9 +239,12 @@ def run_tests() -> tuple[bool, dict]:
     """Suites verdes antes de dejar pasar un commit. Devuelve (ok, detalle).
 
     Adaptado al fork tolchx: las suites son (1) el self-test offline de la KB,
-    (2) el test de protocolo MCP, y (3) el gauntlet corto (F1+F2) que exige TD.
+    (2) el test de protocolo MCP, (3) el gauntlet corto (F1+F2) que exige TD, y
+    (4) las dos suites de host del gauntlet: la invariante del único dueño de la
+    medición (`check_single_home.py`) y su autoprueba sin TD (`td_probe.py`).
     El gauntlet devuelve exit 2 cuando TD está caído — eso NO es un rojo, es
     "no runnable": se anota y no bloquea (el canario de 30 min cubre ese caso).
+    Las suites de host no dependen de TD: si alguna se pone roja, bloquea siempre.
     """
     res: dict = {}
     ok = True
@@ -247,6 +252,8 @@ def run_tests() -> tuple[bool, dict]:
         ("kb_selftest", ["python", "knowledge/server.py", "--selftest"], ROOT),
         ("kb_protocol", ["python", "knowledge/test_protocol.py"], ROOT),
         ("gauntlet_quick", ["python", "tools/gauntlet/run_regression.py", "--quick"], ROOT),
+        ("single_home", ["python", "tools/gauntlet/check_single_home.py"], ROOT),
+        ("td_probe_selftest", ["python", "tools/gauntlet/td_probe.py"], ROOT),
     ]
     for nombre, cmd, cwd in pasos:
         try:

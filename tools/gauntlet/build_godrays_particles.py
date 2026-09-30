@@ -12,11 +12,13 @@ import json, os, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from gauntlet_client import Gauntlet  # noqa: E402
+from td_probe import chain_source  # noqa: E402
 
 g = Gauntlet(phase="build-godrays-particles", run_id=time.strftime("%Y%m%d-%H%M%S"))
 g.init()
 ROOT = "/project1/GodRays_Particles"
 GEO = ROOT + "/geo"
+CHAIN = chain_source(ROOT)   # settle()/px()/render_is_ours() no se copian: se importan
 
 GODRAYS_SHADER = """layout(location = 0) out vec4 fragColor;
 uniform vec2 uCenter;
@@ -138,16 +140,13 @@ print('<<JSON>>' + json.dumps({{'pd': str(gl.par.pixeldat.eval())}}))
 """)
 g.check("shader god rays enlazado", ok and "godrays_pixel" in str(d.get("pd", "")), str(d)[:120])
 
-# ── 8. verificación: settle + poptoCHOP + get_errors ──
+# ── 8. verificación: asentar (helper compartido) + poptoCHOP + get_errors ──
 ok, d = g.exec_code(f"""
-import json, time
-def settle(n=8):
-    for _ in range(n):
-        op('{ROOT}/ren').cook(force=True)
-        time.sleep(0.04)
-settle()
+import json
+{CHAIN}
 chk = op('{ROOT}/check')
 chk.par.pop = '{GEO}/null_render'
+settle()
 chk.cook(force=True)
 chans = [c.name for c in chk.chans()]
 npts = chk.numSamples

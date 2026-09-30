@@ -7,7 +7,7 @@ agente del ciclo diario no improvise:
 
   1. elige el candidato de mayor peso que todavía no fue promovido,
   2. le asigna el próximo número de item libre del BACKLOG,
-  3. escribe el item en `.freebuff_tasks/BACKLOG.md` (canónico) y en `docs/BACKLOG.md` (espejo),
+  3. escribe el item en `docs/BACKLOG.md` (dueño único; `.freebuff_tasks/BACKLOG.md` apunta ahí),
   4. escribe un brief en la cola de Freebuff si el candidato es accionable por un agente
      (si necesita una decisión de Tolch, lo marca como tal en vez de inventar una tarea),
   5. registra la promoción en `loop-ledger.json` y la anota en `loop-run-log.md`.
@@ -34,7 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CANDIDATES = ROOT / "loop-candidates.json"
 LEDGER = ROOT / "loop-ledger.json"
 RUNLOG = ROOT / "loop-run-log.md"
-BACKLOGS = [ROOT / ".freebuff_tasks" / "BACKLOG.md", ROOT / "docs" / "BACKLOG.md"]
+BACKLOG = ROOT / "docs" / "BACKLOG.md"
 QUEUE = ROOT / ".freebuff_tasks" / "queue"
 
 # Un candidato es accionable por un agente si su evidencia apunta a código o tests del repo.
@@ -79,8 +79,7 @@ def guardar(data: dict) -> None:
 
 
 def proximo_numero() -> int:
-    bl = ROOT / "docs" / "BACKLOG.md"
-    texto = bl.read_text(encoding="utf-8", errors="replace") if bl.exists() else ""
+    texto = BACKLOG.read_text(encoding="utf-8", errors="replace") if BACKLOG.exists() else ""
     nums = [int(n) for n in re.findall(r"^- \[[ x]\] (\d+)\.", texto, re.M)]
     return (max(nums) + 1) if nums else 1
 
@@ -94,13 +93,10 @@ def escribir_item(numero: int, cand: dict) -> None:
     linea = (f"- [ ] {numero}. **Hallado por el loop (triage automático)** — {cand['titulo']}. "
              f"Evidencia: {ev_txt}. Cómo lo detectó: `loop_triage.py` (id `{cand['id']}`, huella "
              f"`{cand.get('huella', '?')}`). Qué hacer: {cand.get('sugerencia', 'evaluar y resolver')}.")
-    for bl in BACKLOGS:
-        if not bl.exists():
-            continue
-        s = bl.read_text(encoding="utf-8")
-        if cand.get("huella") and cand["huella"] in s:
-            continue
-        bl.write_text(s.rstrip() + "\n\n" + linea + "\n", encoding="utf-8", newline="")
+    s = BACKLOG.read_text(encoding="utf-8")
+    if cand.get("huella") and cand["huella"] in s:
+        return
+    BACKLOG.write_text(s.rstrip() + "\n\n" + linea + "\n", encoding="utf-8", newline="")
 
 
 def escribir_brief(numero: int, cand: dict) -> Path:
@@ -209,7 +205,7 @@ def main() -> int:
             guardar(data)
             anotar_runlog(numero, cand, None, "item sin brief (decide Tolch)")
             registrar_ledger(numero, cand)
-            print(f"  → item {numero} escrito en ambos BACKLOG (sin brief)")
+            print(f"  → item {numero} escrito en docs/BACKLOG.md (sin brief)")
         return 5
 
     if args.dry_run:
@@ -225,7 +221,7 @@ def main() -> int:
     registrar_ledger(numero, cand)
     anotar_runlog(numero, cand, brief, "")
     print(f"promovido: [{cand['peso']}] {cand['titulo']}")
-    print(f"  → item {numero} en ambos BACKLOG")
+    print(f"  → item {numero} en docs/BACKLOG.md")
     print(f"  → brief {brief.name} en la cola")
     return 0
 

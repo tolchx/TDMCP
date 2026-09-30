@@ -10,7 +10,7 @@ Registro de la migración del sistema de loop engineering desde el repo viejo
 |---|---|
 | `LOOP.md`, `loop-constraints.md`, `loop-budget.md`, `gate.yaml`, `STATE.md` | ✅ creados, adaptados al fork |
 | `scripts/loop_triage.py` | ✅ migrado: señales → candidatos. `sig_tests` ahora corre `run_regression.py --quick`; `EVIDENCE_DIRS` → `tools/gauntlet/results/`; `sig_queue_drift` con guard; **`sig_client_log` retirado** (el log `tdmcp-client.log` era del bridge viejo y generaba falsos positivos de "timeout") |
-| `scripts/loop_gate.py` | ✅ migrado: `run_tests` = `server.py --selftest` + `test_protocol.py` + `run_regression.py --quick` (exit 2 del gauntlet = entorno caído → salteado, no rojo) |
+| `scripts/loop_gate.py` | ✅ migrado: `run_tests` corre las suites antes de dejar pasar un commit (cuáles y quién las corre: **`docs/BACKLOG.md` → *Estado verificado***); exit 2 del gauntlet = entorno caído → salteado, no rojo |
 | `scripts/loop_promote.py` | ✅ migrado: briefs con los comandos del gauntlet; `pausado()` usa `STATE.md` de raíz; `ACCIONABLE` con `gauntlet-rojo` |
 | `scripts/loop_worktree.py` | ✅ copiado (sin uso, ver LOOP.md) |
 | `.freebuff_tasks/`, `docs/BACKLOG.md`, `loop-run-log.md`, `loop-ledger.json` | ✅ creados (semillas) |
