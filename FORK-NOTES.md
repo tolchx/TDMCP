@@ -58,6 +58,21 @@ python knowledge/test_protocol.py
 `kb/` is deliberately **not** in this repository: it is derived data (a SQLite index plus JSON
 extracted from a local installation) and it embeds third-party documentation. Rebuild it locally.
 
+## Sanitization of Legacy MCP Hallucinations & Alignment with TD 2025+
+
+During the migration of the legacy MCP knowledge base, an automated audit (`scripts/sanitize_legacy_knowledge.py`, integrated into `knowledge/build_assets.py`) purged legacy hallucinations and obsolete patterns:
+- **Non-existent operators eliminated:**
+  - `renderPOP` → replaced with `poptoTOP` (data texture) and the standard geometry pipeline (`geometryCOMP` + `cameraCOMP` + `renderTOP` with `pointspriteMAT`, per Contract C2).
+  - `colorPOP` → replaced with `attributePOP` / `glslPOP` (Contract C11).
+  - `forcePOP` / `dragPOP` → replaced with `noisePOP` / `windPOP` / `particlePOP`.
+  - `lookupPOP`, `lookupattPOP`, `lookuptexPOP` → replaced with real operator names (`lookuptablePOP`, `lookuptexturePOP`).
+  - `spritePOP` → replaced with `pointspriteMAT`.
+  - `panelCOMP` → replaced with `containerCOMP`.
+  - `pointgenPOP` → replaced with `pointgeneratorPOP`.
+  - `pointfileselectPOP` → replaced with `pointfileinPOP`.
+- **POP-to-Render Recipes Fixed:** Eliminated the `deleteprims` pitfall (which produces 0 point primitives and renders 100% black) in favor of `convertPOP(topointprims)` / `gridPOP.par.surftype = 'points'`, and enforced destroying default auto-created geometry (`torus1`) inside new `geometryCOMP` instances.
+- **Parametric Alignment:** Replaced invalid parameters like `attensizenear` with `pointspriteMAT.par.pointsize`.
+
 ## Provenance
 
 Built and verified on Windows 11 with TouchDesigner 2025.32460 and TDMCP 1.1.55.

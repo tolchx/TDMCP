@@ -178,6 +178,7 @@ This fork integrates the complete **offline knowledge layer** from our previous 
   - **Live Wrappers**: `td_status`, `find_in_ops`, `auto_layout`, `smart_connect`, `tdn_export`, `tdn_diff`.
 - **`skills-hermes/`** — **25** `td-*` skills adapted to the Hermes Agent format, including `td-glslpop-create`, `td-glslpop-debug`, and `td-glslpop-shaders`.
 - **`tools/gauntlet/`** — Build + verification harness driving the live server: versioned build scripts, numbered checks, PNG metrics, and regression battery.
+- **Sanitized Knowledge Engine (`scripts/sanitize_legacy_knowledge.py`)** — Integrated migration audit that purges hallucinated/obsolete operators from previous MCP implementations (`renderPOP` -> `poptoTOP`/render pipeline, `pointgenPOP` -> `pointgeneratorPOP`, `colorPOP` -> `attributePOP`/`glslPOP`, `deleteprims` pitfall fix) ensuring strict alignment with TouchDesigner 2025+ and official TDMCP 1.1.55 contracts.
 
 **POP coverage (live-verified):** 33 of 101 POP families exercised, each with a build script and
 numbered checks; contracts **C1–C16** (59 individual contracts) live in

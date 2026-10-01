@@ -7,9 +7,10 @@ Hace cuatro cosas:
      workflows, tutoriales, referencias de API, shaders, templates y contratos).
   2. Dumpa los datos que viven en TypeScript (sinónimos, family hints, templates, recipes)
      a JSON, usando el dist compilado con node -> <dest>/kb/ts-extract/ts-data.json.
-  3. Indexa los nuevos activos en SQLite FTS5 (knowledge_brain.db) para que kb_search y kb_get
+  3. Sanitiza operadores inexistentes o inconsistencias heredadas del MCP viejo (renderPOP, colorPOP, etc.).
+  4. Indexa los activos en SQLite FTS5 (knowledge_brain.db) para que kb_search y kb_get
      puedan consultar workflows, tutoriales, soluciones GLSL, auditorías y bitácoras empíricas.
-  4. Escribe <dest>/kb/MANIFEST.json con tamaño + sha256 + origen de cada archivo.
+  5. Escribe <dest>/kb/MANIFEST.json con tamaño + sha256 + origen de cada archivo.
 
 Idempotente: se puede correr de nuevo cuando la KB del repo cambie.
 """
@@ -95,6 +96,143 @@ def sha256(path: str) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()[:16]
+
+
+def sanitize_legacy_knowledge(kb_dir: str):
+    """Corrige operadores inexistentes o inconsistencias heredadas del MCP viejo."""
+    ts_p = os.path.join(kb_dir, "ts-extract", "ts-data.json")
+    if os.path.exists(ts_p):
+        with open(ts_p, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        syn = d.get("semantic", {}).get("TYPE_SYNONYMS", {})
+        if "renderPOP" in syn:
+            syn.setdefault("poptoTOP", []).extend(syn.pop("renderPOP"))
+        if "colorPOP" in syn:
+            syn.setdefault("attributePOP", []).extend(syn.pop("colorPOP"))
+        if "forcePOP" in syn:
+            syn.setdefault("noisePOP", []).extend(syn.pop("forcePOP"))
+        if "dragPOP" in syn:
+            syn.setdefault("particlePOP", []).extend(syn.pop("dragPOP"))
+        if "lookupPOP" in syn:
+            syn.setdefault("lookuptablePOP", []).extend(syn.pop("lookupPOP"))
+        if "spritePOP" in syn:
+            syn.setdefault("pointspriteMAT", []).extend(syn.pop("spritePOP"))
+        if "panelCOMP" in syn:
+            syn.setdefault("containerCOMP", []).extend(syn.pop("panelCOMP"))
+        syn["pointgeneratorPOP"] = ["point generator", "point gen", "point generator pop", "generate points", "ray points"]
+        syn["convertPOP"] = ["convert pop", "topointprims", "point primitives", "points to primitives"]
+        syn["pointspriteMAT"] = ["point sprite", "pointsprite", "pointsprite mat", "sprite mat", "particle sprite material"]
+
+        recipes = d.get("recipes", {}).get("listRecipes", [])
+        for r in recipes:
+            if r.get("name") == "particle-system-pop":
+                r["description"] = "GPU particle system with feedback solver loop: spherePOP emits seed points, particlePOP simulates physics, noisePOP adds turbulence, trailPOP draws trails, poptoTOP converts to texture data. A nullPOP serves as the feedback target."
+                r["nodes"] = [n if n != "renderPOP" else "poptoTOP" for n in r.get("nodes", [])]
+                code = r.get("pythonCode", "")
+                code = code.replace("render = parent.create(renderPOP, 'render')", "p2t = parent.create(poptoTOP, 'pop_to_top')")
+                code = code.replace("render.inputConnectors[0].connect(trail)", "p2t.inputConnectors[0].connect(trail)")
+                code = code.replace("output.inputConnectors[0].connect(render)", "output.inputConnectors[0].connect(p2t)")
+                code = code.replace("render.nodeX", "p2t.nodeX")
+                code = code.replace("render.nodeY", "p2t.nodeY")
+                code = code.replace("render.par.camera = 'top'", "# poptoTOP converts point buffer directly to 2D texture data")
+                code = code.replace("render.par.displaypoints = False", "p2t.par.fillmode = 'fill'")
+                code = code.replace("render.par.pointscale = 2.0", "p2t.par.rgbamode = 'rgb'")
+                r["pythonCode"] = code
+                r["gotchas"] = [g for g in r.get("gotchas", []) if "renderPOP" not in g]
+                r["gotchas"].append("POP rendering: to render 3D particles to an image, use geometryCOMP (with default torus1 cleared) + pointspriteMAT + cameraCOMP + renderTOP (Contract C2); to convert points directly to a data texture without camera, use poptoTOP.")
+
+        templates = d.get("templates", {}).get("NETWORK_TEMPLATES", [])
+        for t in templates:
+            if t.get("name") == "particle-system-basic":
+                t["description"] = t["description"].replace("renderPOP", "poptoTOP")
+                for op_entry in t.get("operators", []):
+                    if op_entry.get("opType") == "renderPOP":
+                        op_entry["opType"] = "poptoTOP"
+                        op_entry["label"] = "POP to TOP"
+                for conn in t.get("connections", []):
+                    if conn.get("to") == "render":
+                        conn["note"] = conn["note"].replace("renderPOP", "poptoTOP")
+                    if conn.get("from") == "render":
+                        conn["note"] = conn["note"].replace("renderPOP", "poptoTOP")
+                builder = t.get("pythonBuilder", "")
+                builder = builder.replace("render = parent.create(renderPOP, 'render')", "p2t = parent.create(poptoTOP, 'pop_to_top')")
+                builder = builder.replace("render.inputConnectors[0].connect(trail)", "p2t.inputConnectors[0].connect(trail)")
+                builder = builder.replace("output.inputConnectors[0].connect(render)", "output.inputConnectors[0].connect(p2t)")
+                builder = builder.replace("render.nodeX", "p2t.nodeX")
+                builder = builder.replace("render.nodeY", "p2t.nodeY")
+                t["pythonBuilder"] = builder
+
+        with open(ts_p, "w", encoding="utf-8") as f:
+            json.dump(d, f, indent=1, ensure_ascii=False)
+
+    bt_p = os.path.join(kb_dir, "templates", "builtin-templates.json")
+    if os.path.exists(bt_p):
+        with open(bt_p, "r", encoding="utf-8") as f:
+            bt = json.load(f)
+        for t in bt.get("templates", []):
+            if t.get("name") == "particle-system-basic":
+                t["description"] = t["description"].replace("renderPOP", "poptoTOP")
+                for op_entry in t.get("operators", []):
+                    if op_entry.get("opType") == "renderPOP":
+                        op_entry["opType"] = "poptoTOP"
+                        op_entry["label"] = "POP to TOP"
+                for conn in t.get("connections", []):
+                    conn["note"] = conn["note"].replace("renderPOP", "poptoTOP")
+                b = t.get("pythonBuilder", "")
+                b = b.replace("render = parent.create(renderPOP, 'render')", "p2t = parent.create(poptoTOP, 'pop_to_top')")
+                b = b.replace("render.inputConnectors[0].connect(trail)", "p2t.inputConnectors[0].connect(trail)")
+                b = b.replace("output.inputConnectors[0].connect(render)", "output.inputConnectors[0].connect(p2t)")
+                b = b.replace("render.nodeX", "p2t.nodeX")
+                b = b.replace("render.nodeY", "p2t.nodeY")
+                t["pythonBuilder"] = b
+        with open(bt_p, "w", encoding="utf-8") as f:
+            json.dump(bt, f, indent=2, ensure_ascii=False)
+
+    wf_fixes = {
+        "ray-pop-physics.md": [("pointgenPOP", "pointgeneratorPOP"), ("pointgen POP", "pointgenerator POP")],
+        "particle-follow-curve.md": [("pointgenPOP", "pointgeneratorPOP"), ("pointgen POP", "pointgenerator POP")],
+        "nebrarray-pathtracer.md": [("pointgenPOP", "pointgeneratorPOP"), ("pointgen POP", "pointgenerator POP")],
+        "phased-blending.md": [("lookupattPOP", "lookuptablePOP")],
+        "pop-ray-scene.md": [("lookuptexPOP", "lookuptexturePOP")],
+    }
+    wf_dir = os.path.join(kb_dir, "workflows")
+    if os.path.isdir(wf_dir):
+        for fn, pairs in wf_fixes.items():
+            p = os.path.join(wf_dir, fn)
+            if os.path.exists(p):
+                with open(p, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                for old, new in pairs:
+                    content = content.replace(old, new)
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(content)
+
+    tut_p = os.path.join(kb_dir, "tutorials", "gaussian-splatting.md")
+    if os.path.exists(tut_p):
+        with open(tut_p, "r", encoding="utf-8", errors="replace") as f:
+            c = f.read().replace("pointfileselectPOP", "pointfileinPOP")
+        with open(tut_p, "w", encoding="utf-8") as f:
+            f.write(c)
+
+    graph_p = os.path.join(kb_dir, "workflows", "graphs", "particle-system-basic.json")
+    if os.path.exists(graph_p):
+        with open(graph_p, "r", encoding="utf-8") as f:
+            g = json.load(f)
+        g["description"] = g.get("description", "").replace("renderPOP", "poptoTOP")
+        for n in g.get("nodes", []):
+            if n.get("opType") == "renderPOP":
+                n["opType"] = "poptoTOP"
+                n["label"] = "POP to TOP"
+        with open(graph_p, "w", encoding="utf-8") as f:
+            json.dump(g, f, indent=2, ensure_ascii=False)
+
+    top_p = os.path.join(kb_dir, "real-world-topology.json")
+    if os.path.exists(top_p):
+        with open(top_p, "r", encoding="utf-8") as f:
+            t_content = f.read().replace("renderPOP", "poptoTOP")
+        with open(top_p, "w", encoding="utf-8") as f:
+            f.write(t_content)
+    print("  Sanitización de operadores legacy completada.")
 
 
 def index_markdown_assets(kb_dir: str):
@@ -285,6 +423,13 @@ def main() -> int:
             print("  ts-data.json:", json.dumps(shape, ensure_ascii=False)[:300])
     except Exception as e:
         print("  node dump FALLO:", e)
+
+    # Sanitización de operadores legacy o alucinados
+    print("\n[build_assets] Sanitizando y alineando con TD 2025+...")
+    try:
+        sanitize_legacy_knowledge(kb)
+    except Exception as e:
+        print("  Sanitizing warning:", e)
 
     # Ingesta en SQLite FTS5 de workflows, tutoriales, soluciones GLSL y auditorías
     print("\n[build_assets] Indexando documentos markdown y reglas en SQLite FTS5...")
