@@ -159,6 +159,28 @@ The server exposes `execute_code`. Treat reaching it as equivalent to a shell on
 
 **Authentication** is OAuth 2.1 with PKCE and an in-TD consent popup. Access tokens live in memory and last 24 hours or until TouchDesigner restarts, whichever comes first. Client registrations persist in `.tdmcp/` beside the project. Details in [OAuth](docs/setup-advanced.md#oauth).
 
+## Fork status — tolchx
+
+This fork develops an **offline knowledge layer** alongside the official server. Full inventory in
+[FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in
+[docs/BACKLOG.md](docs/BACKLOG.md) (`docs/` also carries the build reports and the issues filed upstream).
+
+- **`knowledge/`** — td-knowledge, an offline MCP server (Python stdlib, stdio): curated full-text
+  search, the measured POP capability matrix, operator/parameter docs, the live-verified GLSL rules
+  with a static analyzer, network templates and builder recipes, and the live-verified contracts.
+  Needs no TouchDesigner running.
+- **`skills-hermes/`** — 19 `td-*` skills from TDMCPSkills adapted to the Hermes Agent format.
+- **`tools/gauntlet/`** — build + verification harness that drives the live server: versioned build
+  scripts, numbered checks, PNG metrics and the regression battery.
+
+**POP coverage (live-verified):** 33 of 101 POP families exercised, each with a build script and
+numbered checks; contracts **C1–C16** (59 individual contracts) live in
+[knowledge/contracts/VERIFIED_CONTRACTS.md](knowledge/contracts/VERIFIED_CONTRACTS.md). Full
+regression battery 20/20 green (`results/reg-20260930-131003`, 121.6 s). 68 families remain
+unmeasured — next up: groupPOP, proximityPOP, revolvePOP, tubePOP, topologyPOP, lookupTexturePOP.
+
+All as of 2026-09-30, commit `32cb715`, verified on TouchDesigner 2025.32460 + TDMCP 1.1.55.
+
 ## Other clients and advanced setup
 
 [**docs/setup-advanced.md**](docs/setup-advanced.md) covers:

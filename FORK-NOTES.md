@@ -4,7 +4,7 @@ Personal working copy of **Derivative TDMCP** (the official TouchDesigner MCP se
 develop an **offline knowledge layer** that runs alongside it.
 
 **Not affiliated with, reviewed by, or endorsed by Derivative Inc.** Upstream files
-(`README.md`, `CHANGELOG.md`, `LICENSE.md`, `docs/`) are unmodified. The Shared Use License and
+(`CHANGELOG.md`, `LICENSE.md`, `docs/`) are unmodified; `README.md` is upstream plus a short fork-status section. The Shared Use License and
 TDMCP Tool Terms of Use in `LICENSE.md` are retained as required; the additions below are
 modifications of this software made for use with TouchDesigner.
 
