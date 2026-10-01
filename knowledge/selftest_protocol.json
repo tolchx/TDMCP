@@ -48,7 +48,7 @@
     },
     {
      "name": "kb_search",
-     "description": "Búsqueda full-text (BM25) sobre 1048 documentos curados: ops, POPs, patrones, GLSL. Filtrable por familia y trustTier. NO necesita TouchDesigner.",
+     "description": "Búsqueda full-text (BM25) sobre 1128 documentos curados: ops, POPs, patrones, GLSL, workflows, tutoriales. Filtrable por familia y trustTier. NO necesita TouchDesigner.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -66,7 +66,7 @@
        },
        "source_type": {
         "type": "string",
-        "description": "ops|pops|pop-pattern|pop-live|pop-glsl"
+        "description": "ops|pops|pop-pattern|pop-live|pop-glsl|workflow|tutorial|glsl-solution|empirical|master-prompt"
        },
        "limit": {
         "type": "integer",
@@ -227,6 +227,130 @@
         "description": "string"
        },
        "query": {
+        "type": "string",
+        "description": "string"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "workflows",
+     "description": "42 workflows de producción completos (alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer): action=list|get.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "action": {
+        "type": "string",
+        "description": "list|get"
+       },
+       "name": {
+        "type": "string",
+        "description": "string"
+       },
+       "query": {
+        "type": "string",
+        "description": "string"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "tutorials",
+     "description": "28 tutoriales paso a paso de TouchDesigner avanzado (audio-reactivo, boids, god rays, fluid solver, instancing): action=list|get.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "action": {
+        "type": "string",
+        "description": "list|get"
+       },
+       "name": {
+        "type": "string",
+        "description": "string"
+       },
+       "query": {
+        "type": "string",
+        "description": "string"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "glsl_solutions",
+     "description": "Catálogo de soluciones y fixes a errores frecuentes del compilador GLSL en TouchDesigner.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "error_query": {
+        "type": "string",
+        "description": "string"
+       },
+       "limit": {
+        "type": "integer",
+        "description": "int"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "python_api",
+     "description": "Referencia offline de la API Python de TouchDesigner: inspección de clases, métodos, atributos y docstrings sin TD abierto.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "class_name": {
+        "type": "string",
+        "description": "string"
+       },
+       "member_or_method": {
+        "type": "string",
+        "description": "string"
+       },
+       "search": {
+        "type": "string",
+        "description": "string"
+       },
+       "limit": {
+        "type": "integer",
+        "description": "int"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "discovery",
+     "description": "Bitácora empírica de TouchDesigner: quirks de parámetros, límites medidos, cook lag y lecciones de hardware.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "string"
+       },
+       "limit": {
+        "type": "integer",
+        "description": "int"
+       }
+      },
+      "required": []
+     }
+    },
+    {
+     "name": "master_prompts",
+     "description": "Directivas maestras para orquestación de sistemas complejos (feedback sim, pathtracing, validación): action=list|get.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "action": {
+        "type": "string",
+        "description": "list|get"
+       },
+       "name": {
         "type": "string",
         "description": "string"
        }
@@ -487,7 +611,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"kb_dir\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\TDMCP\\\\tolchx-TDMCP\\\\knowledge\\\\kb\",\n \"kb_total_bytes\": 29347430,\n \"kb_origen\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n \"assets\": [\n  \"knowledge_brain.db\",\n  \"pop_matrix.json\",\n  \"topology.json\",\n  \"webtoe-pop-specs.json\",\n  \"ops/index.json\",\n  \"rules/GLSL_POP_RULES.md\",\n  \"rules/GLSL_TOP_RULES.md\",\n  \"rules/glsl_pop_shader_guide.md\",\n  \"rules/GLSL_POP_SUITE_GUIDE.md\",\n  \"rules/POPs_KNOWLEDGE.md\",\n  \"rules/POPs_CORRECTIONS.md\",\n  \"rules/POPs_VALIDATION.md\",\n  \"rules/TD_PARAMETER_CHEATSHEET.md\",\n  \"rules/BRIDGE_CONTRACT.md\",\n  \"ops/operators/\",\n  \"pops/\"\n ],\n \"ts_extract\": {\n  \"generated_at\": \"2026-09-28T22:02:57.222Z\",\n  \"source\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n  \"semantic\": 2,\n  \"templates\": 1,\n  \"recipes\": 3\n },\n \"docs\": {\n  \"docs_total\": 1048,\n  \"por_familia\": {\n   \"POP\": 541,\n   \"CHOP\": 171,\n   \"TOP\": 148,\n   \"SOP\": 114,\n   \"DAT\": 74\n  },\n  \"por_trust_tier\": {\n   \"official\": 507,\n   \"empirical\": 342,\n   \"community\": 102,\n   \"live-verified\": 97\n  },\n  \"por_source_type\": {\n   \"ops\": 507,\n   \"pop-pattern\": 280,\n   \"pops\": 102,\n   \"pop-live\": 97,\n   \"pop-glsl\": 62\n  }\n },\n \"pop_matrix\": {\n  \"generado\": \"2026-09-17T00:51:34\",\n  \"build_medido\": \"TouchDesigner 2025.31760\",\n  \"tipos\": 97,\n  \"creados_ok\": 96,\n  \"creados_fail\": 1,\n  \"ok_con_input\": 89,\n  \"params_medidos\": 2987\n }\n}"
+     "text": "{\n \"kb_dir\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\TDMCP\\\\tolchx-TDMCP\\\\knowledge\\\\kb\",\n \"kb_total_bytes\": 40167290,\n \"kb_origen\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n \"assets\": [\n  \"knowledge_brain.db\",\n  \"pop_matrix.json\",\n  \"topology.json\",\n  \"real-world-topology.json\",\n  \"webtoe-pop-specs.json\",\n  \"webtoe-top-specs.json\",\n  \"ops/index.json\",\n  \"pops/glsl_curriculum.json\",\n  \"templates/builtin-templates.json\",\n  \"templates/pop-chains.json\",\n  \"templates/pop_networks.json\",\n  \"reference/python-api-classes.json\",\n  \"reference/pop-parameters.json\",\n  \"references/discovery-log.md\",\n  \"references/pop-parameter-mapping.md\",\n  \"rules/GLSL_ERROR_SOLUTIONS.md\",\n  \"rules/GLSL_POP_RULES.md\",\n  \"rules/GLSL_TOP_RULES.md\",\n  \"rules/glsl_pop_shader_guide.md\",\n  \"rules/GLSL_POP_SUITE_GUIDE.md\",\n  \"rules/GLSL_POP_TEST_COVERAGE.md\",\n  \"rules/GLSL_TEST_COVERAGE_SUMMARY.md\",\n  \"rules/POPs_KNOWLEDGE.md\",\n  \"rules/POPs_CORRECTIONS.md\",\n  \"rules/POPs_VALIDATION.md\",\n  \"rules/TD_PARAMETER_CHEATSHEET.md\",\n  \"rules/BRIDGE_CONTRACT.md\",\n  \"rules/2026-09-28_TDMCP_oficial_vs_propio.md\",\n  \"rules/API_CONTRACT_AUDIT.md\",\n  \"rules/TOE_REPLICATION.md\",\n  \"rules/MCP_REAL_CASES.md\",\n  \"ops/operators/\",\n  \"pops/\",\n  \"workflows/\",\n  \"tutorials/\",\n  \"tutorials/pop_tutorial/\",\n  \"prompts/master/\",\n  \"shaders/\"\n ],\n \"ts_extract\": {\n  \"generated_at\": \"2026-10-01T15:28:27.979Z\",\n  \"source\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n  \"semantic\": 2,\n  \"templates\": 1,\n  \"recipes\": 3\n },\n \"docs\": {\n  \"docs_total\": 1128,\n  \"por_familia\": {\n   \"POP\": 553,\n   \"CHOP\": 174,\n   \"TOP\": 164,\n   \"SOP\": 115,\n   \"DAT\": 75,\n   \"GENERAL\": 39,\n   \"GLSL\": 5,\n   \"PROMPT\": 3\n  },\n  \"por_trust_tier\": {\n   \"official\": 507,\n   \"empirical\": 384,\n   \"community\": 130,\n   \"live-verified\": 107\n  },\n  \"por_source_type\": {\n   \"ops\": 507,\n   \"pop-pattern\": 280,\n   \"pops\": 102,\n   \"pop-live\": 97,\n   \"pop-glsl\": 62,\n   \"workflow\": 42,\n   \"tutorial\": 28,\n   \"empirical\": 6,\n   \"master-prompt\": 3,\n   \"glsl-solution\": 1\n  }\n },\n \"pop_matrix\": {\n  \"generado\": \"2026-09-17T00:51:34\",\n  \"build_medido\": \"TouchDesigner 2025.31760\",\n  \"tipos\": 97,\n  \"creados_ok\": 96,\n  \"creados_fail\": 1,\n  \"ok_con_input\": 89,\n  \"params_medidos\": 2987\n }\n}"
     }
    ],
    "isError": false
@@ -605,6 +729,84 @@
     {
      "type": "text",
      "text": "{\n \"total\": 1,\n \"contratos\": [\n  {\n   \"seccion\": \"C1 — Medición: siempre asentar antes de leer\",\n   \"id\": \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n   \"texto\": \"**Síntoma:** editás el shader o un uniform y \\\"no pasa nada\\\"; medís de nuevo y aparece el valor\\n*anterior*. Conclusión falsa típica: \\\"el uniform no está conectado\\\".\\n\\n**Evidencia [V]:** shader editado a `P[id] = pos * 2.0` → el poptoCHOP seguía mostrando `P_0.max\\n= 1.0257`; al *restaurar* el DAT, el cook siguiente mostró `2.0513` (exactamente 2×).\\n\\n**Regla:** tras tocar DAT/parámetros/uniforms, cocinar en cadena varias veces y **releer**:\\n\\n```python\\ndef settle(n=4):\\n    for _ in range(n):\\n        op('/X/geo').cook(force=True)\\n        op('/X/geo/glsl').cook(force=True)\\n        op('/X/geo/null_out').cook(force=True)\\n        op('/X/ren').cook(force=True)\\n        time.sleep(0.04)\\n```\"\n  }\n ],\n \"nota\": \"Contratos verificados contra TD vivo 2025.32460 + TDMCP 1.1.55.\"\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 13,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"count\": 2,\n \"workflows\": [\n  {\n   \"name\": \"nebrarray-pathtracer\",\n   \"title\": \"nebrarray-pathtracer\",\n   \"summary\": \"title: \\\"Neighbor Array Pathtracer\\\"\",\n   \"file\": \"nebrarray-pathtracer.md\"\n  },\n  {\n   \"name\": \"pathtracer-setup\",\n   \"title\": \"pathtracer-setup\",\n   \"summary\": \"title: \\\"Setup de Pathtracer con Multi-Material\\\"\",\n   \"file\": \"pathtracer-setup.md\"\n  }\n ],\n \"total_available\": 42\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 14,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"count\": 4,\n \"tutorials\": [\n  {\n   \"name\": \"feedback-creative\",\n   \"title\": \"feedback-creative\",\n   \"summary\": \"title: \\\"Feedback Creativo Avanzado\\\"\",\n   \"file\": \"feedback-creative.md\"\n  },\n  {\n   \"name\": \"feedback-loop\",\n   \"title\": \"feedback-loop\",\n   \"summary\": \"title: \\\"Feedback Psicodélico\\\"\",\n   \"file\": \"feedback-loop.md\"\n  },\n  {\n   \"name\": \"particles-experto-feedback-sim\",\n   \"title\": \"particles-experto-feedback-sim\",\n   \"summary\": \"title: \\\"Sistema de partículas POP con feedback loop, colisiones simples y control de presupuesto de rendimiento\\\"\",\n   \"file\": \"particles-experto-feedback-sim.md\"\n  },\n  {\n   \"name\": \"spring-feedback-glsl\",\n   \"title\": \"spring-feedback-glsl\",\n   \"summary\": \"title: \\\"Simulación de Resortes con GLSL y Feedback\\\"\",\n   \"file\": \"spring-feedback-glsl.md\"\n  }\n ],\n \"pop_tutorial_suite\": true,\n \"total\": 28\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 15,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"query\": \"undeclared\",\n \"count\": 1,\n \"solutions\": [\n  {\n   \"title\": \"Critical Fix: outputattrs\",\n   \"content\": \"## Critical Fix: outputattrs\\n\\n**The #1 cause of GLSL POP compilation errors is missing `outputattrs` configuration.**\\n\\nWhen you create a `glslPOP`, the `outputattrs` parameter is EMPTY by default. This means `P[id]`, `Cd[id]`, and other output writes are UNDECLARED in the GLSL shader, causing compilation failures like:\\n- `'P' : undeclared identifier`\\n- `'Cd' : undeclared identifier`\\n\\n**Fix: Set `outputattrs` BEFORE writing GLSL code:**\\n\\n```python\\n# For position-only shaders:\\ng.par.outputattrs = 'P'\\n\\n# For position + color shaders:\\ng.par.outputattrs = 'P Cd'\\n\\n# For position + color + normal:\\ng.par.outputattrs = 'P Cd N'\\n```\\n\\n**Why this happens:**\\n- The `glslPOP` treats attributes as SSBOs (Shader Storage Buffer Objects)\\n- TD only binds output buffers for attributes listed in `outputattrs`\\n- Without binding, `P[id] = ...` fails with \\\"undeclared identifier\\\"\\n\\n**Reference:** https://docs.derivative.ca/Write_a_GLSL_POP\\n\\n---\"\n  }\n ],\n \"nota\": \"Soluciones verificadas a errores comunes del compilador GLSL en TouchDesigner.\"\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 16,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"name\": \"noiseTOP\",\n \"class\": \"NoiseTOP\",\n \"family\": \"TOP\",\n \"description\": \"The Noise TOP generates a variety of noise patterns including perlin, simplex, sparse, alligator and random. Some types of noise run on the CPU, while others are calculated on the GPU . The ones that are calculated on the GPU will have GPU in their name. The first input can be combined with the generated noise in various ways depending on the parameters. The second input can be used to specify noise coordinates per-pixel. Without a 2nd input connected, the noise coordinates are the 0-1 texture c\\n…[cortado: 1024 chars en total]\",\n \"parameters_count\": 137,\n \"methods_count\": 0,\n \"methods\": [],\n \"url\": \"https://docs.derivative.ca/Noise_TOP\"\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 17,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"query\": \"cook lag\",\n \"count\": 1,\n \"findings\": [\n  {\n   \"source\": \"verified-contracts\",\n   \"title\": \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n   \"content\": \"### `cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\\n**Síntoma:** editás el shader o un uniform y \\\"no pasa nada\\\"; medís de nuevo y aparece el valor\\n*anterior*. Conclusión falsa típica: \\\"el uniform no está conectado\\\".\\n\\n**Evidencia [V]:** shader editado a `P[id] = pos * 2.0` → el poptoCHOP seguía mostrando `P_0.max\\n= 1.0257`; al *restaurar* el DAT, el cook siguiente mostró `2.0513` (exactamente 2×).\\n\\n**Regla:** tras tocar DAT/parámetros/uniforms, cocinar en cadena varias veces y **releer**:\\n\\n```python\\ndef settle(n=4):\\n    for _ in range(n):\\n        op('/X/geo').cook(force=True)\\n        op('/X/geo/glsl').cook(force=True)\\n        op('/X/geo/null_out').cook(force=True)\\n        op('/X/ren').cook(force=True)\\n        time.sleep(0.04)\\n```\"\n  }\n ],\n \"nota\": \"Descubrimientos empíricos, notas de hardware, contratos y quirks de parámetros en TouchDesigner.\"\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 18,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"count\": 3,\n \"prompts\": [\n  \"particles-experto-feedback-sim\",\n  \"pathtracer-system\",\n  \"validate-and-fix\"\n ]\n}"
     }
    ],
    "isError": false

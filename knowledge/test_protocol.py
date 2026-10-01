@@ -1,13 +1,15 @@
 """Prueba real del MCP offline td-knowledge: handshake + tools/list + llamadas."""
 import json, os, subprocess, sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 SERVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "server.py")
 PY = sys.executable
 
 
 def run(calls):
-    # El hijo escribe su stdout con el encoding de locale (cp1252 en Windows);
-    # forzar utf-8 para que el pipe coincida con la decodificacion del padre.
+    # Forzar utf-8 para que el pipe coincida con la decodificación
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
     p = subprocess.Popen([PY, SERVER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1,
@@ -30,7 +32,7 @@ def run(calls):
             n += 1
     p.stdin.close()
     try:
-        p.wait(timeout=10)
+        p.wait(timeout=15)
     except subprocess.TimeoutExpired:
         p.kill()
     err = p.stderr.read()
@@ -59,6 +61,12 @@ calls = [
     {"jsonrpc": "2.0", "id": 10, "method": "tools/call", "params": {"name": "kb_get", "arguments": {"name_or_slug": "particlePOP", "max_chars": 900}}},
     {"jsonrpc": "2.0", "id": 11, "method": "tools/call", "params": {"name": "contracts", "arguments": {"list": True}}},
     {"jsonrpc": "2.0", "id": 12, "method": "tools/call", "params": {"name": "contracts", "arguments": {"section": "cook_lag"}}},
+    {"jsonrpc": "2.0", "id": 13, "method": "tools/call", "params": {"name": "workflows", "arguments": {"action": "list", "query": "pathtracer"}}},
+    {"jsonrpc": "2.0", "id": 14, "method": "tools/call", "params": {"name": "tutorials", "arguments": {"action": "list", "query": "feedback"}}},
+    {"jsonrpc": "2.0", "id": 15, "method": "tools/call", "params": {"name": "glsl_solutions", "arguments": {"error_query": "undeclared"}}},
+    {"jsonrpc": "2.0", "id": 16, "method": "tools/call", "params": {"name": "python_api", "arguments": {"class_name": "noiseTOP"}}},
+    {"jsonrpc": "2.0", "id": 17, "method": "tools/call", "params": {"name": "discovery", "arguments": {"query": "cook lag"}}},
+    {"jsonrpc": "2.0", "id": 18, "method": "tools/call", "params": {"name": "master_prompts", "arguments": {"action": "list"}}},
 ]
 res, err = run(calls)
 print("stderr:", err.strip()[:200])
@@ -71,9 +79,11 @@ names = [t["name"] for t in tools]
 assert len(names) == len(set(names)), "nombres duplicados!"
 print("  " + ", ".join(names))
 print()
-labels = {3: "kb_info", 4: "kb_search", 5: "pop_matrix(particlePOP)", 6: "resolve_operator", 7: "glsl_analyze POP (P se lee y escribe)",
-          8: "glsl_analyze TOP (.uv)", 9: "recipes list", 10: "kb_get particlePOP",
-          11: "contracts (indice de contratos verificados)", 12: "contracts (section=cook_lag)"}
+labels = {3: "kb_info", 4: "kb_search", 5: "pop_matrix(particlePOP)", 6: "resolve_operator", 7: "glsl_analyze POP",
+          8: "glsl_analyze TOP", 9: "recipes list", 10: "kb_get particlePOP",
+          11: "contracts list", 12: "contracts cook_lag",
+          13: "workflows (pathtracer)", 14: "tutorials (feedback)", 15: "glsl_solutions (undeclared)",
+          16: "python_api (noiseTOP)", 17: "discovery (cook lag)", 18: "master_prompts list"}
 for r in res[2:]:
     mid = r["id"]
     print("=" * 78); print(f"### [{mid}] {labels.get(mid)}  isError={r['result'].get('isError')}")

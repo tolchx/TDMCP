@@ -556,10 +556,226 @@ def t_glsl_curriculum(a: dict) -> dict:
     return {"content": clip(json.dumps(d, ensure_ascii=False, indent=1), 8000)}
 
 
+def t_workflows(a: dict) -> dict:
+    action = a.get("action") or "list"
+    wf_dir = kb("workflows")
+    if not os.path.isdir(wf_dir):
+        return {"error": "no se encontró el directorio de workflows en kb/"}
+    files = [f for f in sorted(os.listdir(wf_dir)) if f.endswith(".md")]
+    if action == "list":
+        q = (a.get("query") or "").lower()
+        items = []
+        for fn in files:
+            stem = fn[:-3]
+            p = os.path.join(wf_dir, fn)
+            with open(p, encoding="utf-8", errors="replace") as f:
+                head = [line.strip() for line in f if line.strip()][:6]
+            title = stem
+            summary = ""
+            for l in head:
+                if l.startswith("# "):
+                    title = l[2:].strip()
+                elif not summary and not l.startswith("#") and not l.startswith("---"):
+                    summary = l[:200]
+            blob = f"{stem} {title} {summary}".lower()
+            if not q or q in blob:
+                items.append({"name": stem, "title": title, "summary": summary, "file": fn})
+        return {"count": len(items), "workflows": items, "total_available": len(files)}
+    name = (a.get("name") or "").strip().lower()
+    if not name:
+        return {"error": "falta 'name' para action=get", "ejemplos": [f[:-3] for f in files[:8]]}
+    for fn in files:
+        stem = fn[:-3]
+        if stem.lower() == name or name in stem.lower():
+            p = os.path.join(wf_dir, fn)
+            with open(p, encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            return {"name": stem, "file": fn, "content": clip(content, int(a.get("max_chars") or 15000))}
+    return {"error": f"workflow '{name}' no encontrado", "quizas": [f[:-3] for f in files if name in f.lower()][:8]}
+
+
+def t_tutorials(a: dict) -> dict:
+    action = a.get("action") or "list"
+    tut_dir = kb("tutorials")
+    if not os.path.isdir(tut_dir):
+        return {"error": "no se encontró el directorio de tutoriales en kb/"}
+    files = [f for f in sorted(os.listdir(tut_dir)) if f.endswith(".md")]
+    if action == "list":
+        q = (a.get("query") or "").lower()
+        items = []
+        for fn in files:
+            stem = fn[:-3]
+            p = os.path.join(tut_dir, fn)
+            with open(p, encoding="utf-8", errors="replace") as f:
+                head = [line.strip() for line in f if line.strip()][:6]
+            title = stem
+            summary = ""
+            for l in head:
+                if l.startswith("# "):
+                    title = l[2:].strip()
+                elif not summary and not l.startswith("#") and not l.startswith("---"):
+                    summary = l[:200]
+            blob = f"{stem} {title} {summary}".lower()
+            if not q or q in blob:
+                items.append({"name": stem, "title": title, "summary": summary, "file": fn})
+        pop_tut = kb("tutorials", "pop_tutorial", "INDEX.md")
+        has_pop_tut = os.path.exists(pop_tut)
+        return {"count": len(items), "tutorials": items, "pop_tutorial_suite": has_pop_tut, "total": len(files)}
+    name = (a.get("name") or "").strip().lower()
+    if not name:
+        return {"error": "falta 'name' para action=get", "ejemplos": [f[:-3] for f in files[:8]]}
+    if name in ("pop_tutorial", "pop_index", "pop-tutorial"):
+        p = kb("tutorials", "pop_tutorial", "INDEX.md")
+        if os.path.exists(p):
+            with open(p, encoding="utf-8", errors="replace") as f:
+                return {"name": "pop_tutorial", "content": clip(f.read(), int(a.get("max_chars") or 15000))}
+    for fn in files:
+        stem = fn[:-3]
+        if stem.lower() == name or name in stem.lower():
+            p = os.path.join(tut_dir, fn)
+            with open(p, encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            return {"name": stem, "file": fn, "content": clip(content, int(a.get("max_chars") or 15000))}
+    return {"error": f"tutorial '{name}' no encontrado", "quizas": [f[:-3] for f in files if name in f.lower()][:8]}
+
+
+def t_glsl_solutions(a: dict) -> dict:
+    p = kb("rules", "GLSL_ERROR_SOLUTIONS.md")
+    if not os.path.exists(p):
+        return {"error": "falta rules/GLSL_ERROR_SOLUTIONS.md"}
+    with open(p, encoding="utf-8", errors="replace") as f:
+        md = f.read()
+    q = (a.get("error_query") or a.get("query") or "").strip().lower()
+    sections = []
+    blocks = re.split(r"(?m)^(?=###?\s+)", md)
+    for b in blocks:
+        b_str = b.strip()
+        if not b_str:
+            continue
+        first_line = b_str.splitlines()[0].strip("# ")
+        if not q or q in b_str.lower():
+            sections.append({"title": first_line, "content": clip(b_str, int(a.get("max_chars") or 4000))})
+    return {"query": q, "count": len(sections), "solutions": sections[: int(a.get("limit") or 6)],
+            "nota": "Soluciones verificadas a errores comunes del compilador GLSL en TouchDesigner."}
+
+
+def _get_py_api():
+    if "py_api" in _CACHE:
+        return _CACHE["py_api"]
+    raw = load_json("reference/python-api-classes.json")
+    classes_by_fam = raw.get("classes") or {}
+    flat = {}
+    for fam, items in classes_by_fam.items():
+        if isinstance(items, list):
+            for it in items:
+                name = it.get("name") or it.get("class")
+                if name:
+                    it_copy = dict(it)
+                    it_copy["family"] = fam
+                    flat[name.lower()] = it_copy
+                    if it.get("class"):
+                        flat[it["class"].lower()] = it_copy
+    _CACHE["py_api"] = (raw, flat)
+    return _CACHE["py_api"]
+
+
+def t_python_api(a: dict) -> dict:
+    p = kb("reference", "python-api-classes.json")
+    if not os.path.exists(p):
+        return {"error": "falta reference/python-api-classes.json"}
+    raw, flat = _get_py_api()
+    cname = (a.get("class_name") or a.get("op_type") or a.get("name") or "").strip().lower()
+    q = (a.get("search") or a.get("query") or "").strip().lower()
+
+    if cname:
+        it = flat.get(cname)
+        if not it:
+            for k, v in flat.items():
+                if k == cname or k.startswith(cname) or cname in k:
+                    it = v
+                    break
+        if not it:
+            close = [k for k in flat if cname in k][:10]
+            return {"error": f"clase '{cname}' no encontrada", "quizas": close}
+        member = (a.get("member_or_method") or a.get("method") or "").strip().lower()
+        if member:
+            meths = it.get("methods") or []
+            pars = it.get("parameters") or []
+            matched_meth = [m for m in meths if member in json.dumps(m, ensure_ascii=False).lower()]
+            matched_par = [p for p in pars if member in json.dumps(p, ensure_ascii=False).lower()]
+            return {"class": it.get("name"), "matched_methods": matched_meth, "matched_parameters": matched_par}
+        return {
+            "name": it.get("name"),
+            "class": it.get("class"),
+            "family": it.get("family"),
+            "description": clip(it.get("description"), 500),
+            "parameters_count": len(it.get("parameters") or []),
+            "methods_count": len(it.get("methods") or []),
+            "methods": [m.get("name") for m in (it.get("methods") or []) if isinstance(m, dict)][:30],
+            "url": it.get("url")
+        }
+    if q:
+        matches = []
+        for k, it in flat.items():
+            desc = it.get("description") or ""
+            if q in k or q in desc.lower():
+                matches.append({"name": it.get("name"), "class": it.get("class"), "family": it.get("family"), "description": clip(desc, 180)})
+        return {"query": q, "count": len(matches), "classes": matches[: int(a.get("limit") or 8)]}
+    return {"total_classes": len(flat), "familias": list((raw.get("classes") or {}).keys()),
+            "total_raw": raw.get("totalClasses"),
+            "nota": "Consultá con class_name='noiseTOP' o search='curl'"}
+
+
+def t_discovery(a: dict) -> dict:
+    targets = [
+        ("references/discovery-log.md", "discovery-log"),
+        ("references/pop-parameter-mapping.md", "pop-parameter-mapping"),
+        ("rules/2026-09-28_TDMCP_oficial_vs_propio.md", "tdmcp-oficial-vs-propio"),
+        ("contracts/VERIFIED_CONTRACTS.md", "verified-contracts"),
+    ]
+    q = (a.get("query") or a.get("topic") or "").strip().lower()
+    terms = [t for t in re.findall(r"[\w]+", q) if len(t) > 1]
+    items = []
+    for rel, tag in targets:
+        p = kb(rel) if os.path.exists(kb(rel)) else os.path.join(os.path.dirname(os.path.abspath(__file__)), rel)
+        if not os.path.exists(p):
+            continue
+        with open(p, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+        blocks = re.split(r"(?m)^(?=###?\s+)", text)
+        for b in blocks:
+            b_str = b.strip()
+            if not b_str:
+                continue
+            b_low = b_str.lower()
+            if not terms or all(t in b_low for t in terms):
+                first_line = b_str.splitlines()[0].strip("# ")
+                items.append({"source": tag, "title": first_line, "content": clip(b_str, 2500)})
+    return {"query": q, "count": len(items), "findings": items[: int(a.get("limit") or 6)],
+            "nota": "Descubrimientos empíricos, notas de hardware, contratos y quirks de parámetros en TouchDesigner."}
+
+
+def t_master_prompts(a: dict) -> dict:
+    pr_dir = kb("prompts", "master")
+    if not os.path.isdir(pr_dir):
+        return {"error": "no se encontró prompts/master en kb/"}
+    files = [f for f in sorted(os.listdir(pr_dir)) if f.endswith(".md")]
+    action = a.get("action") or "list"
+    if action == "list":
+        return {"count": len(files), "prompts": [f[:-3] for f in files]}
+    name = (a.get("name") or "").strip().lower()
+    for fn in files:
+        stem = fn[:-3]
+        if stem.lower() == name or name in stem.lower():
+            with open(os.path.join(pr_dir, fn), encoding="utf-8", errors="replace") as f:
+                return {"name": stem, "content": f.read()}
+    return {"error": f"master prompt '{name}' no encontrado", "disponibles": [f[:-3] for f in files]}
+
+
 TOOLS = [
     ("kb_info", "Provenance de esta KB offline: ruta, tamaño, origen, conteos de docs y de la matriz POP. Llamala primero si dudás de la frescura.", {}, t_kb_info),
     ("kb_taxonomy", "Qué hay en la KB: conteos por familia/trustTier/sourceType. Con list_docs=true y family='POP' lista los nombres.", {"family": "string", "list_docs": "boolean"}, t_kb_taxonomy),
-    ("kb_search", "Búsqueda full-text (BM25) sobre 1048 documentos curados: ops, POPs, patrones, GLSL. Filtrable por familia y trustTier. NO necesita TouchDesigner.", {"query": "string (requerido)", "family": "POP|TOP|CHOP|SOP|DAT", "trust_tier": "official|live-verified|empirical|community", "source_type": "ops|pops|pop-pattern|pop-live|pop-glsl", "limit": "int 1-25"}, t_kb_search),
+    ("kb_search", "Búsqueda full-text (BM25) sobre 1128 documentos curados: ops, POPs, patrones, GLSL, workflows, tutoriales. Filtrable por familia y trustTier. NO necesita TouchDesigner.", {"query": "string (requerido)", "family": "POP|TOP|CHOP|SOP|DAT", "trust_tier": "official|live-verified|empirical|community", "source_type": "ops|pops|pop-pattern|pop-live|pop-glsl|workflow|tutorial|glsl-solution|empirical|master-prompt", "limit": "int 1-25"}, t_kb_search),
     ("kb_get", "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página.", {"name_or_slug": "string (requerido)", "max_chars": "int 400-40000"}, t_kb_get),
     ("pop_matrix", "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' = registro completo; category='ok_con_input' = miembros.", {"type": "string", "category": "ok_con_input|sin_geometria|..."}, t_pop_matrix),
     ("ops_doc", "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples.", {"op_type": "string (requerido)", "section": "string"}, t_ops_doc),
@@ -568,6 +784,12 @@ TOOLS = [
     ("resolve_operator", "Traduce lenguaje natural (ES/EN) a tipo de operador canónico con 99 tipos indexados ('video por webcam' -> videodeviceinTOP).", {"text": "string (requerido)", "limit": "int"}, t_resolve_operator),
     ("templates", "14 plantillas de red con wiring, parámetros y builder Python: action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_templates),
     ("recipes", "5 recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) con gotchas y código: action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_recipes),
+    ("workflows", "42 workflows de producción completos (alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer): action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_workflows),
+    ("tutorials", "28 tutoriales paso a paso de TouchDesigner avanzado (audio-reactivo, boids, god rays, fluid solver, instancing): action=list|get.", {"action": "list|get", "name": "string", "query": "string"}, t_tutorials),
+    ("glsl_solutions", "Catálogo de soluciones y fixes a errores frecuentes del compilador GLSL en TouchDesigner.", {"error_query": "string", "limit": "int"}, t_glsl_solutions),
+    ("python_api", "Referencia offline de la API Python de TouchDesigner: inspección de clases, métodos, atributos y docstrings sin TD abierto.", {"class_name": "string", "member_or_method": "string", "search": "string", "limit": "int"}, t_python_api),
+    ("discovery", "Bitácora empírica de TouchDesigner: quirks de parámetros, límites medidos, cook lag y lecciones de hardware.", {"query": "string", "limit": "int"}, t_discovery),
+    ("master_prompts", "Directivas maestras para orquestación de sistemas complejos (feedback sim, pathtracing, validación): action=list|get.", {"action": "list|get", "name": "string"}, t_master_prompts),
     ("glsl_rules", "Reglas GLSL verificadas en vivo, por familia: 6 de POP (write-only, TDIndex, Create Attributes, outputaccess) y 12 de TOP.", {"family": "pop|top", "rule": "texto a buscar en el título", "query": "texto en el cuerpo"}, t_glsl_rules),
     ("glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
     ("glsl_curriculum", "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).", {"query": "string"}, t_glsl_curriculum),
@@ -653,7 +875,9 @@ def main() -> int:
                 continue
             try:
                 r = fn({"query": "noise", "text": "webcam", "op_type": "noiseTOP", "kind": "patterns",
-                        "action": "list", "family": "pop", "code": "P[id] = P[id] * 1.0;\n"})
+                        "action": "list", "family": "pop", "code": "P[id] = P[id] * 1.0;\n",
+                        "name_or_slug": "particlePOP", "class_name": "noiseTOP", "topic": "cook lag",
+                        "error_query": "undeclared"})
                 print(f"  {n:<22} ok={not (isinstance(r, dict) and 'error' in r)}")
             except Exception as e:
                 print(f"  {n:<22} EXC {type(e).__name__}: {e}")

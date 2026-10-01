@@ -161,25 +161,30 @@ The server exposes `execute_code`. Treat reaching it as equivalent to a shell on
 
 ## Fork status — tolchx
 
-This fork develops an **offline knowledge layer** alongside the official server. Full inventory in
+This fork integrates the complete **offline knowledge layer** from our previous MCP alongside the official server (`TDMCP.tox`). Full inventory in
 [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in
 [docs/BACKLOG.md](docs/BACKLOG.md) (`docs/` also carries the build reports and the issues filed upstream).
 
-- **`knowledge/`** — td-knowledge, an offline MCP server (Python stdlib, stdio): curated full-text
-  search, the measured POP capability matrix, operator/parameter docs, the live-verified GLSL rules
-  with a static analyzer, network templates and builder recipes, and the live-verified contracts.
-  Needs no TouchDesigner running.
-- **`skills-hermes/`** — 19 `td-*` skills from TDMCPSkills adapted to the Hermes Agent format.
-- **`tools/gauntlet/`** — build + verification harness that drives the live server: versioned build
-  scripts, numbered checks, PNG metrics and the regression battery.
+- **`knowledge/`** — `td-knowledge`, an offline MCP server (Python stdlib, stdio) featuring **21 offline tools + 6 live wrappers (27 tools total)**:
+  - **Curated Knowledge Base (FTS5 BM25)**: 1,128 indexed documents covering operators, POPs, patterns, GLSL, workflows, and tutorials.
+  - **42 Production Workflows (`workflows`)**: Complete multi-operator recipes (alpha blend, audio-visualizer, feedback trails, fluid solver, gaussian splatting, pathtracer, etc.).
+  - **28 Advanced Tutorials (`tutorials`)**: In-depth guides and POP tutorial suite analysis.
+  - **Complete Python API Reference (`python_api`)**: 10 MB offline AST/docstring inspection of all TouchDesigner classes, methods, and parameters.
+  - **GLSL Error Solutions Catalog (`glsl_solutions`)**: Verified causes and fixes for GLSL compilation and runtime errors.
+  - **Empirical Discovery Logs (`discovery`)**: Real-world hardware limits, parameter quirks, and cook lag contracts.
+  - **Master Prompts (`master_prompts`)**: System-level directives for orchestrating complex builds.
+  - **Live-Verified GLSL Rules & Analyzer (`glsl_rules`, `glsl_analyze`)**: Static analysis without TouchDesigner running.
+  - **Live-Verified Contracts (`contracts`)**: C1–C16 operational contracts (cook lag, render ownership, stopped clock, pointspriteMAT).
+  - **Live Wrappers**: `td_status`, `find_in_ops`, `auto_layout`, `smart_connect`, `tdn_export`, `tdn_diff`.
+- **`skills-hermes/`** — **25** `td-*` skills adapted to the Hermes Agent format, including `td-glslpop-create`, `td-glslpop-debug`, and `td-glslpop-shaders`.
+- **`tools/gauntlet/`** — Build + verification harness driving the live server: versioned build scripts, numbered checks, PNG metrics, and regression battery.
 
 **POP coverage (live-verified):** 33 of 101 POP families exercised, each with a build script and
 numbered checks; contracts **C1–C16** (59 individual contracts) live in
 [knowledge/contracts/VERIFIED_CONTRACTS.md](knowledge/contracts/VERIFIED_CONTRACTS.md). Full
-regression battery 20/20 green (`results/reg-20260930-131003`, 121.6 s). 68 families remain
-unmeasured — next up: groupPOP, proximityPOP, revolvePOP, tubePOP, topologyPOP, lookupTexturePOP.
+regression battery 20/20 green (`results/reg-20260930-131003`, 121.6 s).
 
-All as of 2026-09-30, commit `32cb715`, verified on TouchDesigner 2025.32460 + TDMCP 1.1.55.
+All verified on TouchDesigner 2025.32460 + TDMCP 1.1.55.
 
 ## Other clients and advanced setup
 
