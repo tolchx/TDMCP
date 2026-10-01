@@ -161,31 +161,131 @@ The server exposes `execute_code`. Treat reaching it as equivalent to a shell on
 
 ## Fork status — tolchx
 
-This fork integrates the complete **offline knowledge layer** from our previous MCP alongside the official server (`TDMCP.tox`). Full inventory in
-[FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in
-[docs/BACKLOG.md](docs/BACKLOG.md) (`docs/` also carries the build reports and the issues filed upstream).
+This fork integrates the complete **offline knowledge layer** from our previous TouchDesigner MCP alongside the official in-process server (`TDMCP.tox`).
 
-- **`knowledge/`** — `td-knowledge`, an offline MCP server (Python stdlib, stdio) featuring **21 offline tools + 6 live wrappers (27 tools total)**:
-  - **Curated Knowledge Base (FTS5 BM25)**: 1,128 indexed documents covering operators, POPs, patterns, GLSL, workflows, and tutorials.
-  - **42 Production Workflows (`workflows`)**: Complete multi-operator recipes (alpha blend, audio-visualizer, feedback trails, fluid solver, gaussian splatting, pathtracer, etc.).
-  - **28 Advanced Tutorials (`tutorials`)**: In-depth guides and POP tutorial suite analysis.
-  - **Complete Python API Reference (`python_api`)**: 10 MB offline AST/docstring inspection of all TouchDesigner classes, methods, and parameters.
-  - **GLSL Error Solutions Catalog (`glsl_solutions`)**: Verified causes and fixes for GLSL compilation and runtime errors.
-  - **Empirical Discovery Logs (`discovery`)**: Real-world hardware limits, parameter quirks, and cook lag contracts.
-  - **Master Prompts (`master_prompts`)**: System-level directives for orchestrating complex builds.
-  - **Live-Verified GLSL Rules & Analyzer (`glsl_rules`, `glsl_analyze`)**: Static analysis without TouchDesigner running.
-  - **Live-Verified Contracts (`contracts`)**: C1–C16 operational contracts (cook lag, render ownership, stopped clock, pointspriteMAT).
-  - **Live Wrappers**: `td_status`, `find_in_ops`, `auto_layout`, `smart_connect`, `tdn_export`, `tdn_diff`.
-- **`skills-hermes/`** — **25** `td-*` skills adapted to the Hermes Agent format, including `td-glslpop-create`, `td-glslpop-debug`, and `td-glslpop-shaders`.
-- **`tools/gauntlet/`** — Build + verification harness driving the live server: versioned build scripts, numbered checks, PNG metrics, and regression battery.
-- **Sanitized Knowledge Engine (`scripts/sanitize_legacy_knowledge.py`)** — Integrated migration audit that purges hallucinated/obsolete operators from previous MCP implementations (`renderPOP` -> `poptoTOP`/render pipeline, `pointgenPOP` -> `pointgeneratorPOP`, `colorPOP` -> `attributePOP`/`glslPOP`, `deleteprims` pitfall fix) ensuring strict alignment with TouchDesigner 2025+ and official TDMCP 1.1.55 contracts.
+Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-**POP coverage (live-verified):** 33 of 101 POP families exercised, each with a build script and
-numbered checks; contracts **C1–C16** (59 individual contracts) live in
-[knowledge/contracts/VERIFIED_CONTRACTS.md](knowledge/contracts/VERIFIED_CONTRACTS.md). Full
-regression battery 20/20 green (`results/reg-20260930-131003`, 121.6 s).
+### Dual-Server Architecture
 
-All verified on TouchDesigner 2025.32460 + TDMCP 1.1.55.
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                               AI AGENT                                 │
+│          (Claude Code / Cursor / Antigravity / OpenCode / Codex)       │
+└───────────────────┬────────────────────────────────┬───────────────────┘
+                    │ stdio (JSON-RPC)               │ SSE / HTTP (:13316)
+                    ▼                                ▼
+┌──────────────────────────────────────┐  ┌──────────────────────────────┐
+│       td-knowledge (Offline MCP)     │  │       TDMCP.tox (Official)   │
+│   • 21 Offline Tools                 │  │   • 26 In-Process Live Tools │
+│   • 6 Live Wrappers                  │  │   • Direct TD Python engine  │
+│   • 1,128 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
+│   • Runs with TD closed (0% overhead)│  │   • Requires TD running      │
+└──────────────────────────────────────┘  └──────────────────────────────┘
+```
+
+---
+
+### `td-knowledge` Tool Reference (27 Tools)
+
+The offline MCP server (`knowledge/server.py`) operates via standard I/O and requires no running instance of TouchDesigner:
+
+| Category | Tool | Description |
+|---|---|---|
+| **Knowledge Base** | `kb_info` | Metadata, document counts, and SQLite FTS5 index stats. |
+| | `kb_taxonomy` | High-level taxonomy of TouchDesigner families (TOP, CHOP, SOP, POP, MAT, DAT, COMP). |
+| | `kb_search` | Full-text BM25 search across 1,128 curated documents with category filters and snippets. |
+| | `kb_get` | Retrieve the full content of any indexed document by its unique URI. |
+| **Operators & API** | `ops_doc` | Official documentation, parameter overviews, inputs, and common gotchas for any operator. |
+| | `ops_params` | Exhaustive parameter inspection per operator (types, defaults, min/max, menus). |
+| | `python_api` | 10 MB offline AST reference for TouchDesigner Python classes, methods, members, and docstrings. |
+| | `resolve_operator` | Natural language query to matching TouchDesigner operator names with confidence scoring. |
+| **POP System** | `pop_matrix` | Verified capability matrix of all 101 POP families (inputs, outputs, stability, context). |
+| | `pop_knowledge` | Rules, known bugs, caveats, and recommended topologies for the POP system. |
+| **Workflows & Guides**| `workflows` | 42 end-to-end production pipelines (pathtracer, gaussian splatting, audio-reactive, fluid solver, etc.). |
+| | `tutorials` | 28 deep-dive tutorials including step-by-step POP simulations and creative feedback loops. |
+| | `templates` | Parameterized network templates (audio reactive, particle systems, feedback loops). |
+| | `recipes` | Granular multi-operator wiring recipes with verified Python generation code. |
+| | `master_prompts` | System-level prompt directives for autonomous agent orchestration. |
+| **GLSL & Verification**| `glsl_solutions`| Diagnostic catalog for GLSL errors (`undeclared identifier`, `swizzling`, `SSBO binding`, etc.). |
+| | `glsl_rules` | Static syntax and safety rules for GLSL POP compute shaders and TOP pixel shaders. |
+| | `glsl_analyze` | Static shader analyzer detecting missing `outputattrs`, incorrect types, and Vulkan TDR risks. |
+| | `glsl_curriculum`| Progressive curriculum of 62 verified GLSL POP shader implementations. |
+| | `contracts` | 16 live-verified operational contracts C1–C16 (cook lag, render ownership, stopped clock, etc.). |
+| | `discovery` | Bitácora of empirical limits, hardware quirks, and measured edge-cases. |
+| **Live Wrappers** | `td_status` | Fast health check and status query to the live `TDMCP.tox` server. |
+| *(Require TD)* | `find_in_ops` | Deep search inside live DAT code, table contents, and operator parameter expressions. |
+| | `auto_layout` | Automatic topological layout engine positioning operators neatly on the canvas. |
+| | `smart_connect` | Intelligent port connector resolving appropriate input/output indices between operators. |
+| | `tdn_export` | Export TouchDesigner network structure into clean, human-readable JSON. |
+| | `tdn_diff` | Structural diffing tool comparing two network graphs for change audits. |
+
+---
+
+### Sanitized Knowledge & Zero Hallucinations
+
+During migration, all legacy assets were processed through [`scripts/sanitize_legacy_knowledge.py`](file:///c:/Users/Tolch/Documents/AI_Code/TDMCP/tolchx-TDMCP/scripts/sanitize_legacy_knowledge.py) (integrated into `knowledge/build_assets.py`) to purge obsolete paradigms and hallucinations:
+- **Hallucinated Operators Removed**: `renderPOP` (does not exist in TouchDesigner) was systematically replaced with `poptoTOP` (data texture) and the standard rendering pipeline (`geometryCOMP` + `cameraCOMP` + `renderTOP` with `pointspriteMAT` per Contract C2).
+- **Corrected Operator Names**: `pointgenPOP` → `pointgeneratorPOP`, `colorPOP` → `attributePOP`/`glslPOP`, `forcePOP`/`dragPOP` → `noisePOP`/`windPOP`/`particlePOP`, `lookupPOP` → `lookuptablePOP`, `spritePOP` → `pointspriteMAT`, `panelCOMP` → `containerCOMP`.
+- **Render Blackout Bug (`deleteprims`) Fixed**: Workflows using `deleteprims` (which eliminated 100% of primitives leaving empty renders) were updated to `convertPOP(topointprims)` and `gridPOP.par.surftype = 'points'`.
+- **Auto-Torus Trap Documented**: Explicit cleanup routines destroy default `torus1` geometry inside new `geometryCOMP` operators to avoid false positive renders.
+
+---
+
+### Client Configuration
+
+Add both servers to your agent configuration to enable full offline knowledge and live execution.
+
+#### Claude Code
+```bash
+# Add official live server (when TouchDesigner is running)
+claude mcp add touchdesigner -- http://127.0.0.1:13316/mcp
+
+# Add offline knowledge server (always available)
+claude mcp add td-knowledge -- python "C:/Users/Tolch/Documents/AI_Code/TDMCP/tolchx-TDMCP/knowledge/server.py"
+```
+
+#### Cursor (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "touchdesigner": {
+      "url": "http://127.0.0.1:13316/mcp"
+    },
+    "td-knowledge": {
+      "command": "python",
+      "args": ["C:/Users/Tolch/Documents/AI_Code/TDMCP/tolchx-TDMCP/knowledge/server.py"]
+    }
+  }
+}
+```
+
+#### Antigravity / Gemini
+In your workspace or user MCP configuration:
+```json
+{
+  "mcpServers": {
+    "td-knowledge": {
+      "command": "python",
+      "args": ["C:/Users/Tolch/Documents/AI_Code/TDMCP/tolchx-TDMCP/knowledge/server.py"]
+    }
+  }
+}
+```
+
+---
+
+### Building and Testing the Knowledge Base
+
+```bash
+# Rebuild assets and SQLite index from local knowledge sources
+python knowledge/build_assets.py --repo "C:/Users/Tolch/Documents/AI_Code/Touchdesigner_MCP/Main"
+
+# Run internal tool self-tests (verifies all 21 offline tools)
+python knowledge/server.py --selftest
+
+# Run JSON-RPC protocol test suite (verifies JSON-RPC 2.0 framing and responses)
+python knowledge/test_protocol.py
+```
 
 ## Other clients and advanced setup
 
