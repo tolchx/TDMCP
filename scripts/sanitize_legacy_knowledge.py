@@ -202,11 +202,65 @@ def sanitize_workflows_and_tutorials():
         print("  Sanitizado workflow pathtracer-glsl.md")
 
 
+def anonymize_references():
+    anon_repls = [
+        (r"TWOZERO \(Discord\)", "Auditoría de MCPs Comunitarios"),
+        (r"servidor Discord TWOZERO \(`1489238980942757908`\)", "servidor de comunidad técnica"),
+        (r"servidor Discord TWOZERO", "servidor de comunidad técnica"),
+        (r"discord-twozero", "community-feedback"),
+        (r"03-twozero-evaluation\.md", "03-community-mcp-evaluation.md"),
+        (r"inspiradas en TWOZERO", "inspiradas en toolkits comunitarios"),
+        (r"TWOZERO se describe como", "El toolkit comunitario se describe como"),
+        (r"sin depender de TWOZERO", "sin depender de toolkits externos"),
+        (r"compara contra TWOZERO", "compara contra toolkits comunitarios"),
+        (r"twozero_td", "community_td"),
+        (r"twozero\.ai", "community-docs.local"),
+        (r"twozero_chain_live", "community_chain_live"),
+        (r"twozero_http_live", "community_http_live"),
+        (r"twozero_measure_live", "community_measure_live"),
+        (r"\bTWOZERO\b", "Community-MCP"),
+        (r"\bTwoZero\b", "Community-MCP"),
+        (r"\btwozero\b", "community_mcp"),
+        (r"\b404\.zero\b", "Lead-Dev"),
+        (r"\b404zero\b", "Lead-Dev"),
+        (r"\btolch\.x\b", "Auditor"),
+        (r"\bmykul0rr\b", "User_A"),
+        (r"\bMetaKan\b", "User_B"),
+        (r"\bDenne\b", "User_C"),
+        (r"\bKaromm\b", "User_D"),
+        (r"\bverygeeky\b", "User_E"),
+        (r"\bniccab\b", "User_F"),
+        (r"\bDisintegrationLoops\b", "User_G"),
+        (r"\bDean_LJ\b", "User_H"),
+        (r"\bnika_sur_ma\b", "User_I"),
+        (r"\bgwra\b", "User_J"),
+        (r"\bHesi\b", "User_K"),
+        (r"\bevia's\b", "User_L"),
+        (r"\bvacuum\b", "User_M"),
+    ]
+    count = 0
+    for root, _, files in os.walk(KB):
+        for fn in files:
+            if fn.endswith((".md", ".json", ".py", ".txt")):
+                fp = os.path.join(root, fn)
+                with open(fp, "r", encoding="utf-8", errors="replace") as f:
+                    c = f.read()
+                orig = c
+                for pattern, repl in anon_repls:
+                    c = re.sub(pattern, repl, c)
+                if c != orig:
+                    with open(fp, "w", encoding="utf-8") as f:
+                        f.write(c)
+                    count += 1
+    print(f"  Anonimizados nombres y referencias en {count} archivos de la KB")
+
+
 def main():
-    print("[sanitize] Aplicando correcciones de compatibilidad TD 2025+ a la KB:")
+    print("[sanitize] Aplicando correcciones de compatibilidad TD 2025+ y anonimización a la KB:")
     sanitize_synonyms_and_recipes()
     sanitize_builtin_templates()
     sanitize_workflows_and_tutorials()
+    anonymize_references()
     print("[sanitize] Completado exitosamente.")
 
 if __name__ == "__main__":

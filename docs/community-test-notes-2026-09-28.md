@@ -92,7 +92,7 @@ Y algo que vale más que cualquier tool: la respuesta del server **se autodenunc
 * **Ciclo de proyecto**: `td_project_lifecycle` (save/load/undo/redo/undo-block), `td_snapshot_scene`, `td_compare_networks`, `td_explore_project`.
 * **Plantillas/recetas/tutoriales/workflows** y `td_import_toe_dir` (rebuild desde `.toe.dir`).
 * **Memoria e integración**: `td_memory_save/recall`, `td_run_prompt`, `tool_batch`, y los 4 `wt_*` de WebToe.
-* `td_compare_mcps` — **desactualizado**: compara contra TWOZERO y no menciona al oficial.
+* `td_compare_mcps` — **desactualizado**: compara contra toolkits comunitarios y no menciona al oficial.
 
 Traducción: el oficial cubre bien el **"tocar el proyecto vivo"**; tu plataforma cubre el **"saber cómo se hace bien"**. Son complementarios.
 

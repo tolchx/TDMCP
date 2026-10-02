@@ -15,7 +15,7 @@ Hace cuatro cosas:
 Idempotente: se puede correr de nuevo cuando la KB del repo cambie.
 """
 from __future__ import annotations
-import argparse, hashlib, json, os, shutil, sqlite3, subprocess, sys, tempfile
+import argparse, hashlib, json, os, re, shutil, sqlite3, subprocess, sys, tempfile
 
 DEFAULT_REPO = os.environ.get("TD_KNOWLEDGE_REPO") or r"C:\Users\Tolch\Documents\AI_Code\Touchdesigner_MCP\Main"
 DEFAULT_DEST = os.path.dirname(os.path.abspath(__file__))
@@ -53,8 +53,8 @@ FILES = [
     ("docs/API_CONTRACT_AUDIT.md",           "rules/API_CONTRACT_AUDIT.md"),
     ("docs/TOE_REPLICATION.md",              "rules/TOE_REPLICATION.md"),
     ("docs/MCP_REAL_CASES.md",               "rules/MCP_REAL_CASES.md"),
-    ("docs/discord-twozero/ANALISIS-TWOZERO-para-TD-MCP.md", "rules/ANALISIS_TWOZERO_TD_MCP.md"),
-    ("docs/discord-twozero/transcript.md",                  "rules/TWOZERO_TRANSCRIPT.md"),
+    ("docs/discord-twozero/ANALISIS-TWOZERO-para-TD-MCP.md", "rules/ANALISIS_COMMUNITY_MCP.md"),
+    ("docs/discord-twozero/transcript.md",                  "rules/COMMUNITY_FEEDBACK_LOG.md"),
     ("docs/PERFORMANCE.md",                                  "rules/PERFORMANCE.md"),
     ("docs/pathtracer-glsl.md",                              "workflows/pathtracer-glsl.md"),
 ]
@@ -280,7 +280,85 @@ def sanitize_legacy_knowledge(kb_dir: str):
         c = c.replace("Render POP", "POP Render Pipeline / poptoTOP")
         with open(pt_p, "w", encoding="utf-8") as f:
             f.write(c)
-    print("  Sanitización de operadores legacy completada.")
+
+    # Anonimización de nombres de proyectos externos, artistas y usuarios de la comunidad
+    anon_repls = [
+        (r"TWOZERO \(Discord\)", "Auditoría de MCPs Comunitarios"),
+        (r"servidor Discord TWOZERO \(`1489238980942757908`\)", "servidor de comunidad técnica"),
+        (r"servidor Discord TWOZERO", "servidor de comunidad técnica"),
+        (r"discord-twozero", "community-feedback"),
+        (r"03-twozero-evaluation\.md", "03-community-mcp-evaluation.md"),
+        (r"inspiradas en TWOZERO", "inspiradas en toolkits comunitarios"),
+        (r"TWOZERO se describe como", "El toolkit comunitario se describe como"),
+        (r"sin depender de TWOZERO", "sin depender de toolkits externos"),
+        (r"compara contra TWOZERO", "compara contra toolkits comunitarios"),
+        (r"twozero_td", "community_td"),
+        (r"twozero\.ai", "community-docs.local"),
+        (r"twozero_chain_live", "community_chain_live"),
+        (r"twozero_http_live", "community_http_live"),
+        (r"twozero_measure_live", "community_measure_live"),
+        (r"\bTWOZERO\b", "Community-MCP"),
+        (r"\bTwoZero\b", "Community-MCP"),
+        (r"\btwozero\b", "community_mcp"),
+        (r"\b404\.zero\b", "Lead-Dev"),
+        (r"\b404zero\b", "Lead-Dev"),
+        (r"\btolch\.x\b", "Auditor"),
+        (r"\bmykul0rr\b", "User_A"),
+        (r"\bMetaKan\b", "User_B"),
+        (r"\bDenne\b", "User_C"),
+        (r"\bKaromm\b", "User_D"),
+        (r"\bverygeeky\b", "User_E"),
+        (r"\bniccab\b", "User_F"),
+        (r"\bDisintegrationLoops\b", "User_G"),
+        (r"\bDean_LJ\b", "User_H"),
+        (r"\bnika_sur_ma\b", "User_I"),
+        (r"\bgwra\b", "User_J"),
+        (r"\bHesi\b", "User_K"),
+        (r"\bevia's\b", "User_L"),
+        (r"\bvacuum\b", "User_M"),
+    ]
+    for root, _, files in os.walk(kb_dir):
+        for f in files:
+            if f.endswith(('.md', '.json', '.txt')):
+                p = os.path.join(root, f)
+                try:
+                    with open(p, 'r', encoding='utf-8', errors='replace') as fh:
+                        cnt = fh.read()
+                    mod = cnt
+                    for pat, rep in anon_repls:
+                        mod = re.sub(pat, rep, mod)
+                    if mod != cnt:
+                        with open(p, 'w', encoding='utf-8') as fh:
+                            fh.write(mod)
+                except Exception:
+                    pass
+
+    # Anonimización directa en knowledge_brain.db para registros heredados (ops, pops)
+    db_p = os.path.join(kb_dir, "knowledge_brain.db")
+    if os.path.exists(db_p):
+        try:
+            con = sqlite3.connect(db_p)
+            cur = con.cursor()
+            rows = cur.execute("SELECT rowid, name, pageTitle, summary, body FROM docs WHERE body LIKE '%twozero%' OR body LIKE '%404.zero%' OR body LIKE '%mykul0rr%'").fetchall()
+            if rows:
+                def _anon(txt):
+                    if not txt:
+                        return txt
+                    for pat, rep in anon_repls:
+                        txt = re.sub(pat, rep, txt)
+                    return txt
+                for r in rows:
+                    cur.execute(
+                        "UPDATE docs SET name = ?, pageTitle = ?, summary = ?, body = ? WHERE rowid = ?",
+                        (_anon(r[1]), _anon(r[2]), _anon(r[3]), _anon(r[4]), r[0])
+                    )
+                con.commit()
+            con.execute("VACUUM")
+            con.close()
+        except Exception as e:
+            print("  DB anon warning:", e)
+
+    print("  Sanitización de operadores legacy y anonimización completada.")
 
 
 def index_markdown_assets(kb_dir: str):
@@ -381,8 +459,8 @@ def index_markdown_assets(kb_dir: str):
         ("rules/API_CONTRACT_AUDIT.md", "api_contract_audit", "GENERAL", "TouchDesigner API Contract Audit", "empirical", "live-verified"),
         ("rules/TOE_REPLICATION.md", "toe_replication", "GENERAL", "TOE Replication and Network Architecture", "empirical", "live-verified"),
         ("rules/MCP_REAL_CASES.md", "mcp_real_cases", "GENERAL", "MCP Real Production Cases in TouchDesigner", "empirical", "live-verified"),
-        ("rules/ANALISIS_TWOZERO_TD_MCP.md", "analisis_twozero_td_mcp", "GENERAL", "Análisis Crítico TWOZERO - Pitfalls y Lecciones de MCP", "empirical", "community-audit"),
-        ("rules/TWOZERO_TRANSCRIPT.md", "twozero_discord_transcript", "GENERAL", "Transcripción de Casos Reales y Soporte TwoZero", "empirical", "community-audit"),
+        ("rules/ANALISIS_COMMUNITY_MCP.md", "analisis_community_mcp", "GENERAL", "Análisis Crítico de MCPs Comunitarios - Pitfalls y Lecciones de Integración", "empirical", "community-audit"),
+        ("rules/COMMUNITY_FEEDBACK_LOG.md", "community_feedback_log", "GENERAL", "Bitácora Anónima de Casos de Soporte y Fallas en Integración TD", "empirical", "community-audit"),
         ("rules/PERFORMANCE.md", "performance_tuning_guide", "GENERAL", "TouchDesigner Performance & Cook Budgeting Guide", "empirical", "live-verified"),
     ]
     for rel, name, fam, title, stype, trust in rules_map:

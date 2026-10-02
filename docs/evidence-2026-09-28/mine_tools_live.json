@@ -348,14 +348,14 @@
   },
   {
     "name": "td_compare_mcps",
-    "title": "Compare MCP Servers (vs TWOZERO & co.)",
-    "description": "Compare this TouchDesigner MCP against other existing MCPs and tools like TWOZERO. Returns a hardcoded comparison table of features, capabilities, and scope. Optionally filter by a specific server name.",
+    "title": "Compare MCP Servers (vs Community MCP & co.)",
+    "description": "Compare this TouchDesigner MCP against other existing MCPs and tools like Community MCP. Returns a hardcoded comparison table of features, capabilities, and scope. Optionally filter by a specific server name.",
     "inputSchema": {
       "type": "object",
       "properties": {
         "server": {
           "type": "string",
-          "description": "Filter by server name (e.g. 'TWOZERO', 'hermes', 'this_mcp')"
+          "description": "Filter by server name (e.g. 'community_mcp', 'hermes', 'this_mcp')"
         }
       },
       "additionalProperties": false,
@@ -1154,7 +1154,7 @@
   {
     "name": "td_explore_project",
     "title": "Explore Project",
-    "description": "Get a comprehensive guided tour of a TouchDesigner project: operator count, family breakdown, type distribution, errors, performance hotspots, GLSL shaders, extensions, and custom parameters. Use this to understand an unknown project before making changes. Equivalent to TWOZERO's 'Study this project'. Exploring '/' walks the whole project: prefer the container you care about (guardrails bound the wait anyway).",
+    "description": "Get a comprehensive guided tour of a TouchDesigner project: operator count, family breakdown, type distribution, errors, performance hotspots, GLSL shaders, extensions, and custom parameters. Use this to understand an unknown project before making changes. Equivalent to community toolkits 'Study this project'. Exploring '/' walks the whole project: prefer the container you care about (guardrails bound the wait anyway).",
     "inputSchema": {
       "type": "object",
       "properties": {

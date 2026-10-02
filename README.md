@@ -212,7 +212,7 @@ The offline MCP server (`knowledge/server.py`) operates via standard I/O and req
 | | `glsl_analyze` | Static shader analyzer detecting missing `outputattrs`, incorrect types, and Vulkan TDR risks. |
 | | `glsl_curriculum`| Curriculum of 62 verified GLSL POP shaders + repository of 79 shaders (Book of Shaders, filters, vertex). |
 | | `contracts` | 17 live-verified operational contracts C1–C17 (cook lag, render ownership, stopped clock, camera lookat, etc.). |
-| | `discovery` | Bitácora of empirical limits, hardware quirks, TWOZERO postmortem analysis, and performance tuning rules. |
+| | `discovery` | Bitácora of empirical limits, hardware quirks, community MCP postmortem audit, and performance tuning rules. |
 | **Live Wrappers** | `td_status` | Fast health check and status query to the live `TDMCP.tox` server. |
 | *(Require TD)* | `find_in_ops` | Deep search inside live DAT code, table contents, and operator parameter expressions. |
 | | `auto_layout` | Automatic topological layout engine positioning operators neatly on the canvas. |
