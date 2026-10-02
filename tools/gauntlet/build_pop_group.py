@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """build_pop_group.py — cobertura POP 1/6 (5c): groupPOP con red propia.
 
-Red /pop_group: gx (gridPOP 5x4, 20 pts, 12 quads) + gp (groupPOP) + tf (transformPOP).
-Mide:
-  * LA POBLACION NO CAMBIA: con thin activo el output sigue 20 pts/12 prims — la
-    membresia es METADATO, invisible para numPoints() y para el conteo del poptoCHOP.
-  * membresia observable por debugcolor: thin range [0-5) -> 5 puntos con ColorA y
-    15 con ColorB (valores distintos, constantes dentro de cada grupo);
-    thin step 2 -> 10/10.
-  * transformPOP filtra por el grupo: dy=+1.2 EXACTO en los 5 miembros y 0.0 en los
-    otros 15 (deltas contra baseline ty=0); con grupo inexistente ('ghost') el delta
-    es 0 en los 20 (no filtra).
-  * bound esferico redefine la membresia (thin apagado): escala 10 -> 20/20 dentro;
-    escala 0.3 -> subconjunto estricto (< 20, >= 1).
-  * 'remunusedpoints' figura en el help (catalogo 2025.33070) pero NO existe en el
-    build vivo 2025.32460: help stale verificado en vivo (lección, no check).
+Red /pop_group: gx (gridPOP 5x4, 20 pts, 12 quads) + gp (groupPOP, grupo 'ng1')
++ tf (transformPOP, filtra por 'ng1'). Medido (evidencia: build-pop-group-report.json):
+  * LA POBLACION NO CAMBIA: con thin activo el output sigue 20 pts / 12 prims —
+    la membresia es METADATO, invisible para numPoints() y poptoCHOP.
+  * membresia observable: discriminador transform (dy=+1.2 contra baseline) —
+    thin [0-5) deja un SUBCONJUNTO ESTRICTO bimodal ({1.2, 0}, sin valores
+    intermedios) pero el N NO es reproducible entre corridas (5 y 3 medidos):
+    el orden de indices de la nube no es estable entre cooks; step 2 SI
+    (exactamente 10 de 20 en todas las corridas).
+  * debugcolor cuantiza la membresia: 2 valores de Color exactos, y el valor
+    A acompana SOLO a los puntos que se movieron (pairing por indice), el B a los quietos.
+  * grupo SIN miembros ('ghost') mueve TODO (20/20 dy=1.2) — reproduce C15 en red propia.
+  * bound (pagina Bounding): en TODAS las configs probadas (bsphere 0.01..5,
+    bbox 0.1..20, trasladado tx=10, invert) el criterio NO excluye a nadie via
+    API (20/20 en el discriminador) — sin efecto medible; queda ABIERTO si
+    requiere algo mas alla de los pars.
+  * API de secuencias: numBlocks=0 lanza tdError 'Minimum size is 1 block'
+    (verbatim) y destroyBlock no baja de 1 — piso de 1 bloque por secuencia.
+  * 'remunusedpoints' figura en get_help (catalogo 2025.33070) pero NO existe
+    en el build vivo 2025.32460: help stale verificado en vivo (leccion).
 """
 from __future__ import annotations
 
@@ -36,9 +42,10 @@ ROOT = "/pop_group"
 CHAIN = chain_source(ROOT)
 
 report = {"run_id": RUN,
-          "objetivo": "groupPOP: poblacion inmutable (membresia=metadato), debugcolor como medida "
-                      "(thin 5/20 y 10/20), filtro por grupo via transformPOP (dy exacto, ghost no "
-                      "filtra), bound esferico grande/chica; help stale (remunusedpoints no existe)",
+          "objetivo": "groupPOP: poblacion inmutable (membresia=metadato), discriminador transform "
+                      "(thin range subconjunto estricto bimodal, step 2 = 10/20 exacto), debugcolor "
+                      "binario con pairing, ghost mueve todo (C15), bound sin efecto medible + piso "
+                      "de 1 bloque en secuencias",
           "ok": False, "cheks": []}
 
 
@@ -63,7 +70,7 @@ g.call_ok("build_network", {"parent_path": ROOT, "operators": [
 g.call_ok("set_parameters", {"path": ROOT + "/ren", "values": {"resolutionw": 960, "resolutionh": 540}},
           note="resolucion 960x540")
 
-# ── 1. fuente + groupPOP: poblacion inmutable + membresia por debugcolor ──
+# ── 1. fuente + groupPOP: poblacion inmutable ──
 ok, d = g.exec_code(CHAIN + """
 import json
 import time
@@ -74,13 +81,17 @@ for c in list(geo.children):
 gx = geo.create(gridPOP, 'gx')
 gx.par.rows = 5
 gx.par.cols = 4
-gx.par.sizex = 1.0
-gx.par.sizey = 1.0
 gp = geo.create(groupPOP, 'gp')
 gp.inputConnectors[0].connect(gx.outputConnectors[0])
 gp.par.grname = 'ng1'
+gp.par.debugcolor = True
 gp.display = False
 gp.render = False
+tf = geo.create(transformPOP, 'tf')
+tf.inputConnectors[0].connect(gp.outputConnectors[0])
+tf.par.group = 'ng1'
+tf.display = True
+tf.render = True
 chk = op(ROOT + '/check')
 
 def medir():
@@ -91,8 +102,7 @@ def medir():
     chk.cook(force=True)
     time.sleep(0.1)
     chk.cook(force=True)
-    return dict(pts=gp.numPoints(), prims=gp.numPrims(),
-                col=[round(v, 5) for v in next((c.vals for c in chk.chans() if c.name == 'Color_0'), [])])
+    return dict(pts=gp.numPoints(), prims=gp.numPrims())
 
 base = medir()
 gp.par.thinenabled = True
@@ -103,46 +113,24 @@ r5 = medir()
 gp.par.thinoutrange = False
 gp.par.thinstep = 2
 r10 = medir()
-gp.par.thinstep = 1
-gp.par.thinenabled = False
-gp.par.debugcolor = False
 print('<<JSON>>' + json.dumps(dict(base=base, r5=r5, r10=r10)))
 """)
 res = d or {}
-report["thin"] = res
+report["inmutable"] = res
 base, r5, r10 = res.get("base") or {}, res.get("r5") or {}, res.get("r10") or {}
-c5, c10 = r5.get("col") or [], r10.get("col") or []
-
-
-def grupos(col):
-    """cuenta cuantos puntos tienen el Color del grupo (primer valor) vs el resto."""
-    if not col:
-        return (0, 0)
-    a = col[0]
-    na = sum(1 for v in col if abs(v - a) < 1e-6)
-    return (na, len(col) - na)
-
-
-na5, nb5 = grupos(c5)
-na10, nb10 = grupos(c10)
 chek("poblacion INMUTABLE con thin activo: 20 pts y 12 prims en base/range/step",
      ok and base.get("pts") == 20 and r5.get("pts") == 20 and r10.get("pts") == 20
      and base.get("prims") == 12 and r5.get("prims") == 12 and r10.get("prims") == 12, res)
-chek("thin range [0-5): debugcolor marca 5 con ColorA y 15 con ColorB (distintos)",
-     ok and len(c5) == 20 and na5 == 5 and nb5 == 15, res)
-chek("thin step 2: 10/10 por debugcolor (seleccion por indice)",
-     ok and len(c10) == 20 and na10 == 10 and nb10 == 10, res)
 
-# ── 2. transformPOP filtra por el grupo; grupo fantasma no filtra ──
+# ── 2. discriminador transform: membresia exacta + debugcolor con pairing ──
 ok, d = g.exec_code(CHAIN + """
 import json
 import time
-geo = op(ROOT + '/geo')
 gp = op(ROOT + '/geo/gp')
-gx = op(ROOT + '/geo/gx')
+tf = op(ROOT + '/geo/tf')
 chk = op(ROOT + '/check')
 
-def chans(pop):
+def muestra(pop):
     chk.par.pop = pop
     settle(2)
     chk.cook(force=True)
@@ -152,96 +140,194 @@ def chans(pop):
     chk.cook(force=True)
     return {c.name: list(c.vals) for c in chk.chans()}
 
-tf = geo.create(transformPOP, 'tf')
-tf.inputConnectors[0].connect(gp.outputConnectors[0])
-tf.par.group = 'ng1'
-tf.display = True
-tf.render = True
-c0 = chans(tf)
-tf.par.ty = 1.2
-c1 = chans(tf)
-dy = [round(v - b, 5) for v, b in zip(c1.get('P_1', []), c0.get('P_1', []))]
-gpx = geo.create(groupPOP, 'gpx')
-gpx.inputConnectors[0].connect(gx.outputConnectors[0])
-gpx.par.grname = 'ghost'
-gpx.display = False
-gpx.render = False
-tf.inputConnectors[0].connect(gpx.outputConnectors[0])
-tf.par.ty = 0.0
-cgb = chans(tf)
-tf.par.ty = 1.2
-cg = chans(tf)
-dyg = [round(v - b, 5) for v, b in zip(cg.get('P_1', []), cgb.get('P_1', []))]
-tf.inputConnectors[0].connect(gp.outputConnectors[0])
-print('<<JSON>>' + json.dumps(dict(
-    dy=[round(v, 4) for v in dy], n=len(dy),
-    dyg_max=max((abs(v) for v in dyg), default=9.9), nghost=len(dyg))))
-""")
-res = d or {}
-report["filtro"] = res
-dy = res.get("dy") or []
-movidos = [v for v in dy if abs(v - 1.2) < 1e-4]
-quietos = [v for v in dy if abs(v) < 1e-4]
-chek("transform filtra por grupo: 5 miembros dy=+1.2 exacto y 15 en 0.0 (deltas)",
-     ok and len(dy) == 20 and len(movidos) == 5 and len(quietos) == 15, res)
-chek("grupo inexistente ('ghost') NO filtra: 20/20 con delta 0",
-     ok and res.get("nghost") == 20 and (res.get("dyg_max") or 9.9) < 1e-4, res)
-
-# ── 3. bound esferico redefine la membresia (thin apagado) ──
-ok, d = g.exec_code(CHAIN + """
-import json
-import time
-gp = op(ROOT + '/geo/gp')
-chk = op(ROOT + '/check')
-
-def color():
-    chk.par.pop = gp
+def deltas_tf():
+    # el delta SIEMPRE se lee de tf (downstream del groupPOP); el color, de gp
+    tf.par.ty = 0.0
+    chk.par.pop = tf
     settle(2)
     chk.cook(force=True)
     time.sleep(0.2)
     chk.cook(force=True)
     time.sleep(0.1)
     chk.cook(force=True)
-    return [round(v, 5) for v in next((c.vals for c in chk.chans() if c.name == 'Color_0'), [])]
+    b = list(next(c.vals for c in chk.chans() if c.name == 'P_1'))
+    tf.par.ty = 1.2
+    settle(2)
+    chk.cook(force=True)
+    time.sleep(0.2)
+    chk.cook(force=True)
+    time.sleep(0.1)
+    chk.cook(force=True)
+    m = list(next(c.vals for c in chk.chans() if c.name == 'P_1'))
+    return [round(v - w, 5) for v, w in zip(m, b)]
 
 gp.par.debugcolor = True
-sin = color()
-gp.par.bound0inattr = 'P'
-gp.par.bound0type = 'usebsphere'
-gp.par.bound0scalex = 10.0
-gp.par.bound0scaley = 10.0
-gp.par.bound0scalez = 10.0
-cbig = color()
-gp.par.bound0scalex = 0.3
-gp.par.bound0scaley = 0.3
-gp.par.bound0scalez = 0.3
-csmall = color()
+gp.par.thinenabled = True
+gp.par.thinoutrange = True
+gp.par.thinrangestart = 0
+gp.par.thinrangelength = 5
+dy5 = deltas_tf()
+m5 = muestra(gp)
+col5 = m5.get('Color_0', [])
+gp.par.thinoutrange = False
+gp.par.thinstep = 2
+dy10 = deltas_tf()
+gp.par.thinstep = 1
+# pairing: el Color de los movidos vs el de los quietos (mismo cook)
+mov_cols = [c for c, v in zip(col5, dy5) if abs(v - 1.2) < 1e-4]
+quie_cols = [c for c, v in zip(col5, dy5) if abs(v) < 1e-4]
 print('<<JSON>>' + json.dumps(dict(
-    sin=sin[:2], sin_n=len(sin),
-    big=cbig, small=csmall)))
+    n5=len(dy5), mov5=sum(1 for v in dy5 if abs(v - 1.2) < 1e-4),
+    qui5=sum(1 for v in dy5 if abs(v) < 1e-4),
+    otros5=len(dy5) - sum(1 for v in dy5 if abs(v - 1.2) < 1e-4 or abs(v) < 1e-4),
+    mov10=sum(1 for v in dy10 if abs(v - 1.2) < 1e-4),
+    ncol=len(col5), vals=sorted(set(round(v, 4) for v in col5)),
+    mov_col_unico=len(set(round(v, 5) for v in mov_cols)),
+    quie_col_unico=len(set(round(v, 5) for v in quie_cols)),
+    colA=round(mov_cols[0], 4) if mov_cols else None,
+    colB=round(quie_cols[0], 4) if quie_cols else None)))
 """)
 res = d or {}
-report["bound"] = res
-na_big, nb_big = grupos(res.get("big") or [])
-na_small, nb_small = grupos(res.get("small") or [])
-chek("bound sin criterios (default): todo el grupo toma UN Color (20 iguales)",
-     ok and len(res.get("sin") or []) == 2 and len(set(res.get("sin") or [1, 2])) == 1, res)
-chek("bound esferico escala 10: 20/20 dentro del grupo",
-     ok and na_big == 20 and nb_big == 0, res)
-chek("bound esferico escala 0.3: subconjunto estricto (1..19 de 20)",
-     ok and 1 <= na_small < 20 and na_small + nb_small == 20, res)
+report["membresia"] = res
+colA, colB = res.get("colA"), res.get("colB")
+chek("thin [0-5): subconjunto ESTRICTO bimodal (dy exactamente {0, 1.2}, 1..19 movidos)",
+     ok and res.get("n5") == 20 and res.get("otros5") == 0
+     and 1 <= res.get("mov5", 0) <= 19, res)
+chek("thin step 2: 10 movidos de 20",
+     ok and res.get("mov10") == 10, res)
+chek("debugcolor: Color cuantizado en 2 valores y el valor A acompana SOLO a los movidos",
+     ok and res.get("ncol") == 20 and len(res.get("vals") or []) == 2
+     and res.get("mov_col_unico") == 1 and res.get("quie_col_unico") == 1
+     and colA is not None and colB is not None and abs(colA - colB) > 1e-3, res)
+
+# ── 3. grupo fantasma mueve TODO (C15) + bound sin efecto + piso de secuencia ──
+ok, d = g.exec_code(CHAIN + """
+import json
+import time
+gp = op(ROOT + '/geo/gp')
+tf = op(ROOT + '/geo/tf')
+gx = op(ROOT + '/geo/gx')
+chk = op(ROOT + '/check')
+
+def muestra(pop):
+    chk.par.pop = pop
+    settle(2)
+    chk.cook(force=True)
+    time.sleep(0.2)
+    chk.cook(force=True)
+    time.sleep(0.1)
+    chk.cook(force=True)
+    return {c.name: list(c.vals) for c in chk.chans()}
+
+def deltas_tf():
+    tf.par.ty = 0.0
+    chk.par.pop = tf
+    settle(2)
+    chk.cook(force=True)
+    time.sleep(0.2)
+    chk.cook(force=True)
+    time.sleep(0.1)
+    chk.cook(force=True)
+    b = list(next(c.vals for c in chk.chans() if c.name == 'P_1'))
+    tf.par.ty = 1.2
+    settle(2)
+    chk.cook(force=True)
+    time.sleep(0.2)
+    chk.cook(force=True)
+    time.sleep(0.1)
+    chk.cook(force=True)
+    m = list(next(c.vals for c in chk.chans() if c.name == 'P_1'))
+    return [round(v - w, 5) for v, w in zip(m, b)]
+
+def n_mov(dy):
+    return sum(1 for v in dy if abs(v - 1.2) < 1e-4)
+
+sal = {}
+geo = op(ROOT + '/geo')
+# ghost: grupo sin miembros
+gpx = geo.create(groupPOP, 'gpx')
+gpx.inputConnectors[0].connect(gx.outputConnectors[0])
+gpx.par.grname = 'ghost'
+gpx.display = False
+gpx.render = False
+tf.inputConnectors[0].connect(gpx.outputConnectors[0])
+dyg = deltas_tf()
+sal['ghost_n'] = len(dyg)
+sal['ghost_mov'] = n_mov(dyg)
+tf.inputConnectors[0].connect(gp.outputConnectors[0])
+gp.par.debugcolor = False
+gp.par.thinenabled = False
+# bound: bloque unico (piso 1) y barrido de configs
+seq = gp.par.bound.sequence
+sal['nb_inicial'] = seq.numBlocks
+try:
+    seq.numBlocks = 0
+    sal['piso'] = 'sin error'
+except Exception as e:
+    sal['piso'] = str(e)[:90]
+gp.par.bound0inattr = 'P'
+gp.par.bound0invert = False
+gp.par.bound0translatex = 0.0
+for tag, t, sc, scz in (('bs03', 'usebsphere', 0.3, 0.3), ('bb20', 'usebbox', 20.0, 20.0)):
+    gp.par.bound0type = t
+    gp.par.bound0scalex = sc
+    gp.par.bound0scaley = sc
+    gp.par.bound0scalez = scz
+    sal[tag] = n_mov(deltas_tf())
+gp.par.bound0type = 'usebsphere'
+gp.par.bound0scalex = 1.0
+gp.par.bound0scaley = 1.0
+gp.par.bound0scalez = 1.0
+gp.par.bound0translatex = 10.0
+sal['bs1_tx10'] = n_mov(deltas_tf())
+gp.par.bound0translatex = 0.0
+gp.par.bound0invert = True
+sal['bs1_inv'] = n_mov(deltas_tf())
+gp.par.bound0invert = False
+sal['err_gp'] = gp.errors()[:60]
+print('<<JSON>>' + json.dumps(sal))
+""")
+res = d or {}
+report["ghost_bound"] = res
+configs = [res.get(k) for k in ("bs03", "bb20", "bs1_tx10", "bs1_inv")]
+chek("grupo 'ghost' SIN miembros mueve TODO: 20/20 dy=1.2 (C15 reproducido en red 5c)",
+     ok and res.get("ghost_n") == 20 and res.get("ghost_mov") == 20, res)
+chek("secuencia bound: numBlocks=0 lanza 'Minimum size is 1 block' (piso de 1 bloque)",
+     ok and "Minimum size is 1 block" in str(res.get("piso", "")), res)
+chek("bound: en 4 configs (bsphere 0.3, bbox 20, tx=10, invert) NINGUNA excluye (20/20)",
+     ok and all(c == 20 for c in configs) and res.get("err_gp") == "", res)
 
 # ── 4. estado canónico + material + cámara + PNG + guardia ──
+
+def call_retry(tool, args, note, tries=4, wait=1.5):
+    """tool call con reintento: TD lento devuelve 'recovering from a slow
+    operation' (td_slow_operation, C14) — espera y reintenta la MISMA llamada."""
+    r = {}
+    for i in range(tries):
+        r = g.call(tool, args, note)
+        if not g.is_err(r):
+            return r
+        time.sleep(wait)
+    g.fail("fallo la tool %s (%s) tras %d intentos" % (tool, note, tries))
+    return r
+
+time.sleep(2.0)  # dejar respirar a TD tras el barrido de bound (C14)
 g.call_ok("create_operator", {"parent_path": ROOT + "/geo", "type": "pointspriteMAT", "name": "mat"},
           note="material")
 bad, got = set_and_verify(g, ROOT + "/geo/mat", {"pointsize": 5.0, "colorr": 1.0, "colorg": 0.6, "colorb": 0.2},
-                          "material naranja")
+                          "material naranja", call=call_retry)
 chek("pars del material aplicados (C4)", not bad, got)
 ok, d = g.exec_code(CHAIN + """
 import json
 import time
 geo, cam, ren = op(ROOT + '/geo'), op(ROOT + '/cam'), op(ROOT + '/ren')
 tf = op(ROOT + '/geo/tf')
+gp = op(ROOT + '/geo/gp')
+gp.par.debugcolor = True
+gp.par.thinenabled = True
+gp.par.thinoutrange = True
+gp.par.thinrangestart = 0
+gp.par.thinrangelength = 5
 tf.par.ty = 1.2
 tf.cook(force=True)
 geo.par.material = geo.op('mat')
@@ -263,9 +349,10 @@ print('<<JSON>>' + json.dumps(dict(mat=str(geo.par.material.eval()),
                                    centro={k: round(v, 2) for k, v in medios.items()},
                                    n=tf.numPoints())))
 """)
-chek("estado canónico (filtro por ng1 activo) + material + cámara",
+chek("estado canónico (filtro por ng1 + debugcolor) + material + cámara",
      ok and "mat" in str((d or {}).get("mat", "")) and (d or {}).get("n") == 20
      and len(((d or {}).get("centro") or {})) == 3, d)
+g.call_retry = call_retry  # por si las tools MCP siguientes golpean C14
 g.call("get_errors", {"path": ROOT}, note="errores de la red")
 g.call_ok("set_parameters", {"path": "/TDMCP", "values": {"Inlineimages": True}}, note="Inline Images ON")
 r = g.call_ok("view_operator", {"path": ROOT + "/null_view", "resolution": "small"}, note="PNG del efecto")
@@ -300,10 +387,8 @@ with open(out_path, "w", encoding="utf-8") as f:
 
 print("\n=== RESUMEN pop_group ===")
 print("ok:", report["ok"], "| cheks:", len(report["cheks"]), "| fallos:", g.failures)
-print("thin:", json.dumps(report.get("thin", {}), ensure_ascii=False))
-print("filtro:", json.dumps(report.get("filtro", {}), ensure_ascii=False))
-print("bound: big0=%s small0=%s" % ((report.get("bound") or {}).get("big", [])[:1],
-                                    (report.get("bound") or {}).get("small", [])[:1]))
+print("membresia:", json.dumps(report.get("membresia", {}), ensure_ascii=False))
+print("ghost_bound:", json.dumps(report.get("ghost_bound", {}), ensure_ascii=False))
 print("PNG:", st)
 print("Reporte:", out_path)
 sys.exit(0 if report["ok"] else 1)

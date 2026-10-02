@@ -39,13 +39,15 @@ def chain_source(root: str) -> str:
 
 
 # ── escribir y releer (contrato C4) ─────────────────────────────────────────
-def set_and_verify(g, path: str, values: dict, label: str = ""):
+def set_and_verify(g, path: str, values: dict, label: str = "", call=None):
     """Escribe `values` por `set_parameters` y los RELEE de TD.
 
     Devuelve `(bad, got)`: `bad` = {par: (pedido, leído)} de los que NO se aplicaron
     (la tool puede responder ok sin aplicarlos).
+    `call` permite inyectar un wrapper con reintento (td_slow_operation, C14);
+    default: g.call_ok.
     """
-    g.call_ok("set_parameters", {"path": path, "values": values}, note=label)
+    (call or g.call_ok)("set_parameters", {"path": path, "values": values}, note=label)
     # UN solo print, al final: `exec_code` parsea lo que sigue al PRIMER marcador.
     code = ("import json\no = op(%r)\nv = {}\nfor n in %r:\n"
             "    try:\n        v[n] = o.par[n].eval()\n"

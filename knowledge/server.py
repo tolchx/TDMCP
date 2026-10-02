@@ -347,34 +347,59 @@ def t_resolve_operator(a: dict) -> dict:
 def t_templates(a: dict) -> dict:
     tl = ts("templates", "NETWORK_TEMPLATES") or []
     action = a.get("action") or "list"
+    specs_dir = kb("templates", "specs")
+    spec_files = [f for f in sorted(os.listdir(specs_dir)) if f.endswith(".md")] if os.path.isdir(specs_dir) else []
     if action == "list":
         q = (a.get("query") or "").lower()
-        items = [{"name": t["name"], "description": clip(t.get("description"), 200), "tags": t.get("tags"),
+        items = [{"name": t["name"], "type": "network_template", "description": clip(t.get("description"), 200), "tags": t.get("tags"),
                   "complexity": t.get("complexity"), "operadores": len(t.get("operators") or [])} for t in tl
                  if not q or q in json.dumps(t, ensure_ascii=False).lower()]
-        return {"count": len(items), "templates": items}
+        specs = []
+        for sf in spec_files:
+            stem = sf[:-3]
+            if not q or q in stem:
+                specs.append({"name": stem, "type": "template_spec", "file": sf})
+        return {"count": len(items) + len(specs), "templates": items, "specs": specs}
     name = (a.get("name") or "").lower()
     for t in tl:
         if t["name"].lower() == name or name in t["name"].lower():
             return {"template": t}
-    return {"error": f"sin template '{a.get('name')}'", "nombres": [t["name"] for t in tl]}
+    for sf in spec_files:
+        stem = sf[:-3]
+        if stem.lower() == name or name in stem.lower():
+            with open(os.path.join(specs_dir, sf), encoding="utf-8", errors="replace") as f:
+                return {"name": stem, "type": "template_spec", "file": sf, "content": clip(f.read(), int(a.get("max_chars") or 15000))}
+    return {"error": f"sin template '{a.get('name')}'", "nombres": [t["name"] for t in tl] + [s[:-3] for s in spec_files]}
 
 
 def t_recipes(a: dict) -> dict:
     rd = ts("recipes") or {}
     rs = rd.get("listRecipes") or []
+    top_recipes = []
+    top_p = kb("recipes", "glsl_top_recipes.json")
+    if os.path.exists(top_p):
+        try:
+            with open(top_p, encoding="utf-8") as f:
+                top_recipes = json.load(f)
+        except Exception:
+            pass
     action = a.get("action") or "list"
     if action == "list":
         q = (a.get("query") or "").lower()
         items = [{"name": r["name"], "title": r.get("title"), "description": clip(r.get("description"), 240),
                   "tags": r.get("tags"), "complexity": r.get("complexity"), "nodos": len(r.get("nodes") or [])} for r in rs
                  if not q or q in json.dumps(r, ensure_ascii=False).lower()]
-        return {"count": len(items), "recetas": items, "tags": rd.get("recipeTags")}
+        top_items = [{"id": r["id"], "title": r["title"], "category": r.get("category"), "type": "glsl_top_recipe"}
+                     for r in top_recipes if not q or q in json.dumps(r, ensure_ascii=False).lower()]
+        return {"count": len(items) + len(top_items), "recetas": items, "glsl_top_recipes": top_items, "tags": rd.get("recipeTags")}
     name = (a.get("name") or "").lower()
     for r in rs:
         if r["name"].lower() == name or name in r["name"].lower():
             return {"recipe": r}
-    return {"error": f"sin receta '{a.get('name')}'", "nombres": [r["name"] for r in rs]}
+    for tr in top_recipes:
+        if tr["id"].lower() == name or name in tr["id"].lower() or name in tr.get("title", "").lower():
+            return {"glsl_top_recipe": tr}
+    return {"error": f"sin receta '{a.get('name')}'", "nombres": [r["name"] for r in rs] + [tr["id"] for tr in top_recipes]}
 
 
 def _rules_md(family: str) -> str:
@@ -543,6 +568,17 @@ def t_glsl_analyze(a: dict) -> dict:
 
 
 def t_glsl_curriculum(a: dict) -> dict:
+    sh_dir = kb("shaders")
+    sh_name = (a.get("shader") or "").strip().lower()
+    if sh_name and os.path.isdir(sh_dir):
+        for fn in sorted(os.listdir(sh_dir)):
+            if fn.lower() == sh_name or fn.lower().startswith(sh_name) or sh_name in fn.lower():
+                with open(os.path.join(sh_dir, fn), encoding="utf-8", errors="replace") as f:
+                    return {"shader": fn, "content": f.read()}
+        return {"error": f"shader '{sh_name}' no encontrado", "ejemplos": [f for f in sorted(os.listdir(sh_dir)) if f.endswith(".glsl")][:12]}
+    if a.get("list_shaders"):
+        shs = [f for f in sorted(os.listdir(sh_dir)) if f.endswith(".glsl") or f.endswith(".txt")] if os.path.isdir(sh_dir) else []
+        return {"count": len(shs), "shaders": shs}
     p = kb("pops", "glsl_library.json")
     if not os.path.exists(p):
         return {"error": "falta pops/glsl_library.json"}

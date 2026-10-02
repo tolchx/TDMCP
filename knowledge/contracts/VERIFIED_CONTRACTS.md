@@ -783,3 +783,96 @@ medido 0.97 > 0.5). `type='gaussian'` con amp=1 ≈ N(0,1) (n=200: media 0.083, 
 (live-randomPOP.json): `type` (none/twovalues/uniform/gaussian/insidesphere/direction/
 exponential/lognormal/cauchylorentz/customramp), `combineop` (set/add/mult/
 translatealongnormal), `seed`, `amp0`, `valuea0/valueb0`, `extrapts`.
+
+## C17 — Seis POPs de población y superficies, medidos en vivo (2026-10-02, batería reg-20261002-022418, 26/26)
+
+### `camara_lookat_canonica` — apuntar la cámara con rx/ry a mano NO apunta; el mecanismo canónico es lookat + traslación [V]
+En un sandbox limpio (320x240), apuntar manualmente con `rx/ry` calculadas hacia el objetivo
+produjo render NEGRO en TODAS las configs probadas (frente, top, iso arriba/abajo, triangulado,
+perfil invertido, constant y pointsprite) — incluso el auto-torus del geometryCOMP fresco no
+dibujó. Con `cam.par.lookat = geo` y traslación iso (2,2,2) el mismo torus da 62,473 px. Mirar
+el anillo del revolve desde el eje Y con up=+Y también da 0 px (singularidad del up). REGLA del
+gauntlet: cámara = `lookat` al geometryCOMP + traslación (iso 2,2,2 o al-centroide+z); NUNCA
+rotar a mano.
+
+### `grouppop_poblacion_inmutable` — thin etiqueta, no elimina; el multiset de puntos es invariable [V]
+Grid 5x4 + groupPOP `removethin=on`: numPoints/numPrims y el poptoCHOP dan SIEMPRE 20 pts /
+12 prims (base/range/step activo) — la membresía es un metadato invisible para el conteo.
+thin range [0-5) mueve un SUBCONJUNTO ESTRICTO bimodal (dy exactamente {0, 1.2}) pero N NO es
+reproducible entre cooks (5 y 3 medidos; el orden de índices inestable); thin step 2 SÍ es
+exacto (10/20 en todas las corridas). `debugcolor` cuantiza Color en 2 valores exactos
+(0.2/0.8) y el valor A acompaña SOLO a los movidos (pairing por índice). Grupo 'ghost' sin
+miembros MUEVE TODO (20/20, C15 reproducido en la red 5c).
+
+### `grouppop_bound_sin_efecto_api` — el bound del groupPOP no excluye a nadie vía API (contrato ABIERTO) [abierto]
+La secuencia `bound` se escribe estilo Sequence: `gp.par.bound.sequence.numBlocks = N` (el
+objeto tiene numBlocks/insertBlock/destroyBlock/blocks/blockSize/blockParGroups/sortBlocks).
+`numBlocks=0` lanza `tdError: Minimum size is 1 block. Value:0 Type:<class 'int'>.` (verbatim)
+y `destroyBlock(0)` tampoco baja de 1: PISO de 1 bloque. En 4 configs (bsphere 0.01..5, bbox
+0.1..20, punto trasladado tx=10, invert) NINGUNA excluye un punto (20/20 siempre dentro,
+err='' sin errores). Queda ABIERTO cómo se excluye vía API (¿requiere inattr='P' por bloque?
+¿UI?). `remunusedpoints` figura en get_help (catálogo 2025.33070) pero NO existe en el build
+vivo 2025.32460: help stale.
+
+### `proximity_conteos_exactos` — el grafo es distancia pura y los conteos son reproducibles [V]
+Grid 3x3 spacing 0.2 (9 pts, 4 quads): `maxdist=0.21` + `duplines='avoid'` = EXACTAMENTE 12
+aristas ortogonales (6 h + 6 v, cero diagonales: 0.2828 > 0.21). `donothing` DOBLA: 24 = 12x2
+cada arista aparece una vez por sentido (no "mantiene la primera"). Umbral: @0.10 → 0 aristas,
+@0.29 → 20 (12 + 8 diagonales exactas). `maxlinesperpoint=1` reduce (8 medidos) y es
+determinístico. `output='points'` conserva el conteo de aristas como prims de punto (9/12).
+`cpureadback` OFF (default) BASTA para leer conteos (OFF=ON=12). Nombres REALES:
+`maxdist`, `maxlinesperpoint`, `duplines` (donothing/avoid/delete), `output` (lines/points),
+`cpureadback`, `linelength`.
+
+### `revolve_topologia_exacta` — el barrido conserva el radio del perfil: 2·divs pts / divs quads [V]
+PatternPOP 2 pts ramp (radios 0.2..0.5) linestrip + revolve divs=20: 40 pts (2 filas x 20 col)
+/ 20 quads; radios sqrt(x²+z²) EXACTOS {0.2, 0.5} (err < 1e-3): cada circunferencia hereda el
+radio del punto del perfil. Tabla surftype 2x20: quads=20, rows=2 (las circunferencias como
+linestrips), cols=20, points=40, none=0, triangles=40. divs escala exacto: 4 → 8 pts/4 prims,
+8 → 16/8. autopivot ON vs OFF con perfil colineal al eje: misma topología y mismos radios (el
+pivote automático coincide con el eje Y). N (3ch) y Tex (2ch) de serie. Nombres REALES:
+`axis` (auto/x/y/z), `autopivot`, `px/py/pz` (pivote), `surftype`, `divs`, `normal`, `texture`.
+
+### `tubepop_cono_y_caps` — radx/rady son los radios de los EXTREMOS (cono) y endcaps suma cols-2 [V]
+tubePOP autonomo, cols=8 rows=4 quads: EXACTO 32 pts / 24 prims (rejilla rows x cols, U
+cerrada, sin duplicados); default cols=40 rows=10 → 400/360 = (rows-1)*cols. `radx` es el
+radio en y=-1 y `rady` en y=+1 con interpolación lineal EXACTA en las filas (0.2→0.467→0.733
+→1.0): el "Radius XYZW" del help es en realidad cono (radz/radw NO existen en vivo: help
+stale). `height` escala el eje (4 → Y=[-2,2] con XZ=[-0.5,0.5]); `orient` x/y/z mueve el eje
+(mismo perfil de radios sobre cada eje). `closedu=False` DUPLICA la columna del seam: +rows
+pts (36 vs 32) con las mismas 24 prims. `endcaps` es Toggle ['off','on'] y agrega EXACTAMENTE
+cols-2 prims (6 con cols=8; una tapa de abanico) SIN crear puntos. Atributos: default SOLO P
+(normal=vertNormals/texture=vert de serie no llegan al poptoCHOP); `normal='pointNormals'`
+crea N y `texture='point'` crea Tex. Tabla surftype 8x4: rows=4, cols=8, triangles=48,
+points=32, quads=24.
+
+### `topologypop_specpop` — la topología de B se aplica sobre los puntos de A (ref vivo, copy no congela) [V]
+A (grid 3x3 surftype='none', tx=5: 9 pts / 0 prims) + B (grid 3x3 quads) + topologyPOP con
+`primsourcemode='specpop'`, `primspop=B`: resultado 9 pts / 4 quads. P viene del INPUT (rango
+P_X [4,6], el de A trasladado) y los atributos del primsource (N, Tex) están accesibles en el
+resultado. `topology='ref'` es VIVO: cambiar B (con cook explícito) none→triangles→quads lleva
+el resultado a 0/8/4 prims. `topology='copy'` NO congela: tras copiar, B en none lleva el
+resultado a 0 prims (la copia se rehace por cook; es copia de buffers, no snapshot).
+`maxpointsmode='custom'` con maxpoints=5 recorta el input a 5 pts manteniendo las 4 quads,
+determinístico. OJO: grid 3x3 con `surftype='rows'` da 0 prims estables (3 linestrips solo si
+la dirección lo permite); usar none/triangles/quads para discriminadores. Nombres REALES:
+`primsourcemode` (input/specpop), `primspop`, `topology` (ref/copy), `maxpointsmode`
+(input/custom), `maxpoints`, `vertattrmode`/`primattrmode` (none/primsource/specpop).
+
+### `lookuptexturepop_override_y_texels` — sin override el attr no aparece; el muestreo es exacto por texel con interpolate off [V]
+noiseTOP 8x8 (seed fija) + grid 3x3 + lookuptexturePOP (`top=nz`,
+`lookupindexattr0='P(0)'`): sin `overrideautoattr` NO aparece ningún atributo nuevo (testigo
+lt2: solo N/P/Tex); con `overrideautoattr=True + outputattrscope='Color' + attrtype='color'`
+se crea el attr Color de 4 canales (sorpresas del build vivo 2025.32460: el scope automático
+no escribe y `fromlow/tolow` del help no aplican al attr). `interpolate=False` muestrea
+EXACTO por texel: cada Color_0 medido es un valor de la matriz del TOP (pertenencia al
+conjunto de 59 texels únicos); el índice es función de P (trasladar el grid cambia el muestreo
+dentro del conjunto y al restaurar tx vuelven EXACTAMENTE los valores base). El lookup sigue
+al TOP asignado: constantTOP 0.9 → los 9 Color_0 = 0.898 (±1 LSB: los TOPs de 8 bits
+cuantizan 0.9 → 229/255). `lookupindexoffset0=0.125` desplaza el patrón y 0 lo restaura
+exacto. Determinismo: dos lecturas completas idénticas. Nombres REALES: `top`, `attrclass`,
+`overrideautoattr`, `outputattrscope` (StrMenu con P/N/Color/Color.rgb/Tex/PointScale/...),
+`attrtype` (float/double/int/uint/color/dcolor/dir/ddir), `attrnumcomps`,
+`lookupindexattr0/1/2` (default 'P(0)'/'P(1)'), `lookupindexoffset0/1/2`, `indexunit`
+(normalized/pixelindex), `pixelcentered0..2`, `inputextend0..2`, `interpolate`, `channelmask`
+(Int bitmask 15 = RGBA).

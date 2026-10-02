@@ -163,6 +163,44 @@ def sanitize_workflows_and_tutorials():
             f.write(t_content)
         print("  Sanitizado real-world-topology.json")
 
+    # Sanitizar templates/specs (17 arquitecturas modulares)
+    specs_dir = os.path.join(KB, "templates", "specs")
+    if os.path.isdir(specs_dir):
+        for fn in os.listdir(specs_dir):
+            if fn.endswith(".md"):
+                sp = os.path.join(specs_dir, fn)
+                with open(sp, "r", encoding="utf-8", errors="replace") as f:
+                    c = f.read()
+                c = c.replace("Render POP", "POP Render Pipeline (geometryCOMP + cameraCOMP + renderTOP + pointspriteMAT) / poptoTOP")
+                c = c.replace("renderPOP", "poptoTOP / geometryCOMP render")
+                c = c.replace("Sprite POP", "pointspriteMAT")
+                c = c.replace("spritePOP", "pointspriteMAT")
+                c = c.replace("Color POP", "attributePOP / glslPOP")
+                c = c.replace("colorPOP", "attributePOP")
+                c = c.replace("Force POP", "noisePOP / windPOP")
+                c = c.replace("forcePOP", "noisePOP")
+                c = c.replace("Drag POP", "particlePOP")
+                c = c.replace("dragPOP", "particlePOP")
+                c = c.replace("Pointgen POP", "pointgeneratorPOP")
+                c = c.replace("pointgenPOP", "pointgeneratorPOP")
+                c = c.replace("Point File Select POP", "pointfileinPOP")
+                c = c.replace("pointfileselectPOP", "pointfileinPOP")
+                c = c.replace("deleteprims", "topointprims")
+                c = c.replace("attensizenear", "pointsize")
+                with open(sp, "w", encoding="utf-8") as f:
+                    f.write(c)
+        print("  Sanitizados 17 templates/specs")
+
+    pt_p = os.path.join(KB, "workflows", "pathtracer-glsl.md")
+    if os.path.exists(pt_p):
+        with open(pt_p, "r", encoding="utf-8", errors="replace") as f:
+            c = f.read()
+        c = c.replace("renderPOP", "poptoTOP / geometryCOMP render")
+        c = c.replace("Render POP", "POP Render Pipeline / poptoTOP")
+        with open(pt_p, "w", encoding="utf-8") as f:
+            f.write(c)
+        print("  Sanitizado workflow pathtracer-glsl.md")
+
 
 def main():
     print("[sanitize] Aplicando correcciones de compatibilidad TD 2025+ a la KB:")

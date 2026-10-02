@@ -53,6 +53,10 @@ FILES = [
     ("docs/API_CONTRACT_AUDIT.md",           "rules/API_CONTRACT_AUDIT.md"),
     ("docs/TOE_REPLICATION.md",              "rules/TOE_REPLICATION.md"),
     ("docs/MCP_REAL_CASES.md",               "rules/MCP_REAL_CASES.md"),
+    ("docs/discord-twozero/ANALISIS-TWOZERO-para-TD-MCP.md", "rules/ANALISIS_TWOZERO_TD_MCP.md"),
+    ("docs/discord-twozero/transcript.md",                  "rules/TWOZERO_TRANSCRIPT.md"),
+    ("docs/PERFORMANCE.md",                                  "rules/PERFORMANCE.md"),
+    ("docs/pathtracer-glsl.md",                              "workflows/pathtracer-glsl.md"),
 ]
 DIRS = [
     ("mcp/data/ops/operators", "ops/operators"),
@@ -61,7 +65,9 @@ DIRS = [
     ("mcp/data/tutorials",     "tutorials"),
     ("docs/tutorials/pop_tutorial", "tutorials/pop_tutorial"),
     ("mcp/data/prompts/master", "prompts/master"),
+    ("glsl_files",             "shaders"),
     ("glsl_pop_projects/shaders", "shaders"),
+    ("toe/templates",          "templates/specs"),
 ]
 
 NODE_DUMP = r"""
@@ -84,6 +90,11 @@ const j = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
     const r = await import('file://' + R + '/mcp/dist/builderRecipes.js');
     res.recipes = { listRecipes: r.listRecipes(), listRecipeNames: r.listRecipeNames(), recipeTags: r.recipeTags() };
   } catch (e) { res.recipes = { error: String(e) }; }
+  // GLSL TOP recetas visuales de Book of Shaders
+  try {
+    const topRec = await import('file://' + R + '/mcp/dist/tools/glslTopRecipes.js');
+    res.glsl_top_recipes = topRec.GLSL_TOP_RECIPES ?? null;
+  } catch (e) { res.glsl_top_recipes = { error: String(e) }; }
   fs.writeFileSync(out, JSON.stringify(res, null, 1));
   console.log('dump ok ->', out);
 })();
@@ -232,6 +243,43 @@ def sanitize_legacy_knowledge(kb_dir: str):
             t_content = f.read().replace("renderPOP", "poptoTOP")
         with open(top_p, "w", encoding="utf-8") as f:
             f.write(t_content)
+
+    # Sanitizar templates/specs (17 arquitecturas modulares)
+    specs_dir = os.path.join(kb_dir, "templates", "specs")
+    if os.path.isdir(specs_dir):
+        for fn in os.listdir(specs_dir):
+            if fn.endswith(".md"):
+                sp = os.path.join(specs_dir, fn)
+                with open(sp, "r", encoding="utf-8", errors="replace") as f:
+                    c = f.read()
+                c = c.replace("Render POP", "POP Render Pipeline (geometryCOMP + cameraCOMP + renderTOP + pointspriteMAT) / poptoTOP")
+                c = c.replace("renderPOP", "poptoTOP / geometryCOMP render")
+                c = c.replace("Sprite POP", "pointspriteMAT")
+                c = c.replace("spritePOP", "pointspriteMAT")
+                c = c.replace("Color POP", "attributePOP / glslPOP")
+                c = c.replace("colorPOP", "attributePOP")
+                c = c.replace("Force POP", "noisePOP / windPOP")
+                c = c.replace("forcePOP", "noisePOP")
+                c = c.replace("Drag POP", "particlePOP")
+                c = c.replace("dragPOP", "particlePOP")
+                c = c.replace("Pointgen POP", "pointgeneratorPOP")
+                c = c.replace("pointgenPOP", "pointgeneratorPOP")
+                c = c.replace("Point File Select POP", "pointfileinPOP")
+                c = c.replace("pointfileselectPOP", "pointfileinPOP")
+                c = c.replace("deleteprims", "topointprims")
+                c = c.replace("attensizenear", "pointsize")
+                with open(sp, "w", encoding="utf-8") as f:
+                    f.write(c)
+
+    # Sanitizar pathtracer-glsl
+    pt_p = os.path.join(kb_dir, "workflows", "pathtracer-glsl.md")
+    if os.path.exists(pt_p):
+        with open(pt_p, "r", encoding="utf-8", errors="replace") as f:
+            c = f.read()
+        c = c.replace("renderPOP", "poptoTOP / geometryCOMP render")
+        c = c.replace("Render POP", "POP Render Pipeline / poptoTOP")
+        with open(pt_p, "w", encoding="utf-8") as f:
+            f.write(c)
     print("  Sanitización de operadores legacy completada.")
 
 
@@ -243,7 +291,7 @@ def index_markdown_assets(kb_dir: str):
     cur = con.cursor()
 
     # Limpieza previa de tipos custom para garantizar idempotencia
-    custom_types = ("workflow", "tutorial", "glsl-solution", "empirical", "rules", "master-prompt")
+    custom_types = ("workflow", "tutorial", "glsl-solution", "empirical", "rules", "master-prompt", "glsl-shader", "template-spec", "recipe", "glsl-recipe")
     placeholders = ",".join("?" for _ in custom_types)
     cur.execute(f"DELETE FROM docs WHERE sourceType IN ({placeholders})", custom_types)
 
@@ -333,6 +381,9 @@ def index_markdown_assets(kb_dir: str):
         ("rules/API_CONTRACT_AUDIT.md", "api_contract_audit", "GENERAL", "TouchDesigner API Contract Audit", "empirical", "live-verified"),
         ("rules/TOE_REPLICATION.md", "toe_replication", "GENERAL", "TOE Replication and Network Architecture", "empirical", "live-verified"),
         ("rules/MCP_REAL_CASES.md", "mcp_real_cases", "GENERAL", "MCP Real Production Cases in TouchDesigner", "empirical", "live-verified"),
+        ("rules/ANALISIS_TWOZERO_TD_MCP.md", "analisis_twozero_td_mcp", "GENERAL", "Análisis Crítico TWOZERO - Pitfalls y Lecciones de MCP", "empirical", "community-audit"),
+        ("rules/TWOZERO_TRANSCRIPT.md", "twozero_discord_transcript", "GENERAL", "Transcripción de Casos Reales y Soporte TwoZero", "empirical", "community-audit"),
+        ("rules/PERFORMANCE.md", "performance_tuning_guide", "GENERAL", "TouchDesigner Performance & Cook Budgeting Guide", "empirical", "live-verified"),
     ]
     for rel, name, fam, title, stype, trust in rules_map:
         p = os.path.join(kb_dir, rel.replace("/", os.sep))
@@ -360,6 +411,82 @@ def index_markdown_assets(kb_dir: str):
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (stem, "PROMPT", f"Master Prompt: {stem}", f"prompt-{stem}", f"prompt://master/{stem}", f"Directive for {stem}", "live-verified", "master-prompt", content)
                 )
+
+    # 5. Template Specs (17 arquitecturas modulares de redes)
+    specs_dir = os.path.join(kb_dir, "templates", "specs")
+    if os.path.isdir(specs_dir):
+        for fn in sorted(os.listdir(specs_dir)):
+            if fn.endswith(".md"):
+                p = os.path.join(specs_dir, fn)
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                stem = fn[:-3]
+                lines = content.splitlines()
+                title = stem
+                summary = ""
+                for l in lines:
+                    if l.startswith("# "):
+                        title = l[2:].strip()
+                        break
+                for l in lines:
+                    ls = l.strip()
+                    if ls and not ls.startswith("#") and not ls.startswith("---"):
+                        summary = ls[:300]
+                        break
+                fam = "POP" if any(k in stem for k in ("pop", "boids", "particle", "fluid", "spring", "field")) else "GENERAL"
+                cur.execute(
+                    "INSERT INTO docs(name, family, pageTitle, pageSlug, url, summary, trustTier, sourceType, body) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (stem, fam, f"Template Spec: {title}", f"template-spec-{stem}", f"template://spec/{stem}", summary or f"Template Spec {stem}", "curated", "template-spec", content)
+                )
+
+    # 6. GLSL Shaders (67+ compute, pixel y vertex shaders)
+    sh_dir = os.path.join(kb_dir, "shaders")
+    if os.path.isdir(sh_dir):
+        for fn in sorted(os.listdir(sh_dir)):
+            if fn.endswith(".glsl") or fn.endswith(".txt"):
+                p = os.path.join(sh_dir, fn)
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                stem = fn.rsplit(".", 1)[0]
+                lines = [l.strip() for l in content.splitlines() if l.strip()]
+                summary = ""
+                for l in lines:
+                    if l.startswith("//") or l.startswith("/*"):
+                        summary = l.lstrip("/*# ").strip()
+                        if len(summary) > 10:
+                            break
+                fam = "GLSL"
+                if stem.startswith("top_") or stem.startswith("recipe_t") or "top" in stem:
+                    fam = "TOP"
+                elif stem.startswith("pop_") or stem.startswith("tut_") or stem.startswith("suite_") or any(k in stem for k in ("particle", "spring", "wave", "fountain", "boids")):
+                    fam = "POP"
+                elif stem.startswith("vertex_"):
+                    fam = "MAT"
+
+                cur.execute(
+                    "INSERT INTO docs(name, family, pageTitle, pageSlug, url, summary, trustTier, sourceType, body) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (stem, fam, f"GLSL Shader: {stem}", f"shader-{stem}", f"shader://{stem}", summary or f"TouchDesigner GLSL Shader {stem}", "live-verified", "glsl-shader", content)
+                )
+
+    # 7. GLSL TOP Recipes (Book of Shaders)
+    rec_file = os.path.join(kb_dir, "recipes", "glsl_top_recipes.json")
+    if os.path.exists(rec_file):
+        try:
+            with open(rec_file, encoding="utf-8") as f:
+                rec_list = json.load(f)
+            for r in rec_list:
+                rid = r.get("id") or r.get("title")
+                cur.execute(
+                    "INSERT INTO docs(name, family, pageTitle, pageSlug, url, summary, trustTier, sourceType, body) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (rid, "TOP", f"GLSL Recipe: {r.get('title')}", f"recipe-{rid}", f"recipe://glsl-top/{rid}",
+                     f"{r.get('title')} ({r.get('category')}) - Book of Shaders TouchDesigner Recipe", "live-verified", "glsl-recipe",
+                     json.dumps(r, ensure_ascii=False, indent=2))
+                )
+        except Exception as e:
+            print("  error indexando glsl_top_recipes:", e)
 
     con.commit()
     total_docs = cur.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
@@ -397,9 +524,8 @@ def main() -> int:
         if not os.path.isdir(src):
             print(f"  FALTA dir {src_rel}")
             continue
-        if os.path.isdir(dst):
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.log", "__pycache__"))
+        os.makedirs(dst, exist_ok=True)
+        shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.log", "__pycache__"))
         n = sum(len(f) for _, _, f in os.walk(dst))
         size = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(dst) for f in fs)
         manifest["files"].append({"path": dst_rel + "/", "files": n, "bytes": size})
@@ -417,6 +543,11 @@ def main() -> int:
         print("  node:", (p.stdout or p.stderr).strip()[:200])
         if os.path.exists(out):
             d = json.load(open(out, encoding="utf-8"))
+            if d.get("glsl_top_recipes") and isinstance(d["glsl_top_recipes"], list):
+                rec_dir = os.path.join(kb, "recipes")
+                os.makedirs(rec_dir, exist_ok=True)
+                with open(os.path.join(rec_dir, "glsl_top_recipes.json"), "w", encoding="utf-8") as rf:
+                    json.dump(d["glsl_top_recipes"], rf, indent=2, ensure_ascii=False)
             shape = {k: (len(v) if isinstance(v, (dict, list)) else v) for k, v in d.items()}
             manifest["ts_extract"] = {"path": "ts-extract/ts-data.json", "bytes": os.path.getsize(out),
                                       "extracted": shape}

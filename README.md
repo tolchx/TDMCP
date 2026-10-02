@@ -178,7 +178,8 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
 │       td-knowledge (Offline MCP)     │  │       TDMCP.tox (Official)   │
 │   • 21 Offline Tools                 │  │   • 26 In-Process Live Tools │
 │   • 6 Live Wrappers                  │  │   • Direct TD Python engine  │
-│   • 1,128 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
+│   • 1,235 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
+│   • 79 GLSL Shaders + 17 Specs       │  │   • Live undo & frame stats  │
 │   • Runs with TD closed (0% overhead)│  │   • Requires TD running      │
 └──────────────────────────────────────┘  └──────────────────────────────┘
 ```
@@ -191,9 +192,9 @@ The offline MCP server (`knowledge/server.py`) operates via standard I/O and req
 
 | Category | Tool | Description |
 |---|---|---|
-| **Knowledge Base** | `kb_info` | Metadata, document counts, and SQLite FTS5 index stats. |
+| **Knowledge Base** | `kb_info` | Metadata, document counts, and SQLite FTS5 index stats (1,235 docs, 38.8 MB). |
 | | `kb_taxonomy` | High-level taxonomy of TouchDesigner families (TOP, CHOP, SOP, POP, MAT, DAT, COMP). |
-| | `kb_search` | Full-text BM25 search across 1,128 curated documents with category filters and snippets. |
+| | `kb_search` | Full-text BM25 search across 1,235 curated documents with category filters and snippets. |
 | | `kb_get` | Retrieve the full content of any indexed document by its unique URI. |
 | **Operators & API** | `ops_doc` | Official documentation, parameter overviews, inputs, and common gotchas for any operator. |
 | | `ops_params` | Exhaustive parameter inspection per operator (types, defaults, min/max, menus). |
@@ -201,17 +202,17 @@ The offline MCP server (`knowledge/server.py`) operates via standard I/O and req
 | | `resolve_operator` | Natural language query to matching TouchDesigner operator names with confidence scoring. |
 | **POP System** | `pop_matrix` | Verified capability matrix of all 101 POP families (inputs, outputs, stability, context). |
 | | `pop_knowledge` | Rules, known bugs, caveats, and recommended topologies for the POP system. |
-| **Workflows & Guides**| `workflows` | 42 end-to-end production pipelines (pathtracer, gaussian splatting, audio-reactive, fluid solver, etc.). |
+| **Workflows & Specs**| `workflows` | 43 end-to-end production pipelines (pathtracer, gaussian splatting, audio-reactive, fluid solver, etc.). |
 | | `tutorials` | 28 deep-dive tutorials including step-by-step POP simulations and creative feedback loops. |
-| | `templates` | Parameterized network templates (audio reactive, particle systems, feedback loops). |
-| | `recipes` | Granular multi-operator wiring recipes with verified Python generation code. |
+| | `templates` | Parameterized network templates + 17 architectural network specs (boids, SPH fluids, field volumes, DMX). |
+| | `recipes` | Granular multi-operator wiring recipes + 7 Book of Shaders `glslTOP` recipes with pixel checks. |
 | | `master_prompts` | System-level prompt directives for autonomous agent orchestration. |
 | **GLSL & Verification**| `glsl_solutions`| Diagnostic catalog for GLSL errors (`undeclared identifier`, `swizzling`, `SSBO binding`, etc.). |
 | | `glsl_rules` | Static syntax and safety rules for GLSL POP compute shaders and TOP pixel shaders. |
 | | `glsl_analyze` | Static shader analyzer detecting missing `outputattrs`, incorrect types, and Vulkan TDR risks. |
-| | `glsl_curriculum`| Progressive curriculum of 62 verified GLSL POP shader implementations. |
-| | `contracts` | 16 live-verified operational contracts C1–C16 (cook lag, render ownership, stopped clock, etc.). |
-| | `discovery` | Bitácora of empirical limits, hardware quirks, and measured edge-cases. |
+| | `glsl_curriculum`| Curriculum of 62 verified GLSL POP shaders + repository of 79 shaders (Book of Shaders, filters, vertex). |
+| | `contracts` | 17 live-verified operational contracts C1–C17 (cook lag, render ownership, stopped clock, camera lookat, etc.). |
+| | `discovery` | Bitácora of empirical limits, hardware quirks, TWOZERO postmortem analysis, and performance tuning rules. |
 | **Live Wrappers** | `td_status` | Fast health check and status query to the live `TDMCP.tox` server. |
 | *(Require TD)* | `find_in_ops` | Deep search inside live DAT code, table contents, and operator parameter expressions. |
 | | `auto_layout` | Automatic topological layout engine positioning operators neatly on the canvas. |
@@ -226,7 +227,7 @@ The offline MCP server (`knowledge/server.py`) operates via standard I/O and req
 During migration, all legacy assets were processed through [`scripts/sanitize_legacy_knowledge.py`](file:///c:/Users/Tolch/Documents/AI_Code/TDMCP/tolchx-TDMCP/scripts/sanitize_legacy_knowledge.py) (integrated into `knowledge/build_assets.py`) to purge obsolete paradigms and hallucinations:
 - **Hallucinated Operators Removed**: `renderPOP` (does not exist in TouchDesigner) was systematically replaced with `poptoTOP` (data texture) and the standard rendering pipeline (`geometryCOMP` + `cameraCOMP` + `renderTOP` with `pointspriteMAT` per Contract C2).
 - **Corrected Operator Names**: `pointgenPOP` → `pointgeneratorPOP`, `colorPOP` → `attributePOP`/`glslPOP`, `forcePOP`/`dragPOP` → `noisePOP`/`windPOP`/`particlePOP`, `lookupPOP` → `lookuptablePOP`, `spritePOP` → `pointspriteMAT`, `panelCOMP` → `containerCOMP`.
-- **Render Blackout Bug (`deleteprims`) Fixed**: Workflows using `deleteprims` (which eliminated 100% of primitives leaving empty renders) were updated to `convertPOP(topointprims)` and `gridPOP.par.surftype = 'points'`.
+- **Render Blackout Bug (`deleteprims`) Fixed**: Workflows and template specs using `deleteprims` (which eliminated 100% of primitives leaving empty renders) were updated to `convertPOP(topointprims)` and `gridPOP.par.surftype = 'points'`.
 - **Auto-Torus Trap Documented**: Explicit cleanup routines destroy default `torus1` geometry inside new `geometryCOMP` operators to avoid false positive renders.
 
 ---
