@@ -8,3 +8,5 @@
 - 2026-09-30T03:08:02+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 4 | loop-candidates.json
 - 2026-09-30T03:14:07+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | gate.yaml
 - 2026-09-30T03:16:43+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | gate.yaml
+- 2026-10-02T03:10:46+00:00 | ciclo-diario | L2 | triage 0 candidatos / 0 nuevos; F3.2 flaky (no regresion) | sin item: verificacion de entorno + docs | docs/loop-run-2026-10-02.md | results/20261002-000922
+- 2026-10-02T03:11:06+00:00 | gate | — | commit sobre 4 archivo(s) | ALLOW | gate.yaml

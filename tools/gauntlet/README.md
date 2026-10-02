@@ -69,3 +69,13 @@ skill correspondiente): el ritual está en `docs/td-lecciones-aprendidas-2026-09
 Cada fase crea y borra sus sandboxes en root (`/gauntlet_*`, `/msmod*`, `/pwm_lfo`).
 Si una fase muere a mitad, el sandbox queda — la limpieza previa de cada fase lo
 borra en la próxima corrida. Dejar `results/` sin trackear si molesta en git.
+
+## Límites conocidos
+
+- **F3.2 (`f3-n2-audio-clock`) no es determinista (medido 2026-10-02).** El check
+  `"par animado por expresion cambia en el tiempo"` (`f3_n2_audio_clock.py:102`) compara dos lecturas
+  de `fondo.par.colorr.eval()` separadas 1.2 s y exige `delta > 1e-4`; su señal de movimiento incluye
+  `0.15*abs(absTime.seconds % 2 - 1)`, sensible a la fase absoluta del reloj. Puede dar **rojo falso**:
+  suite `results/20261002-000742` → FAIL `delta=2.6e-07`; la misma fase sola (`20261002-000913`) y la
+  suite siguiente (`20261002-000922`) → PASS. **Ante un FAIL global cuyo único fallo sea F3.2,
+  reintentar la fase antes de declarar regresión.** Pendiente: robustecer el check (`docs/BACKLOG.md` ítem 6).

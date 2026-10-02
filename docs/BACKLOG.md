@@ -190,3 +190,18 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   proximityPOP, revolvePOP, tubePOP, topologyPOP, lookupTexturePOP. (mathMixPOP y
   lookupAttributePOP NO existen en el build — removidos, ver C15.) Mismo patrón: build versionado
   + checks con número + fila en *Estado verificado* + contrato si hay sorpresa.
+
+- [ ] 6. **Hallado por el ciclo diario (2026-10-02, verificación de entorno)** — el check de F3.2
+  (`f3-n2-audio-clock`) es **FLAKY**. En la suite #1 de hoy (`results/20261002-000742`) falló
+  `f3_n2_audio_clock.py:102` "par animado por expresion cambia en el tiempo" con
+  `delta=2.5970552997023333e-07` (umbral `1e-4`); la misma fase sola (`results/20261002-000913`) y la
+  suite #2 (`results/20261002-000922`) dieron **PASS** (todas las fases). **No es regresión**: el
+  archivo no se modificó desde `793ad71` y ya había fallado 7 veces el 2026-09-28 (`delta=0.0`).
+  Causa probable (NO verificada): el término `0.15*abs(absTime.seconds % 2 - 1)` (`f3_n2_audio_clock.py:45-46`)
+  muestreado 1.2 s después es sensible a la fase absoluta del reloj → rojo falso probabilístico.
+  Qué hacer: **robustecer** el check (señal con movimiento garantizado en toda fase, o muestreo con
+  ventana) **sin deshabilitarlo** (`loop-constraints.md`: un test en rojo es un hallazgo, no un obstáculo).
+  Extra del mismo hallazgo: `sig_live_evidence_fail()` (`scripts/loop_triage.py:104-122`) glob-ea
+  `tools/gauntlet/results/*.json` **sin recursión** → los `*-summary.json` dentro de
+  `results/<run_id>/` nunca se vuelven candidato `vivo-rojo-*`; mismo agujero en `sig_gauntlet_rojo`
+  (sólo corre `--quick`, F1+F2). Evidencia completa: `docs/loop-run-2026-10-02.md`.
