@@ -205,3 +205,5 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `tools/gauntlet/results/*.json` **sin recursión** → los `*-summary.json` dentro de
   `results/<run_id>/` nunca se vuelven candidato `vivo-rojo-*`; mismo agujero en `sig_gauntlet_rojo`
   (sólo corre `--quick`, F1+F2). Evidencia completa: `docs/loop-run-2026-10-02.md`.
+
+- [ ] 7. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: knowledge/server.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `cebefde95bf63597`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
