@@ -48,6 +48,13 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | **`build_pop_pattern.py`** (cobertura: patternPOP) | `results/reg-20260930-131003` — 13/13 cheks, 0 fallos — ramp exacto err<2e-8, tabla prims linestrip 1 / lines 5 / points 6 / none 0, sin 2 ciclos err 3.4e-7, random determinístico por índice → C16 |
 | **`build_pop_random.py`** (cobertura: randomPOP) | `results/reg-20260930-131003` — 14/14 cheks, 0 fallos — add in-place deltas uniformes [0,1], set+scope vacío NO-OP, amp NO escala el uniforme, gaussian ≈N(0,1), extrapts multiplica (9→18→27) → C16 |
 | batería completa 20 builds (8 proyectos + 12 cobertura) | `results/reg-20260930-131003` — 20/20 exit 0, 121.6 s |
+| **`build_pop_group.py`** (cobertura: groupPOP con red propia) | `results/reg-20261002-022418` — 13/13 cheks, 0 fallos — población inmutable (thin = metadato: step 2 exacto 10/20), debugcolor 2 valores con pairing estable, ghost mueve TODO, secuencias bound con PISO de 1 bloque (`numBlocks=0` → `tdError: Minimum size is 1 block`) y bound sin efecto en 4 configs [abierto] → C17 |
+| **`build_pop_proximity.py`** (cobertura: proximityPOP) | `results/reg-20261002-022418` — 12/12 cheks, 0 fallos — grid 3x3 @0.21 avoid = 12 ortogonales exactas (0 diagonales), donothing DOBLA 24, @0.29→20 / @0.10→0, `maxlinesperpoint=1`→8 determinístico, output='points' 9/12, cpureadback irrelevante para contar → C17 |
+| **`build_pop_revolve.py`** (cobertura: revolvePOP) | `results/reg-20261002-022418` — 12/12 cheks, 0 fallos — perfil 2 pts ramp 0.2..0.5 × divs 20 = 40/20, radios XZ EXACTOS {0.2,0.5}, tabla surftype 2x20, divs escala 4→8/4 y 8→16/8, autopivot ON/OFF colineal idénticos, PNG 648 px → C17 |
+| **`build_pop_tube.py`** (cobertura: tubePOP) | `results/reg-20261002-022418` — 15/15 cheks, 0 fallos — `radx`/`rady` son los radios de los EXTREMOS (cono, interpolación lineal exacta 0.2→1.0), cols8 rows4 = EXACTO 32/24, `endcaps` Toggle agrega cols−2 prims sin puntos nuevos, `closedu=False` duplica seam (+rows pts), normal/texture opt-in al poptoCHOP → C17 |
+| **`build_pop_topology.py`** (cobertura: topologyPOP) | `results/reg-20261002-022418` — 13/13 cheks, 0 fallos — `primsourcemode='specpop'`+`primspop=B`: 9 pts de A / 4 quads de B, P del INPUT, `topology='ref'` vivo (0/8/4 con cook explícito del origen), 'copy' NO congela, maxpoints=5 → 5/4 determinístico → C17 |
+| **`build_pop_lookuptexture.py`** (cobertura: lookuptexturePOP) | `results/reg-20261002-022418` — 14/14 cheks, 0 fallos — sin `overrideautoattr` NO aparece attr; con override+scope Color+attrtype color crea Color 4c, `interpolate=False` muestrea texel EXACTO (pertenencia a los 59 texels), swap constantTOP 0.9→0.898 (±1 LSB), offset 0.125 desplaza y 0 restaura → C17 |
+| batería completa 26 builds | `results/reg-20261002-022418` — 26/26 exit 0, 167.2 s |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
 
@@ -185,11 +192,18 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   jaula de extrude existe con distance=0, el 'set' de randomPOP es NO-OP con scope vacío y amp
   no escala el uniforme, el random de pattern genera por índice). 6 filas nuevas arriba. Helps y
   live-params en `results/20260930-124833/help/`. Quedan 68 tipos sin medir → ítem 5c.
-- [ ] 5c. **Cobertura POP (continúa): 68 de 101 tipos siguen sin una sola medición.**
-  Prioridad restante de la lista del ítem 5: groupPOP (medido como apoyo en C15: falta red propia),
-  proximityPOP, revolvePOP, tubePOP, topologyPOP, lookupTexturePOP. (mathMixPOP y
-  lookupAttributePOP NO existen en el build — removidos, ver C15.) Mismo patrón: build versionado
-  + checks con número + fila en *Estado verificado* + contrato si hay sorpresa.
+- [x] 5c. **Cobertura POP (tramo 3) CERRADO el 2026-10-02: 6 tipos nuevos — groupPOP (red propia),
+  proximityPOP, revolvePOP, tubePOP, topologyPOP y lookuptexturePOP — medidos con el patrón del ítem 5.**
+  33 → 39 de 101 tipos ejercitados. Batería 26/26 exit 0 (`results/reg-20261002-022418`, 167.2 s);
+  contratos C17 en `VERIFIED_CONTRACTS.md` (sorpresas: la cámara canónica del gauntlet es
+  `cam.par.lookat`+traslación iso — apuntar con rx/ry manual da render NEGRO en todas las configs;
+  tubePOP `radx`/`rady` son los extremos del CONO y `endcaps` agrega cols−2 prims sin puntos;
+  lookuptexturePOP no escribe attr sin `overrideautoattr` y muestrea texel exacto con
+  interpolate off; topologyPOP 'copy' NO congela; las secuencias bound tienen piso de 1 bloque).
+  6 filas nuevas arriba. Quedan 62 tipos sin medir → ítem 5d.
+- [ ] 5d. **Cobertura POP (continúa): 62 de 101 tipos siguen sin una sola medición.**
+  Mismo patrón: build versionado + checks con número + fila en *Estado verificado* + contrato si
+  hay sorpresa. Priorizar los tipos que aparecen en recetas y errores reales del loop.
 
 - [ ] 6. **Hallado por el ciclo diario (2026-10-02, verificación de entorno)** — el check de F3.2
   (`f3-n2-audio-clock`) es **FLAKY**. En la suite #1 de hoy (`results/20261002-000742`) falló
