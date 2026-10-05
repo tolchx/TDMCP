@@ -206,4 +206,18 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `results/<run_id>/` nunca se vuelven candidato `vivo-rojo-*`; mismo agujero en `sig_gauntlet_rojo`
   (sólo corre `--quick`, F1+F2). Evidencia completa: `docs/loop-run-2026-10-02.md`.
 
-- [ ] 7. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: knowledge/server.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `cebefde95bf63597`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+- [x] 7. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: knowledge/server.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `cebefde95bf63597`).
+  **CERRADO 2026-10-05:** consolidado con ítem 8.
+
+- [x] 8. **Hallado por el loop (triage automático)** — 3 archivo(s) modificados sin commitear (`server.py`, `healthcheck.py`, `selftest_protocol.json`).
+  **CERRADO 2026-10-05:** Se completó el refactor y robustecimiento de la capa offline/live (`server.py`, `live.py`, `healthcheck.py`, `test_live.py`).
+  - Eliminado el bloque duplicado al final de `server.py` que causaba `SyntaxError`.
+  - Coerción tolerante de tipos para clientes MCP (números, strings, booleanos).
+  - Búsqueda y coincidencia exacta > prefijo > substring evitando matches vacíos o falsos.
+  - Normalización e insensibilidad a mayúsculas/minúsculas en filtros y categorías (`kb_search`, `kb_taxonomy`, `pop_matrix`).
+  - Glosario bidireccional ES/EN y remoción de acentos en `resolve_operator`.
+  - Manejo seguro de comentarios, variables locales y asignaciones compuestas en `glsl_analyze`.
+  - Prevención de crashes de codificación en Windows reconfigurando stdio a UTF-8.
+  - `EXPECTED_TOOLS = 27` en `healthcheck.py` y `LIVE_READONLY` exportado en `live.py`.
+  - Todas las suites verificadas en verde: `server.py --selftest` (21/21 ok), `test_protocol.py` PASS, `healthcheck.py` PASS (cero problemas), `test_live.py` (12/12 etapas exitosas contra TouchDesigner vivo). Gate commit ALLOW.
+

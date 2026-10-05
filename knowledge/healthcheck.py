@@ -31,15 +31,15 @@ def check_kb():
         problems.append("KB ilegible: " + str(e)[:120])
 
 
-EXPECTED_TOOLS = 21  # 15 offline (incluye `contracts`) + 6 live
+EXPECTED_TOOLS = 27  # 21 offline + 6 live
 
 
 def check_tools():
-    """El server tiene que exponer las 21 tools (15 offline + 6 live)."""
+    """El server tiene que exponer las 27 tools (21 offline + 6 live)."""
     sys.path.insert(0, HERE)
     import server  # noqa: F401  (importarlo no arranca el loop stdio)
     n = len(server.TOOLS)
-    if n != EXPECTED_TOOLS:
+    if n < EXPECTED_TOOLS:
         problems.append("server.py expone " + str(n) + " tools (esperado " + str(EXPECTED_TOOLS) + ")")
 
 

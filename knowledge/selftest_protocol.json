@@ -5,13 +5,16 @@
   "result": {
    "protocolVersion": "2025-06-18",
    "capabilities": {
-    "tools": {}
+    "tools": {
+     "listChanged": false
+    }
    },
    "serverInfo": {
     "name": "td-knowledge",
     "version": "0.1.0",
     "title": "td-knowledge — capa de conocimiento offline de TouchDesigner"
-   }
+   },
+   "instructions": "td-knowledge: capa de conocimiento OFFLINE de TouchDesigner (no necesita TD abierto). Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix para saber si un POP necesita input, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze. Las tools td_status, find_in_ops, auto_layout, smart_connect y tdn_export hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
   }
  },
  {
@@ -26,6 +29,10 @@
       "type": "object",
       "properties": {},
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -36,7 +43,7 @@
       "properties": {
        "family": {
         "type": "string",
-        "description": "string"
+        "description": "string (case-insensitive)"
        },
        "list_docs": {
         "type": "boolean",
@@ -44,11 +51,15 @@
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "kb_search",
-     "description": "Búsqueda full-text (BM25) sobre 1128 documentos curados: ops, POPs, patrones, GLSL, workflows, tutoriales. Filtrable por familia y trustTier. NO necesita TouchDesigner.",
+     "description": "Búsqueda full-text (BM25) sobre ~1.2k documentos curados: ops, POPs, patrones, GLSL, workflows, tutoriales. Filtros case-insensitive por familia/trustTier/sourceType (avisa si el valor no existe). NO necesita TouchDesigner.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -58,7 +69,7 @@
        },
        "family": {
         "type": "string",
-        "description": "POP|TOP|CHOP|SOP|DAT"
+        "description": "POP|TOP|CHOP|SOP|DAT|MAT|GLSL|GENERAL"
        },
        "trust_tier": {
         "type": "string",
@@ -70,17 +81,21 @@
        },
        "limit": {
         "type": "integer",
-        "description": "int 1-25"
+        "description": "int 1-25 (default 8)"
        }
       },
       "required": [
        "query"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "kb_get",
-     "description": "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página.",
+     "description": "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página (case-insensitive).",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -90,17 +105,21 @@
        },
        "max_chars": {
         "type": "integer",
-        "description": "int 400-40000"
+        "description": "int 400-40000 (default 6000)"
        }
       },
       "required": [
        "name_or_slug"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "pop_matrix",
-     "description": "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' = registro completo; category='ok_con_input' = miembros.",
+     "description": "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' (o 'particle') = registro completo; category='ok_con_input' = miembros.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -110,15 +129,19 @@
        },
        "category": {
         "type": "string",
-        "description": "ok_con_input|sin_geometria|..."
+        "description": "ok_con_input|error_con_input|sin_geometria_con_input|no_creable"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "ops_doc",
-     "description": "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples.",
+     "description": "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples/parameters.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -134,6 +157,10 @@
       "required": [
        "op_type"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -150,6 +177,10 @@
       "required": [
        "op_type"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -160,19 +191,25 @@
       "properties": {
        "kind": {
         "type": "string",
-        "description": "patterns|wiki_params|pop_inventory|validation|glsl_library"
+        "description": "patterns|wiki_params|pop_inventory|validation|glsl_library (requerido)"
        },
        "query": {
         "type": "string",
         "description": "string"
        }
       },
-      "required": []
+      "required": [
+       "kind"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "resolve_operator",
-     "description": "Traduce lenguaje natural (ES/EN) a tipo de operador canónico con 99 tipos indexados ('video por webcam' -> videodeviceinTOP).",
+     "description": "Traduce lenguaje natural (ES/EN, con o sin tildes) a tipo de operador canónico: 'cámara web' -> videodeviceinTOP, 'ruido' -> noise*. Si no hay sinónimo directo cae a búsqueda en los docs de operadores.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -182,17 +219,21 @@
        },
        "limit": {
         "type": "integer",
-        "description": "int"
+        "description": "int 1-25 (default 6)"
        }
       },
       "required": [
        "text"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "templates",
-     "description": "14 plantillas de red con wiring, parámetros y builder Python: action=list|get.",
+     "description": "Plantillas de red (wiring, parámetros y builder Python) + specs arquitectónicas (boids, SPH, field volumes, DMX…): action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -202,19 +243,27 @@
        },
        "name": {
         "type": "string",
-        "description": "string"
+        "description": "string (requerido para get)"
        },
        "query": {
         "type": "string",
         "description": "string"
+       },
+       "max_chars": {
+        "type": "integer",
+        "description": "int 500-60000"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "recipes",
-     "description": "5 recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) con gotchas y código: action=list|get.",
+     "description": "Recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) + recetas glslTOP (Book of Shaders) con gotchas y código: action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -224,7 +273,7 @@
        },
        "name": {
         "type": "string",
-        "description": "string"
+        "description": "string (requerido para get)"
        },
        "query": {
         "type": "string",
@@ -232,11 +281,15 @@
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "workflows",
-     "description": "42 workflows de producción completos (alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer): action=list|get.",
+     "description": "Workflows de producción completos (alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer…): action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -246,19 +299,27 @@
        },
        "name": {
         "type": "string",
-        "description": "string"
+        "description": "string (requerido para get)"
        },
        "query": {
         "type": "string",
         "description": "string"
+       },
+       "max_chars": {
+        "type": "integer",
+        "description": "int 500-60000"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "tutorials",
-     "description": "28 tutoriales paso a paso de TouchDesigner avanzado (audio-reactivo, boids, god rays, fluid solver, instancing): action=list|get.",
+     "description": "Tutoriales paso a paso de TouchDesigner avanzado (audio-reactivo, boids, god rays, fluid solver, instancing) + suite 'pop_tutorial': action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -268,14 +329,22 @@
        },
        "name": {
         "type": "string",
-        "description": "string"
+        "description": "string (requerido para get)"
        },
        "query": {
         "type": "string",
         "description": "string"
+       },
+       "max_chars": {
+        "type": "integer",
+        "description": "int 500-60000"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -290,15 +359,19 @@
        },
        "limit": {
         "type": "integer",
-        "description": "int"
+        "description": "int 1-50 (default 6)"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "python_api",
-     "description": "Referencia offline de la API Python de TouchDesigner: inspección de clases, métodos, atributos y docstrings sin TD abierto.",
+     "description": "Referencia offline de la API Python de las clases de operador (TOP/CHOP/SOP/DAT/POP): parámetros, métodos y docstrings sin TD abierto. Nombres ambiguos devuelven candidatos.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -316,10 +389,14 @@
        },
        "limit": {
         "type": "integer",
-        "description": "int"
+        "description": "int 1-50"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -334,10 +411,14 @@
        },
        "limit": {
         "type": "integer",
-        "description": "int"
+        "description": "int 1-50 (default 6)"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -352,15 +433,19 @@
        },
        "name": {
         "type": "string",
-        "description": "string"
+        "description": "string (requerido para get)"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "glsl_rules",
-     "description": "Reglas GLSL verificadas en vivo, por familia: 6 de POP (write-only, TDIndex, Create Attributes, outputaccess) y 12 de TOP.",
+     "description": "Reglas GLSL verificadas en vivo, por familia: POP (write-only, TDIndex, Create Attributes, outputaccess…) y TOP. rule='4' o 'R4' = regla exacta.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -370,7 +455,7 @@
        },
        "rule": {
         "type": "string",
-        "description": "texto a buscar en el título"
+        "description": "número ('4', 'R4') o texto del título"
        },
        "query": {
         "type": "string",
@@ -378,11 +463,15 @@
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "glsl_analyze",
-     "description": "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4, TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes.",
+     "description": "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4 (incluye +=, swizzles y comentarios), TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes / outputattrs.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -398,25 +487,41 @@
       "required": [
        "code"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "glsl_curriculum",
-     "description": "Ejemplos GLSL POP con fuentes citadas (Book of Shaders por capítulo + corpus verificado).",
+     "description": "Ejemplos GLSL: corpus POP verificado + shaders sueltos (Book of Shaders, filtros, vertex). query busca en ambos; shader='<nombre>' devuelve el código; list_shaders=true = índice.",
      "inputSchema": {
       "type": "object",
       "properties": {
        "query": {
         "type": "string",
         "description": "string"
+       },
+       "shader": {
+        "type": "string",
+        "description": "string"
+       },
+       "list_shaders": {
+        "type": "boolean",
+        "description": "boolean"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
      "name": "contracts",
-     "description": "Contratos verificados EN VIVO contra TD 2025.32460 + TDMCP 1.1.55 (cook lag, render POP, pointspriteMAT, API Python, verificación). list=true = índice; section='cook_lag' / 'pop_render_network' / 'C2' para filtrar; query= texto libre.",
+     "description": "Contratos verificados EN VIVO contra TD 2025.32460 + TDMCP 1.1.55 (cook lag, render POP, pointspriteMAT, API Python, verificación). list=true = índice; section='C2' (exacta) / 'cook_lag' para filtrar; query= texto libre.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -438,6 +543,10 @@
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
      }
     },
     {
@@ -447,6 +556,10 @@
       "type": "object",
       "properties": {},
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
      }
     },
     {
@@ -464,19 +577,19 @@
         "description": "string (default /)"
        },
        "in_dat": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default true)"
        },
        "in_expr": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default true)"
        },
        "in_name": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default false)"
        },
        "in_comment": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default true)"
        },
        "limit": {
@@ -487,6 +600,10 @@
       "required": [
        "query"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
      }
     },
     {
@@ -512,17 +629,21 @@
         "description": "int (default 130)"
        },
        "dry_run": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool"
        },
        "include_docked": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default true)"
        }
       },
       "required": [
        "parent_path"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
      }
     },
     {
@@ -548,6 +669,10 @@
        "from_path",
        "to_path"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
      }
     },
     {
@@ -565,19 +690,23 @@
         "description": "string (opcional)"
        },
        "include_dat_content": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default false)"
        },
        "include_storage": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default false)"
        },
        "include_color": {
-        "type": "string",
+        "type": "boolean",
         "description": "bool (default false: el color del nodo cambia solo)"
        }
       },
       "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
      }
     },
     {
@@ -599,6 +728,10 @@
        "path_a",
        "path_b"
       ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
      }
     }
    ]
@@ -650,7 +783,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"texto\": \"quiero una camara web en vivo\",\n \"familia_sugerida\": [],\n \"candidatos\": [\n  {\n   \"type\": \"videodeviceinTOP\",\n   \"score\": 43,\n   \"coincidencias\": [\n    \"cam\"\n   ]\n  }\n ],\n \"tipos_indexados\": 97\n}"
+     "text": "{\n \"texto\": \"quiero una camara web en vivo\",\n \"familia_sugerida\": [\n  \"TOP\",\n  \"COMP\",\n  \"CHOP\"\n ],\n \"candidatos\": [\n  {\n   \"type\": \"cameraCOMP\",\n   \"score\": 100,\n   \"coincidencias\": [\n    \"camera\",\n    \"camera comp\",\n    \"3d camera\",\n    \"view camera\",\n    \"render camera\",\n    \"camera\"\n   ]\n  },\n  {\n   \"type\": \"videodeviceinTOP\",\n   \"score\": 100,\n   \"coincidencias\": [\n    \"webcam\",\n    \"camera\",\n    \"live camera\",\n    \"webcam feed\",\n    \"live feed\",\n    \"camera input\"\n   ]\n  },\n  {\n   \"type\": \"audiodeviceinCHOP\",\n   \"score\": 50,\n   \"coincidencias\": [\n    \"live audio\",\n    \"live mic\"\n   ]\n  }\n ],\n \"origen\": \"sinonimos\",\n \"tipos_indexados\": 97,\n \"traduccion\": [\n  \"webcam\",\n  \"live\",\n  \"camera\"\n ]\n}"
     }
    ],
    "isError": false
@@ -663,7 +796,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"family\": \"pop\",\n \"ok\": false,\n \"escribe\": [\n  \"Cd\",\n  \"P\"\n ],\n \"lee\": [\n  \"P\"\n ],\n \"errores\": [\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"no usa TDIndex() para iterar los puntos\",\n   \"fix\": \"const uint id = TDIndex();\"\n  },\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"falta la guarda de rango\",\n   \"fix\": \"if (id >= TDNumElements()) return;\"\n  },\n  {\n   \"regla\": \"POP R4 (y R1 si es P)\",\n   \"mensaje\": \"'P' se escribe y se lee en el mismo main()\",\n   \"fix\": \"si es la salida [P] usá TDIn_P(0, id); si necesitás leerla, poné outputaccess='readwrite'\"\n  }\n ],\n \"warnings\": [\n  {\n   \"regla\": \"POP R1\",\n   \"mensaje\": \"escribe P sin leer la entrada (TDIn_P): verificá el origen de los valores\",\n   \"fix\": \"P[id] = TDIn_P(0, id) * ...;\"\n  }\n ],\n \"notas\": [\n  {\n   \"regla\": \"POP R3\",\n   \"mensaje\": \"los atributos que se escriben y no vienen en la entrada hay que crearlos en la página Create Attributes (outputattrs solo selecciona atributos existentes)\"\n  },\n  {\n   \"attr\": \"Cd\",\n   \"parametros\": {\n    \"attr0name\": \"custom\",\n    \"attr0customname\": \"Cd\",\n    \"attr0numcomps\": 4\n   }\n  },\n  {\n   \"regla\": \"POP R3 (outputattrs)\",\n   \"mensaje\": \"los atributos que SI vienen en la entrada y se reescriben (ej. P) hay que listarlos en el par 'outputattrs' para que el preamble los declare — sin eso: \\\"'P' : undeclared identifier\\\" al compilar (verificado 2026-09-28)\",\n   \"outputattrs\": \"P\"\n  }\n ]\n}"
+     "text": "{\n \"family\": \"pop\",\n \"ok\": false,\n \"escribe\": [\n  \"Cd\",\n  \"P\"\n ],\n \"lee\": [\n  \"P\"\n ],\n \"errores\": [\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"no usa TDIndex() para iterar los puntos\",\n   \"fix\": \"const uint id = TDIndex();\"\n  },\n  {\n   \"regla\": \"POP R2\",\n   \"mensaje\": \"falta la guarda de rango\",\n   \"fix\": \"if (id >= TDNumElements()) return;\"\n  },\n  {\n   \"regla\": \"POP R4 (y R1 si es P)\",\n   \"mensaje\": \"'P' se escribe y se lee en el mismo main() (incluye asignaciones compuestas como +=, *=)\",\n   \"fix\": \"si es la salida [P] usá TDIn_P(0, id); si necesitás leerla, poné outputaccess='readwrite'\"\n  }\n ],\n \"warnings\": [\n  {\n   \"regla\": \"POP R1\",\n   \"mensaje\": \"escribe P sin leer la entrada (TDIn_P): verificá el origen de los valores\",\n   \"fix\": \"P[id] = TDIn_P(0, id) * ...;\"\n  }\n ],\n \"notas\": [\n  {\n   \"regla\": \"POP R3\",\n   \"mensaje\": \"los atributos que se escriben y no vienen en la entrada hay que crearlos en la página Create Attributes (outputattrs solo selecciona atributos existentes)\"\n  },\n  {\n   \"attr\": \"Cd\",\n   \"parametros\": {\n    \"attr0name\": \"custom\",\n    \"attr0customname\": \"Cd\",\n    \"attr0numcomps\": 4\n   }\n  },\n  {\n   \"regla\": \"POP R3 (outputattrs)\",\n   \"mensaje\": \"los atributos que SI vienen en la entrada y se reescriben (ej. P) hay que listarlos en el par 'outputattrs' para que el preamble los declare — sin eso: \\\"'P' : undeclared identifier\\\" al compilar (verificado 2026-09-28)\",\n   \"outputattrs\": \"P\"\n  }\n ]\n}"
     }
    ],
    "isError": false
@@ -741,7 +874,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"count\": 3,\n \"workflows\": [\n  {\n   \"name\": \"nebrarray-pathtracer\",\n   \"title\": \"nebrarray-pathtracer\",\n   \"summary\": \"title: \\\"Neighbor Array Pathtracer\\\"\",\n   \"file\": \"nebrarray-pathtracer.md\"\n  },\n  {\n   \"name\": \"pathtracer-glsl\",\n   \"title\": \"Pathtracer GLSL — Documentación Completa\",\n   \"summary\": \"> Documentación generada automáticamente desde el proyecto TD en `192.168.100.115:44444`\",\n   \"file\": \"pathtracer-glsl.md\"\n  },\n  {\n   \"name\": \"pathtracer-setup\",\n   \"title\": \"pathtracer-setup\",\n   \"summary\": \"title: \\\"Setup de Pathtracer con Multi-Material\\\"\",\n   \"file\": \"pathtracer-setup.md\"\n  }\n ],\n \"total_available\": 43\n}"
+     "text": "{\n \"count\": 3,\n \"workflows\": [\n  {\n   \"name\": \"nebrarray-pathtracer\",\n   \"title\": \"Neighbor Array Pathtracer\",\n   \"summary\": \"Pipeline GPU completo: simulación de partículas con búsqueda de vecinos, GLSL compute para lógica custom, y rendering con materials de línea. Basado en el patrón `nebrarraypathtracer`.\",\n   \"file\": \"nebrarray-pathtracer.md\"\n  },\n  {\n   \"name\": \"pathtracer-glsl\",\n   \"title\": \"Pathtracer GLSL — Documentación Completa\",\n   \"summary\": \"> Documentación generada automáticamente desde el proyecto TD en `192.168.100.115:44444`\",\n   \"file\": \"pathtracer-glsl.md\"\n  },\n  {\n   \"name\": \"pathtracer-setup\",\n   \"title\": \"Setup de Pathtracer con Multi-Material\",\n   \"summary\": \"Workflow para configurar y extender un pathtracer GLSL con múltiples materiales en TouchDesigner.\",\n   \"file\": \"pathtracer-setup.md\"\n  }\n ],\n \"total_available\": 43\n}"
     }
    ],
    "isError": false
@@ -754,7 +887,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"count\": 4,\n \"tutorials\": [\n  {\n   \"name\": \"feedback-creative\",\n   \"title\": \"feedback-creative\",\n   \"summary\": \"title: \\\"Feedback Creativo Avanzado\\\"\",\n   \"file\": \"feedback-creative.md\"\n  },\n  {\n   \"name\": \"feedback-loop\",\n   \"title\": \"feedback-loop\",\n   \"summary\": \"title: \\\"Feedback Psicodélico\\\"\",\n   \"file\": \"feedback-loop.md\"\n  },\n  {\n   \"name\": \"particles-experto-feedback-sim\",\n   \"title\": \"particles-experto-feedback-sim\",\n   \"summary\": \"title: \\\"Sistema de partículas POP con feedback loop, colisiones simples y control de presupuesto de rendimiento\\\"\",\n   \"file\": \"particles-experto-feedback-sim.md\"\n  },\n  {\n   \"name\": \"spring-feedback-glsl\",\n   \"title\": \"spring-feedback-glsl\",\n   \"summary\": \"title: \\\"Simulación de Resortes con GLSL y Feedback\\\"\",\n   \"file\": \"spring-feedback-glsl.md\"\n  }\n ],\n \"pop_tutorial_suite\": true,\n \"total\": 28\n}"
+     "text": "{\n \"count\": 4,\n \"tutorials\": [\n  {\n   \"name\": \"feedback-creative\",\n   \"title\": \"Feedback Creativo Avanzado\",\n   \"summary\": \"Técnicas profesionales de feedback visual usando Feedback TOP, Delay COMP, transformaciones recursivas y shaders GLSL para crear bucles infinitos y orgánicos.\",\n   \"file\": \"feedback-creative.md\"\n  },\n  {\n   \"name\": \"feedback-loop\",\n   \"title\": \"Feedback Psicodélico\",\n   \"summary\": \"Los loops de feedback crean patrones hipnóticos y psicodélicos al realimentar la salida de un TOP a su propia entrada. Es una de las técnicas más características del TouchDesigner.\",\n   \"file\": \"feedback-loop.md\"\n  },\n  {\n   \"name\": \"particles-experto-feedback-sim\",\n   \"title\": \"Sistema de partículas POP con feedback loop, colisiones simples y control de presupuesto de rendimiento\",\n   \"summary\": \"Construir en `/project1` un sistema POP encapsulado en un `baseCOMP` llamado `pop_particles_sys` que cubra source, simulación, fuerzas, constraints y output con feedback loop correcto.\",\n   \"file\": \"particles-experto-feedback-sim.md\"\n  },\n  {\n   \"name\": \"spring-feedback-glsl\",\n   \"title\": \"Simulación de Resortes con GLSL y Feedback\",\n   \"summary\": \"Implementa un sistema masa-resorte completo en GPU usando GLSL Compute POPs con feedback loop para simulación incremental de física. Basado en el patrón SpringFeedbackPOP.\",\n   \"file\": \"spring-feedback-glsl.md\"\n  }\n ],\n \"total_available\": 28,\n \"pop_tutorial_suite\": true,\n \"total\": 28\n}"
     }
    ],
    "isError": false

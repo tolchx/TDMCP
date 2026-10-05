@@ -534,3 +534,5 @@ LIVE_TOOLS = [
 ]
 
 LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
+# Tools de lectura que no modifican la red de TouchDesigner
+LIVE_READONLY = {"td_status", "find_in_ops", "tdn_diff"}
