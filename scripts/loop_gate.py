@@ -10,6 +10,9 @@ Uso:
   python scripts/loop_gate.py --action commit          # deriva los paths de git
   python scripts/loop_gate.py --action auto-merge --paths docs/BACKLOG.md
   python scripts/loop_gate.py --action commit --no-tests
+  python scripts/loop_gate.py --action commit --paths a.py b.py --do-commit "mensaje"
+                                       # tras ALLOW: git add <paths> + git commit -m MSG -- <paths>
+                                       # commit por PATHSPEC: entra exactamente lo pedido, nunca -A
   python scripts/loop_gate.py --attempt 52             # registra un intento del item 52
   python scripts/loop_gate.py --status                 # intentos por item
 
@@ -96,7 +99,9 @@ def changed_paths() -> list[str]:
 
 
 def added_lines(paths: list[str]) -> int:
-    code, out = sh(["git", "diff", "--numstat", "HEAD"])
+    # Con pathspec: contar SOLO las líneas de los paths juzgados — los archivos
+    # dirty de un escritor concurrente no inflan el conteo del commit (ítem 3).
+    code, out = sh(["git", "diff", "--numstat", "HEAD", "--"] + paths)
     if code != 0:
         return 0
     total = 0
@@ -107,12 +112,76 @@ def added_lines(paths: list[str]) -> int:
     return total
 
 
+def staged_paths() -> list[str]:
+    """Lo que hay en el INDEX (`git diff --cached --name-only`, contra HEAD).
+
+    Es la superficie exacta de un `git add -A`: un commit sin pathspec publicaría
+    TODO esto, incluidos los archivos que la corrida no tocó (ítem 3).
+    """
+    code, out = sh(["git", "diff", "--cached", "--name-only"])
+    if code != 0:
+        return []
+    return sorted(p.strip().replace("\\", "/") for p in out.splitlines() if p.strip())
+
+
+def concurrent_outside(paths: list[str]) -> list[str]:
+    """Archivos dirty (staged/unstaged/untracked) que NO están en los paths juzgados.
+
+    No bloquean (un commit por pathspec no los toca y revertirlos sería destructivo
+    sobre trabajo vivo — decisión del ítem 4), pero el cierre debe DEJARLOS VISIBLES:
+    son la firma de un escritor concurrente en el mismo árbol.
+    """
+    en_paths = {p.replace("\\", "/") for p in paths}
+    return sorted(p for p in changed_paths() if p not in en_paths)
+
+
 def match_any(path: str, patterns: list[str]) -> str | None:
     p = path.replace("\\", "/")
     for pat in patterns or []:
         if fnmatch.fnmatch(p, pat) or fnmatch.fnmatch(p, pat.rstrip("/") + "/**") or p == pat:
             return pat
     return None
+
+
+def sh_raw(args: list[str], timeout: int = 600) -> tuple[int, str]:
+    """Como sh() pero SIN shell y CON stderr: para git add/commit, cuyos errores
+    ("nothing to commit", pathspec inválido) van a stderr. shell=False conserva
+    intacto el MENSAJE del commit (espacios/newlines) — sh() con shell=True en
+    Windows lo re-ensamblaría y lo rompería.
+    """
+    try:
+        r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=timeout, shell=False)
+        salida = (r.stdout or "") + (("\n[stderr] " + r.stderr) if r.stderr else "")
+        return r.returncode, salida
+    except Exception as e:  # noqa: BLE001
+        return 1, f"{type(e).__name__}: {e}"
+
+
+def do_commit(paths: list[str], mensaje: str) -> int:
+    """ALLOW → commit por PATHSPEC: entra exactamente lo pedido, nunca -A (ítem 3).
+
+    `git commit -m MSG -- <paths>` toma el contenido del working tree de esos paths
+    e IGNORA lo stageado de otros paths: el `git add -A` de un escritor ajeno NO
+    entra. El add previo es sólo para que los paths NUEVOS (untracked) sean
+    conocidos por el pathspec del commit.
+    """
+    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    code, out = sh_raw(["git", "add", "--"] + paths)
+    if code != 0:
+        print(f"  ✖ git add falló: {out.strip()[:300]}", file=sys.stderr)
+        append_runlog(f"- {ts} | gate | — | git add falló antes del commit | BLOCK | gate.yaml")
+        return 2
+    code, out = sh_raw(["git", "commit", "-m", mensaje, "--"] + paths)
+    if code != 0:
+        print(f"  ✖ git commit falló (¿paths sin cambios?): {out.strip()[:400]}", file=sys.stderr)
+        append_runlog(f"- {ts} | gate | — | git commit falló (paths sin cambios u otro error) | BLOCK | gate.yaml")
+        return 2
+    m = re.search(r"\[[^\]]+ ([0-9a-f]{7,})\]", out)
+    h = m.group(1) if m else "?"
+    print(f"  ✔ commit {h} — {len(paths)} archivo(s) exactos por pathspec (nunca -A)")
+    append_runlog(f"- {ts} | gate | — | commit {h} de {len(paths)} archivo(s) (pathspec, --do-commit) | gate.yaml")
+    return 0
 
 
 def paused() -> bool:
@@ -282,6 +351,9 @@ def main() -> int:
     ap.add_argument("--action", choices=["commit", "auto-merge"], default="commit")
     ap.add_argument("--paths", nargs="*", default=None)
     ap.add_argument("--no-tests", action="store_true")
+    ap.add_argument("--do-commit", metavar="MENSAJE", default=None,
+                    help="tras ALLOW: git add <paths> + git commit -m MENSAJE -- <paths> "
+                         "(commit por pathspec: exactamente los paths, nunca -A; ítem 3)")
     ap.add_argument("--judge", dest="judge", action="store_true", default=True,
                     help="corre el juez externo (jev) sobre el arbol; por defecto ON")
     ap.add_argument("--no-judge", dest="judge", action="store_false",
@@ -337,6 +409,20 @@ def main() -> int:
     if lineas > max_lines:
         motivos.append(f"{lineas} líneas agregadas > maxLines={max_lines}")
 
+    # Ítem 3 — barrido ajeno: con paths explícitos, lo STAGEADO fuera de ellos es
+    # la huella de un `git add -A` (propio o de otro escritor en el mismo árbol).
+    # Un commit por pathspec no lo tocaría, pero el cierre se ABORTA igual: el
+    # stage ajeno se perdería o se publicaría en el PRÓXIMO commit sin gate.
+    norm = {p.replace("\\", "/") for p in paths}
+    stageados = staged_paths()
+    ajenos = [p for p in stageados if p not in norm]
+    if ajenos:
+        lista = ", ".join(ajenos[:5]) + ("…" if len(ajenos) > 5 else "")
+        motivos.append(f"{len(ajenos)} archivo(s) STAGEADOS fuera de --paths ({lista}): probable "
+                       "`git add -A` de otro escritor — abortar el cierre (git restore --staged "
+                       "o incluirlos explícitamente en --paths)")
+    concurrentes = concurrent_outside(norm)
+
     if not motivos and args.judge:
         permite, v, motivo = run_judge(args.brief_file)
         judge_info = {"veredicto": v.get("veredicto"), "naturaleza": v.get("naturaleza"),
@@ -356,18 +442,25 @@ def main() -> int:
 
     veredicto = "BLOCK" if motivos else "ALLOW"
     resumen = {"veredicto": veredicto, "accion": args.action, "judge": judge_info, "archivos": len(paths),
-               "lineas_agregadas": lineas, "motivos": motivos, "tests": tests_info, "paths": paths[:20]}
+               "lineas_agregadas": lineas, "motivos": motivos, "tests": tests_info, "paths": paths[:20],
+               "stageados_ajenos": ajenos, "concurrentes": concurrentes[:20]}
     if args.json:
         print(json.dumps(resumen, indent=2, ensure_ascii=False))
     else:
         print(f"{veredicto} · acción={args.action} · {len(paths)} archivo(s), {lineas} línea(s) agregadas")
         for m in motivos:
             print(f"  ✖ {m}")
+        if concurrentes:
+            lista = ", ".join(concurrentes[:5]) + ("…" if len(concurrentes) > 5 else "")
+            print(f"  ! {len(concurrentes)} archivo(s) dirty fuera de --paths (no entran al commit con "
+                  f"pathspec; escritor concurrente?): {lista}")
         if not motivos:
             print("  ✔ dentro de gate.yaml (denylist, maxFiles/maxLines, allowlist, suites verdes)")
 
     if veredicto == "ALLOW":
-        append_runlog(f"- {datetime.now(timezone.utc).isoformat(timespec='seconds')} | gate | — | {args.action} sobre {len(paths)} archivo(s) | ALLOW | gate.yaml")
+        append_runlog(f"- {datetime.now(timezone.utc).isoformat(timespec='seconds')} | gate | — | {args.action} sobre {len(paths)} archivo(s) | ALLOW | conc={len(concurrentes)} | gate.yaml")
+        if args.do_commit:
+            return do_commit(paths, args.do_commit)
         return 0
     append_runlog(f"- {datetime.now(timezone.utc).isoformat(timespec='seconds')} | gate | — | {args.action} sobre {len(paths)} archivo(s) | BLOCK: {'; '.join(motivos)[:200]} | gate.yaml")
     return 2

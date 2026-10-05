@@ -23,6 +23,7 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | gate, `--paths` con los paths del cambio (≤ `maxFiles`) | `ALLOW · ✔ dentro de gate.yaml (…) suites verdes` · exit 0 |
 | gate, invariante sembrada (`_seed_single_home.py`) | `BLOCK · ✖ las suites no están verdes` · exit 2 · `--json`: `single_home exit=1` |
 | gate, entrada sin `--paths` (paths derivados de git) | `BLOCK · ✖ 15 archivos > maxFiles=12` · exit 2 — **sólo por tamaño**: es el diff acumulado de la sesión, no un rojo de suites |
+| gate, cierre por pathspec (`--do-commit`) + BLOCK por stage ajeno (ítem 3, 2026-10-05) | clon temporal + árbol real: commit con EXACTAMENTE los paths pedidos (untracked incluido, `README.md` stageado ajeno NO entra); `--paths README.md` limpio → `✖ git commit falló` exit 2; BLOCK con stage ajeno fuera de `--paths` |
 | `build_pop_fountain.py` (asienta por `chain_source`) | `results/20260929-150850` — 8/8 cheks, 0 fallos |
 | `build_godrays_particles.py` (asienta por `chain_source`) | `results/20260929-150924` — 0 fallos |
 | `build_pop_curlfield.py` (incluye `selftest_render_ownership`) | `results/20260929-150538` — 45 calls, 0 fallos |
@@ -154,14 +155,24 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `td_probe.chain_source` (probado con la invariante sembrada: ver *Estado verificado*). Detectado
   por: el ciclo diario, verificando el árbol publicado.
 
-- [ ] 3. **El cierre del ciclo commitea con `git add -A` y publica WIP de un escritor concurrente.**
+- [x] 3. **El cierre del ciclo commitea con `git add -A` y publica WIP de un escritor concurrente. CERRADO 2026-10-05 con hardening mecánico en el gate.**
   Evidencia real (2026-09-29): el commit de cierre `6cab054` barrió `tools/gauntlet/build_pop_fountain.py`
   (nuevo, 179 líneas, mtime 03:24:01) y `tools/gauntlet/td_probe.py` (+30) que **no** escribió la
   corrida: los escribió otro agente/sesión en el **mismo working tree** (sus corridas quedaron en
   `results/20260929-032233/032405/032429`). El gate no lo vio porque sólo juzga los paths que se le
-  pasan. Qué hacer: cerrar con `git add <paths explícitos>` (nunca `-A`) y abortar el cierre si
-  aparecen archivos nuevos/modificados que la corrida no tocó. Detectado por: el ciclo diario
-  (comparando `git status` antes/después del add).
+  pasan. **REPETIDO el 2026-10-02 07:34:54:** `ec27eb7` ("feat(knowledge): integrate 79 shaders…")
+  barrió los 13 archivos del tramo 5c de una sesión cortada media hora antes (2,072 líneas de
+  builds, +93 de C17, regression_pop, td_probe y el borrado de 2 sondas) mezclados con los knowledge
+  propios — el bullet final del mensaje ("include gauntlet test builds") confiesa que el committer
+  VIO los archivos ajenos y los publicó igual. Fix mecánico en `scripts/loop_gate.py`:
+  (1) BLOCK si hay archivos STAGEADOS fuera de `--paths` (`git diff --cached` vs paths: la huella
+  del `git add -A`, propio o ajeno); (2) reporte no-bloqueante `conc=N`/`concurrentes` de lo dirty
+  fuera de los paths (escritor concurrente VISIBLE; revertir sería destructivo, ver ítem 4);
+  (3) `--do-commit "MSG"`: tras ALLOW corre `git add -- <paths>` + `git commit -m MSG -- <paths>` —
+  commit por PATHSPEC que no puede barrer nada fuera de lo pedido (nunca `-A`); (4) `added_lines`
+  cuenta con pathspec: los archivos ajenos ya no inflan `maxLines`. Probado en clon temporal y
+  árbol real (ver *Estado verificado*). Detectado por: el ciclo diario (comparando `git status`
+  antes/después del add) — ahora también lo frena el gate en el momento del cierre.
 
 - [ ] 4. **Hallado por el loop (triage automático)** — 4 archivo(s) modificados sin commitear. Evidencia: knowledge/contracts/VERIFIED_CONTRACTS.md; knowledge/selftest_protocol.json; skills-hermes/td-pop-trails-fields/SKILL.md; tools/gauntlet/build_pop_trails_floor.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `b6e661339e23a028`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
   **DECISIÓN 2026-09-30 (ciclo diario, intento 1): NO commitear y NO revertir — ítem ABIERTO.**
