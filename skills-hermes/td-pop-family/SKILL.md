@@ -128,8 +128,7 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **spherePOP es `rad` (XYZW) y `cols`/`rows`** — NO `radius` ni `columns`. `rad` expone `radx/rady/radz`. `cols`/`rows` son los Int de subdivisión. (circlePOP en cambio sí usa `radx/rady`)
 - **`display`/`render` son PROPIEDADES del OP, no params** — `op.display = True` / `op.render = True`. `op.par.display` da `AttributeError: 'td.ParCollection' object has no attribute 'display'`
 - **poptoCHOP: `.chans()` y `.numSamples`** — NO `.channels` (método vs atributo). `poptoCHOP.par.pop` toma ruta **absoluta** (relativa `./geo/x` → warning "Invalid path")
-- **`set_parameters` del MCP usa clave `values`** — `{"path":..., "values":{...}}`, no `params`
-- **mathMixPOP y lookupAttributePOP NO existen en el build** — `get_help` responde `unknown_operator_type` verbatim (98 familias POP reales vs 101 docs de la KB); nunca asumir que un tipo de la lista de la KB existe
+- **mathmixPOP y lookupattributePOP existen pero son ESTRICTAMENTE minúsculas antes de POP** — `get_help` y `create_operator` rechazan camelCase (`mathMixPOP`, `lookupAttributePOP`) con `unknown_operator_type`. Con el casing oficial en minúsculas (`mathmixPOP`, `lookupattributePOP`), ambos existen y funcionan con todas sus capacidades. Ver `td-pop-snippets-patterns`.
 - **sprinklePOP sin input alimenta 0 canales al poptoCHOP** — necesita geometría debajo (toro/grilla): los generadores de superficie no generan nada solos
 - **groupPOP `debugcolor=1` es el único camino para LEER membresía de grupo** — escribe Color=0.8 dentro / 0.2 fuera; sin él el grupo no deja canal alguno; condición por `attr0inattr/attr0func/attr0value`
 - **transformPOP.group con grupo vacío o mal escrito NO filtra: mueve TODO** — el string no se valida; para excluir hace falta un groupPOP aguas arriba

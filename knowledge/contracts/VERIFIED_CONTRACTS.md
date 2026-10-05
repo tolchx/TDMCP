@@ -916,11 +916,12 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
 
 ### `particle_trail_lifecyle` — Identidad persistente en sistemas de partículas [V]
 - **`PartId` & Don't Reuse Point Id:** En simulaciones `particlePOP`, para construir estelas
-  coherentes mediante `trailPOP`, `pointidreuse` debe configurarse en `noreuse` ("Don't Reuse
-  Point Id"). Esto garantiza que el atributo `PartId` no se recicle cada ciclo de vida
-  (evitando artefactos de teletransportación de estelas al expirar `maxparticles`).
+  coherentes mediante `trailPOP`, `pointidreuse` debe configurarse en `'none'` (menú real
+  `['loop', 'unused', 'none']` correspondiente a "Don't Reuse Point Id"). Esto garantiza que el
+  atributo `PartId` no se recicle cada ciclo de vida (evitando artefactos de teletransportación
+  de estelas al expirar `maxparticles`).
 - **Conexión por ID en `trailPOP`:** Cuando la cuenta de puntos es dinámica cuadro a cuadro,
-  `trailPOP.par.matchbyattr` debe apuntar al atributo `PartId`.
+  activar `trailPOP.par.attrmatch = True` y apuntar `trailPOP.par.attrname = 'PartId'`.
 
 ### `field_pop_parameter_override` — Inyección paramétrica de campos por punto [V]
 - **Convención de anulación paramétrica:** `fieldPOP` permite definir un campo por punto (ej.
