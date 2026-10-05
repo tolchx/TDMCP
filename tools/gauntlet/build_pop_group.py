@@ -13,10 +13,12 @@ Red /pop_group: gx (gridPOP 5x4, 20 pts, 12 quads) + gp (groupPOP, grupo 'ng1')
   * debugcolor cuantiza la membresia: 2 valores de Color exactos, y el valor
     A acompana SOLO a los puntos que se movieron (pairing por indice), el B a los quietos.
   * grupo SIN miembros ('ghost') mueve TODO (20/20 dy=1.2) — reproduce C15 en red propia.
-  * bound (pagina Bounding): en TODAS las configs probadas (bsphere 0.01..5,
-    bbox 0.1..20, trasladado tx=10, invert) el criterio NO excluye a nadie via
-    API (20/20 en el discriminador) — sin efecto medible; queda ABIERTO si
-    requiere algo mas alla de los pars.
+  * bound (pagina Bounding): con el bloque en OFF (default `bound0enabled=False`)
+    no hace NADA — eso fue lo que midio el build original. CERRADO en C17
+    (2026-10-05, sonda desechable): con ON excluye de verdad (radio = 0.5*scale
+    ABSOLUTO, frontera inclusiva, invert = complemento exacto, bound∩attr = AND
+    fijo entre paginas, combine solo entre bloques de la misma secuencia; la
+    membresia queda STALE tras el primer enable: releer).
   * API de secuencias: numBlocks=0 lanza tdError 'Minimum size is 1 block'
     (verbatim) y destroyBlock no baja de 1 — piso de 1 bloque por secuencia.
   * 'remunusedpoints' figura en get_help (catalogo 2025.33070) pero NO existe

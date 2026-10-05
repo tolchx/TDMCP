@@ -808,15 +808,25 @@ exacto (10/20 en todas las corridas). `debugcolor` cuantiza Color en 2 valores e
 (0.2/0.8) y el valor A acompaña SOLO a los movidos (pairing por índice). Grupo 'ghost' sin
 miembros MUEVE TODO (20/20, C15 reproducido en la red 5c).
 
-### `grouppop_bound_sin_efecto_api` — el bound del groupPOP no excluye a nadie vía API (contrato ABIERTO) [abierto]
-La secuencia `bound` se escribe estilo Sequence: `gp.par.bound.sequence.numBlocks = N` (el
-objeto tiene numBlocks/insertBlock/destroyBlock/blocks/blockSize/blockParGroups/sortBlocks).
-`numBlocks=0` lanza `tdError: Minimum size is 1 block. Value:0 Type:<class 'int'>.` (verbatim)
-y `destroyBlock(0)` tampoco baja de 1: PISO de 1 bloque. En 4 configs (bsphere 0.01..5, bbox
-0.1..20, punto trasladado tx=10, invert) NINGUNA excluye un punto (20/20 siempre dentro,
-err='' sin errores). Queda ABIERTO cómo se excluye vía API (¿requiere inattr='P' por bloque?
-¿UI?). `remunusedpoints` figura en get_help (catálogo 2025.33070) pero NO existe en el build
-vivo 2025.32460: help stale.
+### `grouppop_bound_sin_efecto_api` — CERRADO (2026-10-05): bound excluye con `bound0enabled=ON` [V]
+Cerrado con la sonda desechable `probe_bound2.py` (6 fases, run `results/probe_bound2`, grid 5x4 =
+20 pts, lectura DIRECTA de membresía via `debugcolor` Color 0.8/0.2). Causa raíz del "sin efecto"
+medido en el build 5c: el bloque de la secuencia bound tiene Toggle `bound0enabled` (default
+**False**) y ese build nunca lo encendió — con OFF NINGÚN par del bloque hace nada. Con ON:
+* bsphere: radio = **0.5 × scale ABSOLUTO**, no relativo al bbox del input (grid 2x2 con scale 1.0
+  captura d≤0.5 = 2 pts, no 4). Frontera INCLUSIVA (d=0.5 queda fuera con s=0.999 y dentro con
+  s=1.0). bbox: bbox del input escalado (s=0.3 captura 0; con invert, los 20).
+* `bound0invert` = COMPLEMENTO EXACTO (s=1.0: 8/12 dentro/fuera → invert 12/8).
+* bound ∩ condición de atributo = **AND fijo ENTRE PÁGINAS** (los menús `*combine` NO aplican entre
+  páginas): {P.x≥0}∩{d≤0.5}=4, {P.x≥0}∩{d≤0.3}=1, y con bound capturando 0 → 0 siempre.
+* `combine` SÍ aplica ENTRE BLOQUES de la MISMA secuencia (2 esferas 6+8 pts: or 10, xor 6, and 4,
+  nor 10; 2 bloques attr disjuntos: or/xor 20, and 0).
+* Los bloques de la página Attribute NO tienen Toggle enabled (siempre activos: solo existen
+  combine/func/inattr/invert/value); solo bound tiene `enabled`. `attr0inattr` vacío = condición
+  vacía = pasa todos (func/value sin efecto).
+* TRAMPA: membresía STALE tras el primer enable (primera lectura 8, relecturas 0 en s=0.3): el
+  discriminador transform arrastra ese stale; re-leer SIEMPRE (doble lectura por config).
+`remunusedpoints` (C17 original) sigue sin existir en el build vivo 2025.32460: help stale.
 
 ### `proximity_conteos_exactos` — el grafo es distancia pura y los conteos son reproducibles [V]
 Grid 3x3 spacing 0.2 (9 pts, 4 quads): `maxdist=0.21` + `duplines='avoid'` = EXACTAMENTE 12
