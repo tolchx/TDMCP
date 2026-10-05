@@ -928,4 +928,16 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
   desde un `pointPOP`). La regla fundamental es que los nombres de los atributos de entrada
   deben coincidir exactamente con el nombre del parámetro del `fieldPOP` que modifican
   (ej. atributo `radx` anula el parámetro `radx`; `P` anula los parámetros `tx`, `ty`, `tz`).
+- **Nombres reales de salida en `fieldPOP` [V]:** El toggle `weight=True` crea el atributo `Weight`.
+  El toggle `signeddistance=True` crea el atributo **`Dist`** (NO `SignedDistance`).
+
+### `ray_pop_intersection_attrs` — Detección de colisiones y atributos de rayo [V]
+- En `rayPOP` (Input 0 = origen/dirección de rayos, Input 1 = geometría de colisión), al activar
+  los toggles de medición se generan en GPU los siguientes atributos exactos [V]:
+  - `dist=True` crea el canal de distancia **`RayDistance`**.
+  - `hitnormal=True` crea el vector normal de impacto **`RayHitNormal`**.
+  - `numhits=True` crea el conteo de impactos **`RayNumHits`**.
+- La combinación `rayPOP` + `mathmixPOP` es el estándar en OP Snippets para rebotes físicos
+  sin requerir bucles pesados de shaders en CPU ni simulaciones lentas.
+
 
