@@ -712,12 +712,16 @@ REALES (live-connectivityPOP.json): `surftype` (mismo menú que trailPOP: none/p
 linestrips/linestripperplane/zigzagperplane/spiralperplane/triangles/alttriangles/quads),
 `firstdim/seconddim/firstdimclosed/seconddimclosed/reorderpoints`.
 
-### `pop_help_no_existe` — dos tipos de la lista de prioridad NO existen en el build [V]
+### `pop_help_no_existe` — casing sensible en tipos POP: `mathmixPOP` y `lookupattributePOP` [V]
 `get_help {'types':['mathMixPOP','lookupAttributePOP']}` respondió verbatim
-`"error": "Not found", "code": "unknown_operator_type"` (evidencia:
-`results/20260930-090146/help/help-mathMixPOP.txt` y `help-lookupAttributePOP.txt`); el
-build vivo declara 98 familias POP vs 101 docs en `knowledge/kb/pops/operators/`. Los
-nombres reales del resto salieron de `get_help {'types':[...],'verbose':true}` (firma
+`"error": "Not found", "code": "unknown_operator_type"` porque en TD los tipos internos
+son **totalmente en minúsculas antes de 'POP'**: `mathmixPOP` y `lookupattributePOP`.
+Con el casing correcto (`mathmixPOP`, `lookupattributePOP`), `get_help` y `create_operator`
+responden **exitosamente** en TouchDesigner 2025.32460 (verificado en vivo con OP Snippets
+oficiales `mathmixPOP.tox` y `lookupattributePOP.tox`). Ambos operadores **SÍ existen** y son
+fundamentales: `mathmixPOP` tiene 26 parámetros y soporta más de 70 operaciones matemáticas, y
+`lookupattributePOP` realiza lookups arbitrarios atributo→atributo.
+Los nombres reales del resto salieron de `get_help {'types':[...],'verbose':true}` (firma
 validada; `operator_type` no existe) + `get_parameters(path, include_defaults=true,
 include_menus=true)` sobre instancias vivas — los valores de menú del help estático venían
 stale ("menuDataStale: 2025.33070 vs build 2025.32460").
@@ -876,3 +880,51 @@ exacto. Determinismo: dos lecturas completas idénticas. Nombres REALES: `top`, 
 `lookupindexattr0/1/2` (default 'P(0)'/'P(1)'), `lookupindexoffset0/1/2`, `indexunit`
 (normalized/pixelindex), `pixelcentered0..2`, `inputextend0..2`, `interpolate`, `channelmask`
 (Int bitmask 15 = RGBA).
+
+---
+
+## C18 — Arquitectura POP oficial extraída de OP Snippets (2026-10-05)
+
+Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippets/POP/`
+(TouchDesigner build 2025.32460).
+
+### `pop_data_model_hierarchy` — Clases de atributos y metadata de dimensión [V]
+- **Jerarquía de atributos:** Puntos (Points: escalares o vectores float3/4 como `P`), Primitivas
+  (Primitives: conectividad como polígonos/líneas y attrs por primitiva), y Vértices (Vertices:
+  attrs por unión vértice-primitiva).
+- **Notación de componentes y Swizzling:** Se soporta indexación formal `P(0)`, `P(1)`, `P(2)`,
+  swizzling vectorial estándar `.xyz`, `.rgba`, y para atributos de usuario o dimensiones
+  arbitrarias la notación canónica `.i0123` (ej. `Polar.i012`, `Timecode.i0123`).
+- **Dimensión como metadata (`dim`):** POPs matriciales (`gridPOP`, `planePOP`) emiten metadata
+  de dimensión implícita (ej. 2D o 3D con slices). Las dimensiones se componen río abajo al
+  copiar (`copyPOP` de un círculo 1D sobre un grid 2D genera estructura de 3 dimensiones).
+- **POPs sin atributo P:** Es un patrón válido y oficial. Se crean nubes puras de datos/atributos
+  sin posiciones espaciales usando `pointPOP`, `patternPOP`, `selectPOP`, o activando
+  `Delete Input Attributes` en la página Common. Son los "uniforms" o tablas de lookup ideales
+  para alimentar `mathmixPOP` o `mathcombinePOP`.
+
+### `mathmix_mathcombine_uniforms` — Mezclado matemático y uniformes sin overhead [V]
+- **`mathmixPOP`:** Soporta más de 70 operaciones matemáticas (`sin`, `mix`, `cross`, `dot`,
+  `smoothstep`, `clamp`, etc.). Puede procesar múltiples inputs (`input0` mantiene nombres,
+  `input1` prefija `in1_`).
+- **Atributos Built-in con guión bajo (`_`):** Operadores como `mathPOP`, `mathmixPOP`,
+  `mathcombinePOP`, `lookupattributePOP` exponen atributos automáticos precalculados que
+  comienzan con `_` (ej. `_index`, `_weight`).
+- **Página Uniform:** Permite inyectar valores constantes (1 a 4 floats) desde expresiones, CHOPs
+  o bindings sin necesidad de instanciar un canal por punto en GPU, evitando el costo de memoria
+  de atributos completos.
+
+### `particle_trail_lifecyle` — Identidad persistente en sistemas de partículas [V]
+- **`PartId` & Don't Reuse Point Id:** En simulaciones `particlePOP`, para construir estelas
+  coherentes mediante `trailPOP`, `pointidreuse` debe configurarse en `noreuse` ("Don't Reuse
+  Point Id"). Esto garantiza que el atributo `PartId` no se recicle cada ciclo de vida
+  (evitando artefactos de teletransportación de estelas al expirar `maxparticles`).
+- **Conexión por ID en `trailPOP`:** Cuando la cuenta de puntos es dinámica cuadro a cuadro,
+  `trailPOP.par.matchbyattr` debe apuntar al atributo `PartId`.
+
+### `field_pop_parameter_override` — Inyección paramétrica de campos por punto [V]
+- **Convención de anulación paramétrica:** `fieldPOP` permite definir un campo por punto (ej.
+  desde un `pointPOP`). La regla fundamental es que los nombres de los atributos de entrada
+  deben coincidir exactamente con el nombre del parámetro del `fieldPOP` que modifican
+  (ej. atributo `radx` anula el parámetro `radx`; `P` anula los parámetros `tx`, `ty`, `tz`).
+
