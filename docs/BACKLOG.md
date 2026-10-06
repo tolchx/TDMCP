@@ -250,3 +250,14 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   - `EXPECTED_TOOLS = 27` en `healthcheck.py` y `LIVE_READONLY` exportado en `live.py`.
   - Todas las suites verificadas en verde: `server.py --selftest` (21/21 ok), `test_protocol.py` PASS, `healthcheck.py` PASS (cero problemas), `test_live.py` (12/12 etapas exitosas contra TouchDesigner vivo). Gate commit ALLOW.
 
+- [ ] 9. **Hallado por el loop (triage automático)** — 2 archivo(s) modificados sin commitear. Evidencia: tools/gauntlet/build_pop_line.py; tools/gauntlet/probe_5d_scout.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `ab380a16c7831674`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+  **Auditoría del ciclo diario 2026-10-06 (evidencia real, no cierre):** ambos archivos son
+  trabajo TERMINADO del escritor concurrente sobre el **item 5d** (cobertura POP) y compilan.
+  - `tools/gauntlet/build_pop_line.py` (232 l.) = build 1/6 (**linePOP**); última corrida
+    `results/20261005-123124/build-pop-line-report.json`: `ok=true`, **14/14 checks PASS**
+    (geometría exacta, divs+1, closed 2×, ctrlpoints, 2·divs+1, guardia de píxeles).
+  - `tools/gauntlet/probe_5d_scout.py` (124 l.) = sonda de esquema de los 6 tipos
+    (`results/probe_5d/scout-*.jsonl`).
+  Decisión del ciclo: **NO commitear** (WIP ajeno sin verificación en el brief del ciclo) y
+  **NO revertir** (destruye trabajo vivo). **Item ABIERTO** — lo decide Tolch (mismo criterio
+  que el item 4). Ver `docs/loop-run-2026-10-06.md`.
