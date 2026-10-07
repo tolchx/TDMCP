@@ -20,3 +20,5 @@
 - 2026-10-06T03:08:49+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 9 | loop-candidates.json
 - 2026-10-06T03:10:27+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos; item 9 (arbol-sucio, 2 archivos) NO ejecutado (decision humana); los 2 WIP son de item 5d y build_pop_line.py da 14/14 PASS (results/20261005-123124); entorno sano: offline 21/21, td_probe 6/6, single_home 0 violaciones, gauntlet quick+full PASS (F3.6 verde = item 8 OK) | docs/loop-run-2026-10-06.md | tools/gauntlet/results/20261006-000907
 - 2026-10-06T03:10:51+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-07T03:13:10+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos; item 9 (arbol-sucio, 2 archivos) NO ejecutado (decision humana); entorno verde: offline 21/21, td_probe 6/6, single_home 0 violaciones, gauntlet quick+full PASS (F1 9, F2 26, F3.1 15, F3.2 16, F3.3 26, F3.4 12, F3.5 18, F3.6 19, F4 INFO 33) | docs/loop-run-2026-10-07.md | tools/gauntlet/results/20261007-001339
+- 2026-10-07T03:14:50+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=2 | gate.yaml
