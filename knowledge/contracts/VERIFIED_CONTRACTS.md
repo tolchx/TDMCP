@@ -950,4 +950,17 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
 - La combinación `rayPOP` + `mathmixPOP` es el estándar en OP Snippets para rebotes físicos
   sin requerir bucles pesados de shaders en CPU ni simulaciones lentas.
 
+### `normalpop_tangents_vertex_class` — Tangentes se generan en la clase Vertex como 'T' [V]
+- En `normalPOP`, activar `nml='alwayscompute'` crea/recalcula el vector normal **`N` en `pointAttributes`**.
+- Activar `tang='alwayscompute'` genera las tangentes para sombreado PBR con el nombre **`T`**
+  (y NO 'Tangent') dentro de **`vertAttributes`** (clase Vertex), no en Points [V].
+
+### `attributeconvert_interclass_migration` — Migración exacta entre clases de atributos [V]
+- `attributeconvertPOP` con `convertop='pointtovert'` transfiere atributos desde `pointAttributes`
+  hacia `vertAttributes` (útil para adaptar `P`, `Tex` o `Color` hacia primitivas o materiales
+  que exigen atributos por vértice).
+- Con `convertop='pointtoprim'` o `verttopoint` la topología de datos se reconfigura sin alterar
+  el número de muestras subyacentes [V].
+
+
 
