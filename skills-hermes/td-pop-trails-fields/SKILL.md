@@ -16,6 +16,14 @@ description: "Use when building motion trails (trailPOP), particle sims with fee
 > **`/pop_field_trails`** (campo de estelas directo sin glsl, proyecto 8).
 > Qué corrida verificó cada una: `docs/BACKLOG.md → Estado verificado` (dueño único).
 > Contratos completos con evidencia: **C8–C11** de `knowledge/contracts/VERIFIED_CONTRACTS.md`
+>
+> **Complementos (2026-10-07).** La **arquitectura** de la simulación (elegir `feedbackPOP` vs
+> `particlePOP` con/sin `timeintegration`, fuerzas dentro del lazo `targetpop`, costos) está en
+> **`td-pop-particle-systems`**; la **interacción con geometría y vecinos** (`neighborPOP`,
+> `proximityPOP`, `forceradialPOP`/`fieldPOP`, `rayPOP`) en **`td-pop-neighbors-and-rays`**. Esa
+> segunda skill destila tutoriales (**no verificados en vivo**) y anota el choque abierto con C10
+> sobre el reset (`initializepulse`/`preroll`): si vas a resetear la simulación, seguí el contrato
+> (`life`), no el atajo de la UI.
 > (tool offline `contracts`). La estructura de render (geometryCOMP, auto-torus, flags del
 > terminal, material, gradables) la da **`td-pop-render-pipeline`** — acá sólo lo específico de
 > trails, sims y campos.

@@ -264,3 +264,26 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   **Revisión del ciclo diario 2026-10-07:** mismo par de archivos (232 l. + 124 l.), ambos
   `py_compile` OK; sin cambios respecto del 06/10, no se commiteó ni revirtió. Entorno verde
   (gauntlet completo PASS, `results/20261007-001339`). Ver `docs/loop-run-2026-10-07.md`.
+
+- [ ] 10. **Tutoriales de YouTube 2026 → skills POP (pase interactivo del 2026-10-07).** Se
+  transcribieron y destilaron 10 tutoriales de sistemas POP (46.033 palabras) a 2 skills nuevas:
+  `td-pop-particle-systems` (arquitectura de simulación, `targetpop`, fuerzas, `copyPOP` con
+  plantillas) y `td-pop-neighbors-and-rays` (`neighborPOP`/flocking, `forceradialPOP` standalone +
+  `specpop`, `proximity`/`skin`, **`rayPOP`**). Detalle y provenance: `docs/pop-tutorials-2026-10-07.md`.
+  **Todo el conocimiento [T] está SIN verificar en vivo** (había un escritor concurrente sobre el
+  mismo TD; la suite TD no se corrió, ver §5 del reporte). Deuda accionable, por orden de valor:
+  - **`rayPOP`**: 0 mediciones. Inputs (puntos + geometría), `fastbuild`, salidas
+    (`hitnormal`/`dist`/`numhits`/`inside`/`barycoords`/`hitprimindex`) y el **gating por
+    `mathcombinePOP` con atributo 0/1** como selector del `mix`. Candidato #1 del ítem 5d.
+  - **Flocking con `neighborPOP`** (3 bandas + steering) y el error de alineación (delta vs normal
+    objetivo): receta sin un solo número medido.
+  - **`forceradialPOP` standalone** (`mathmix A*B` → escalar, `A+B` → sumar a `P`) y su gotcha
+    `direction=000` anula la espiral.
+  - **Reset de simulación**: choque abierto entre el atajo de teclado del tutorial
+    (`initialize`/timer) y `particle_initialize_enferma` (C10: `initializepulse`+`preroll` hinchan el
+    buffer por API). Medir con una sonda antes de adoptar el reset del tutorial en código.
+  - **Hueco de KB declarado**: Gaussian Splatting sobre POPs es un **componente + shader de vértices**
+    sobre build experimental (no hay tipo POP de GS en la matriz de 97/101). No promovido a skill por
+    volatilidad entre builds.
+  Herramientas que deja el pase: `tools/fetch_youtube_transcripts.py` (transcripts reutilizables) y
+  `tools/verify_tutorial_extracts.py` (verifica que cada cita exista en el transcript: 81/85 = 95%).

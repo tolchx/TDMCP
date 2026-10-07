@@ -89,6 +89,12 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Trails / animated 4D fields**: `trailPOP` (ACUMULA el campo: el enjambre migra y la cámara
   va al centroide de P, no al origen) y `noisePOP` con `type` 4D animado por `t4d` (sólo mueve
   puntos con tipo 4D). Recetas verificadas y pars reales del build: skill **`td-pop-trails-fields`**
+- **Elegir mecanismo de simulación** (`feedbackPOP` vs `particlePOP` con/sin `timeintegration`, nodos
+  vs GLSL), ciclo de vida y `targetpop`, fuerzas dentro del lazo, `copyPOP` con plantillas de
+  atributos y presupuesto GPU: skill **`td-pop-particle-systems`**
+- **Interacción con geometría y vecinos**: `neighborPOP` (flocking), `proximityPOP`/`skinPOP`,
+  `forceradialPOP`/`fieldPOP` (campos y `specpop`) y **`rayPOP`** (colisiones por raycast):
+  skill **`td-pop-neighbors-and-rays`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
