@@ -287,3 +287,44 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
     volatilidad entre builds.
   Herramientas que deja el pase: `tools/fetch_youtube_transcripts.py` (transcripts reutilizables) y
   `tools/verify_tutorial_extracts.py` (verifica que cada cita exista en el transcript: 81/85 = 95%).
+
+- [ ] 11. **Hallazgo del pase del 2026-10-07 — el juez externo (jev) juzga el ÁRBOL ENTERO, no el
+  diff del commit.** `scripts/loop_gate.py::run_judge` arma
+  `python jev_audit_diff.py --repo ROOT --json` **sin pasarle los `--paths`** del commit; el juez hace
+  `git status --porcelain` y difea *todo* lo sucio (su `construir_diff` usa `git status`, no el
+  pathspec). Evidencia de esta sesión (había un escritor concurrente vivo):
+  `python jev_audit_diff.py --repo <repo> --brief .freebuff_tasks/brief-pop-tutorials-2026-10-07.txt`
+  → `ROJO no_corresponde_al_brief=0.21 · diff_truncado`, y en "archivos juzgados" entran
+  `knowledge/build_tutorial_*.py`, `knowledge/selftest_protocol.json`, `tools/gauntlet/build_pop_line.py`
+  y `loop-run-log.md` — **nada** de eso estaba en el brief ni en los 9 paths del commit.
+  Consecuencia: con cualquier WIP ajeno en el árbol (situación **recurrente** en este repo: items 3, 4,
+  9 y este mismo pase) el veredicto queda sesgado y además **trunca el diff** → el juez deja de mirar
+  justo el cambio que se va a publicar. Es el pitfall 8 de la skill `juez-externo-jev` ("si lo corrés
+  después de escribir los docs → ROJO espurio") y el pitfall 3 ("bucket de ruido conocido") en versión
+  estructural. **Fix propuesto:** que `run_judge` reciba los `--paths` del gate y los pase al juez
+  (un `--paths` nuevo en el script, o un `--max-chars` acorde); mientras tanto, el veredicto del juez
+  sobre un árbol con escritor concurrente **no es evidencia** y hay que reportarlo como tal.
+  **Estado de este pase:** el gate igual dio **ALLOW** (naturaleza `trabajo_real`, `debilita=0.12 < 0.6`);
+  el ROJO se reportó sin bloquear, que es lo que manda la regla advisory de Tolch.
+  **Prueba (reproducible):** con un `git clone --no-hardlinks` + copiar **sólo** los archivos del pase,
+  el juez sobre el árbol AISLADO da **`VERDE trabajo_real (0.99) · debilita=0.06 · corresponde=0.69`**
+  (2ª corrida, delta final: `VERDE (0.97) · debilita=0.05 · corresponde=0.63`). En el árbol real, con el
+  mismo contenido, da `ROJO corresponde=0.09..0.21 · diff_truncado`. La diferencia es **sólo** el WIP
+  ajeno: el juez no está midiendo el commit, está midiendo la convivencia de dos sesiones.
+
+- [ ] 12. **El commit `6075955` mezcló DOS sesiones (pasó el 2026-10-07, ~11:22:59).** Lo hizo la otra
+  sesión viva (autor `tolchx`) y **ya está en `origin/main`**. Entraron en el mismo commit los 4
+  `knowledge/build_tutorial_*.py` de esa sesión **y 9 archivos de este pase** (`td-pop-particle-systems`,
+  `td-pop-neighbors-and-rays`, `td-pop-family`, `td-pop-trails-fields`, `docs/pop-tutorials-2026-10-07.md`,
+  `docs/BACKLOG.md` ítem 10, `FORK-NOTES.md`, `tools/verify_tutorial_extracts.py`) — un **snapshot a
+  mitad de camino** de este trabajo, más `knowledge/selftest_protocol.json` (artefacto generado).
+  Mecanismo probable: el gate **sin `--paths` deriva los paths de `git`** (todo lo sucio), así que el
+  hardening del ítem 3 ("BLOCK por stage ajeno fuera de --paths") **no cubre el caso sin paths** —
+  commitea el árbol entero, incluido el WIP ajeno. Es el mismo modo de falla que el ítem 3 quiso cerrar,
+  por la puerta de atrás.
+  **Qué queda de este pase después de esa mezcla:** `docs/BACKLOG.md` (ítems 11 y 12) +
+  `tools/fetch_youtube_transcripts.py` (quedó afuera del barrido) → se commitean aparte, por pathspec.
+  **Para revisar a mano:** `git show --stat 6075955` (¿la otra sesión quería publicar los 9 archivos de
+  este pase?, ¿el snapshot de las 2 skills es el bueno?) y **regla operativa nueva**: cuando hay dos
+  sesiones vivas sobre el mismo working tree, **siempre** `--action commit --paths ...` explícito, y
+  chequear `git log -1 --stat` antes de pushear.
