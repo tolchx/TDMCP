@@ -122,7 +122,7 @@ pointgeneratorPOP → randomPOP (randomiza N) → neighborPOP → mathPOP (renam
 
 ---
 
-## 4. `rayPOP` — colisiones y muestreo de superficie (*no medido todavía*)
+## 4. `rayPOP` — colisiones y muestreo de superficie (*parámetros medidos; comportamiento sin verificar*)
 
 Es el operador de raycast de la familia: emite rayos **desde los puntos** contra geometría y devuelve
 dónde/contra qué pegaron. **[T]** es la pieza que convierte POPs en algo interactivo con la escena.
@@ -140,6 +140,11 @@ Activá **`fastbuild`** o es lento.
 
 El nombre de cada atributo de salida **es lo que vas a escribir en los scopes aguas abajo** —
 nombrarlos prolijo (p.ej. `rayhitnormal`, `distance`) ahorra depurar.
+
+> **Provenance de la lista de arriba:** los **nombres de parámetro** salen de nuestra matriz medida
+> (`pop_matrix.json`, TD 2025.31760) — o sea están **medidos**, no son oído de tutorial. Lo que está
+> **sin verificar en vivo** es el **comportamiento** (los dos modismos de colisión, el gating por
+> `mathcombinePOP` y `negateray`), y eso es lo que llevan las marcas **[T]** de esta sección.
 
 ### 4.1 Dos idiomas de colisión
 
