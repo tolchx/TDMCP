@@ -264,6 +264,14 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   **Revisión del ciclo diario 2026-10-07:** mismo par de archivos (232 l. + 124 l.), ambos
   `py_compile` OK; sin cambios respecto del 06/10, no se commiteó ni revirtió. Entorno verde
   (gauntlet completo PASS, `results/20261007-001339`). Ver `docs/loop-run-2026-10-07.md`.
+  **Revisión del ciclo diario 2026-10-08:** el WIP sigue intacto (`build_pop_line.py` 9.066 B,
+  mtime 2026-10-05 12:31; `probe_5d_scout.py` 3.844 B, mtime 2026-10-05 11:40), ambos
+  `py_compile` OK; **sin escrituras de fuente en >48 h** → el escritor concurrente del ítem 5d ya
+  no está activo. La huella del candidato pasó a `d13025d8bff4a7db` (3 archivos) **solo** porque
+  `loop-run-log.md` quedó dirty con el ledger de gate de la sesión de la tarde del 10-07. No se
+  commiteó ni revirtió (misma decisión humana). Entorno verde: offline 21/21, td_probe 6/6,
+  single_home 0 violaciones, gauntlet completo PASS (`results/20261008-001745`). HEAD == `origin/main`
+  (`0187154`, 0 ahead). Ver `docs/loop-run-2026-10-08.md`.
 
 - [ ] 10. **Tutoriales de YouTube 2026 → skills POP (pase interactivo del 2026-10-07).** Se
   transcribieron y destilaron 10 tutoriales de sistemas POP (46.033 palabras) a 2 skills nuevas:

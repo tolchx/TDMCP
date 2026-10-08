@@ -22,3 +22,13 @@
 - 2026-10-06T03:10:51+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=2 | gate.yaml
 - 2026-10-07T03:13:10+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos; item 9 (arbol-sucio, 2 archivos) NO ejecutado (decision humana); entorno verde: offline 21/21, td_probe 6/6, single_home 0 violaciones, gauntlet quick+full PASS (F1 9, F2 26, F3.1 15, F3.2 16, F3.3 26, F3.4 12, F3.5 18, F3.6 19, F4 INFO 33) | docs/loop-run-2026-10-07.md | tools/gauntlet/results/20261007-001339
 - 2026-10-07T03:14:50+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-07T14:22:29+00:00 | gate | — | commit sobre 9 archivo(s) | ALLOW | conc=7 | gate.yaml
+- 2026-10-07T14:23:19+00:00 | gate | — | commit sobre 9 archivo(s) | BLOCK: juez externo (jev): corresponde_al_brief 0.09 (< 0.2): no parece ser la tarea pedida | gate.yaml
+- 2026-10-07T14:24:13+00:00 | gate | — | commit sobre 2 archivo(s) | BLOCK: juez externo (jev): corresponde_al_brief 0.12 (< 0.2): no parece ser la tarea pedida | gate.yaml
+- 2026-10-07T14:24:32+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=3 | gate.yaml
+- 2026-10-07T14:24:32+00:00 | gate | — | commit 6a196aa de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-07T14:26:07+00:00 | gate | — | commit sobre 1 archivo(s) | BLOCK: juez externo (jev): corresponde_al_brief 0.06 (< 0.2): no parece ser la tarea pedida | gate.yaml
+- 2026-10-07T14:26:18+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=3 | gate.yaml
+- 2026-10-07T14:26:18+00:00 | gate | — | commit 0187154 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-08T03:18:26+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (huella nueva d13025d8bff4a7db = 3 archivos: +loop-run-log.md, el ledger de gate de la tarde 10-07); item 9 (arbol-sucio) NO ejecutado (decision humana); entorno verde: offline 21/21, td_probe 6/6, single_home 0 violaciones, gauntlet quick (20261008-001658) + full PASS (F1 9, F2 26, F3.1 15, F3.2 16, F3.3 26, F3.4 12, F3.5 18, F3.6 19, F4 INFO 33); HEAD==origin 0187154 (0 ahead) | docs/loop-run-2026-10-08.md | tools/gauntlet/results/20261008-001745
+- 2026-10-08T03:18:47+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=2 | gate.yaml
