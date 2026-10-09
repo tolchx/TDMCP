@@ -640,6 +640,217 @@ def t_tdxn_export(a: dict) -> dict:
     return res
 
 
+# ── 7b. TDXN Import / Network Builder ────────────────────────────────────────
+
+_TDXN_BUILD = r'''
+import json
+spec = __SPEC__
+parent_path = spec.get('parent_path') or '/project1'
+clear_first = bool(spec.get('clear_first', False))
+
+parent = op(parent_path)
+if not parent:
+    parts = parent_path.rstrip('/').rsplit('/', 1)
+    grand = op(parts[0] or '/')
+    if grand:
+        parent = grand.create(td.baseCOMP, parts[1])
+    else:
+        print('<<JSON>>' + json.dumps({"error": "contenedor padre no encontrado: " + parent_path}))
+        raise SystemExit
+
+res = {
+    "ok": True,
+    "parent": parent.path,
+    "created": [],
+    "connections": [],
+    "parameters_set": 0,
+    "errors": [],
+    "warnings": []
+}
+
+if clear_first:
+    for c in list(parent.children):
+        try:
+            c.destroy()
+        except Exception as e:
+            res['warnings'].append(f"no se pudo destruir {c.name}: {e}")
+
+type_defaults = spec.get('type_defaults', {})
+operators = spec.get('operators', [])
+
+# 1. Crear nodos y setear dat_content/flags/posicion
+created_nodes = {}
+for op_info in operators:
+    op_name = op_info.get('name')
+    op_type = op_info.get('type')
+    if not op_name or not op_type:
+        continue
+    
+    op_cls = getattr(td, op_type, None)
+    if not op_cls:
+        res['errors'].append(f"tipo desconocido de operador: {op_type}")
+        continue
+    
+    try:
+        node = parent.op(op_name)
+        if not node:
+            node = parent.create(op_cls, op_name)
+        created_nodes[op_name] = node
+        res['created'].append(op_name)
+        
+        pos = op_info.get('position')
+        if pos and len(pos) >= 2:
+            try:
+                node.nodeX = float(pos[0])
+                node.nodeY = float(pos[1])
+            except Exception: pass
+            
+        flags = op_info.get('flags', [])
+        if 'display' in flags and hasattr(node, 'display'): node.display = True
+        if 'render' in flags and hasattr(node, 'render'): node.render = True
+        if 'viewer' in flags and hasattr(node, 'viewer'): node.viewer = True
+        if 'bypass' in flags and hasattr(node, 'bypass'): node.bypass = True
+        if 'lock' in flags and hasattr(node, 'lock'): node.lock = True
+        
+        dat_content = op_info.get('dat_content')
+        dat_fmt = op_info.get('dat_content_format', 'text')
+        if dat_content is not None and node.family == 'DAT':
+            if dat_fmt == 'table' or isinstance(dat_content, list):
+                node.clear()
+                for row in dat_content:
+                    if isinstance(row, list):
+                        node.appendRow([str(cell) for cell in row])
+                    else:
+                        node.appendRow([str(row)])
+            else:
+                node.text = str(dat_content)
+    except Exception as e:
+        res['errors'].append(f"error creando {op_name} ({op_type}): {e}")
+
+# 2. Conectar inputs
+for op_info in operators:
+    op_name = op_info.get('name')
+    node = created_nodes.get(op_name)
+    if not node:
+        continue
+    inputs = op_info.get('inputs', [])
+    for idx, inp_name in enumerate(inputs):
+        if not inp_name:
+            continue
+        src = parent.op(inp_name) or op(inp_name)
+        if src:
+            try:
+                if idx < len(node.inputConnectors):
+                    node.inputConnectors[idx].connect(src)
+                    res['connections'].append([src.name, node.name, idx])
+            except Exception as e:
+                res['warnings'].append(f"no se pudo conectar {src.name} -> {node.name} [{idx}]: {e}")
+
+# 3. Aplicar Parámetros (Type Defaults + Node Parameters)
+for op_info in operators:
+    op_name = op_info.get('name')
+    op_type = op_info.get('type')
+    node = created_nodes.get(op_name)
+    if not node:
+        continue
+    
+    pars = {}
+    if op_type in type_defaults and 'parameters' in type_defaults[op_type]:
+        pars.update(type_defaults[op_type]['parameters'])
+    if 'parameters' in op_info:
+        pars.update(op_info['parameters'])
+        
+    for p_name, val in pars.items():
+        if not hasattr(node.par, p_name):
+            continue
+        p = getattr(node.par, p_name)
+        try:
+            sval = str(val).strip() if isinstance(val, str) else None
+            if sval and sval.startswith('='):
+                p.expr = sval[1:]
+            elif sval and sval.startswith('~'):
+                p.bindExpr = sval[1:]
+            else:
+                p.val = val
+            res['parameters_set'] += 1
+        except Exception as e:
+            res['warnings'].append(f"{node.name}.par.{p_name}: {e}")
+
+# 4. Cocinar
+for n in created_nodes.values():
+    try:
+        n.cook(force=True)
+    except Exception: pass
+
+print('<<JSON>>' + json.dumps(res))
+'''
+
+def t_tdxn_build(a: dict) -> dict:
+    """Construye una red en TouchDesigner a partir de una especificación TDXN v2.1 YAML.
+    
+    Acepta el documento TDXN como string YAML o ruta a un archivo .tdxn.
+    Crea todos los nodos, cablea inputs, setea expresiones (=) y bindings (~),
+    puebla DATs y aplica flags en un único llamado atómico.
+    """
+    raw = a.get("tdxn")
+    if not raw:
+        return {"ok": False, "error": "falta 'tdxn' (string YAML o ruta a archivo .tdxn)"}
+    
+    doc = None
+    if isinstance(raw, str):
+        if os.path.exists(raw):
+            try:
+                import yaml
+                with open(raw, "r", encoding="utf-8") as f:
+                    doc = yaml.safe_load(f)
+            except Exception as e:
+                return {"ok": False, "error": f"error leyendo archivo {raw}: {e}"}
+        else:
+            try:
+                import yaml
+                doc = yaml.safe_load(raw)
+            except Exception as e:
+                try:
+                    doc = json.loads(raw)
+                except Exception:
+                    return {"ok": False, "error": f"error parseando YAML/JSON: {e}"}
+    elif isinstance(raw, dict):
+        doc = raw
+    else:
+        return {"ok": False, "error": f"tipo inválido para tdxn: {type(raw).__name__}"}
+    
+    if not isinstance(doc, dict):
+        return {"ok": False, "error": "el documento TDXN no es un diccionario válido"}
+        
+    parent_path = a.get("parent_path") or doc.get("network_path") or "/project1"
+    clear_first = bool(a.get("clear_first", False))
+    dry_run = bool(a.get("dry_run", False))
+    
+    ops = doc.get("operators") or []
+    if dry_run:
+        return {
+            "ok": True,
+            "dry_run": True,
+            "parent_path": parent_path,
+            "clear_first": clear_first,
+            "operators_count": len(ops),
+            "operators": [o.get("name") for o in ops if o.get("name")]
+        }
+        
+    spec = {
+        "parent_path": parent_path,
+        "clear_first": clear_first,
+        "type_defaults": doc.get("type_defaults") or {},
+        "operators": ops
+    }
+    
+    code = _TDXN_BUILD.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or 60))
+    if not ok:
+        return res
+    return res
+
+
 # ── 8. Render Frame Quality Evaluator ────────────────────────────────────────
 
 def t_eval_render_frame(a: dict) -> dict:
@@ -814,6 +1025,9 @@ LIVE_TOOLS = [
     ("tdxn_export", "Exporta red completa a TDXN v2.1 YAML (estándar Embody diffable). Ideal para generación o versionado masivo de COMPs en Git.",
      {"root_path": "string (default /)", "out_path": "string (opcional)", "include_dat_content": "bool (default true)",
       "include_storage": "bool (default false)", "include_color": "bool (default false)"}, t_tdxn_export),
+    ("tdxn_build", "Construye una red completa en TouchDesigner a partir de TDXN v2.1 YAML (estándar Embody). Crea operadores, conexiones, parámetros (=expr, ~bind) y DATs en un solo turno.",
+     {"tdxn": "string o path (requerido: contenido YAML o ruta .tdxn)", "parent_path": "string (opcional)",
+      "clear_first": "bool (default false)", "dry_run": "bool (default false)"}, t_tdxn_build),
     ("eval_render_frame", "Evalúa calidad visual de una imagen o TOP: detecta frames negros, planos o transparentes emitiendo veredicto PASS/FAIL y métricas de luminancia y contraste.",
      {"image_path": "string (opcional)", "op_path": "string (opcional)"}, t_eval_render_frame),
     ("get_op_errors_deep", "Diagnóstico profundo de un COMP y sus hijos: detecta errores de cocinado, advertencias y trazas de compilación GLSL en DATs _info.",

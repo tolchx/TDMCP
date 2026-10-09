@@ -142,12 +142,19 @@ Al diseñar o generar redes para TDXN:
 
 ---
 
-## 4. Flujo de Trabajo para Agentes de IA
+## 4. Flujo de Trabajo para Agentes de IA en `tolchx-TDMCP`
 
-1. **Lectura Eficiente:**
-   - En lugar de inspeccionar nodo por nodo con múltiples llamadas RPC, lee el `.tdxn` del COMP o ejecuta la herramienta de exportación/lectura.
-2. **Edición o Generación:**
-   - Para crear una red completa de 10-20 nodos, redacta el bloque TDXN YAML completo y envíalo mediante `td_import_tdn` / `import_network` con `clear_first=true`.
-3. **Verificación Inmediata:**
-   - Verifica que no existan errores de cocinado (`td_get_errors`).
-   - Verifica que el render final no esté en negro (`capture_top`).
+1. **Lectura y Externalización Git (`tdxn_export`):**
+   - Exporta la red completa de un COMP a YAML limpio y diffable:
+     ```python
+     live.t_tdxn_export({"root_path": "/project1/synth", "out_path": "synth.tdxn.yaml"})
+     ```
+2. **Generación Masiva Atómica en 1 Turno (`tdxn_build`):**
+   - Para crear una red completa de 10-50 nodos, redacta el bloque TDXN YAML completo y envíalo mediante `tdxn_build`:
+     ```python
+     live.t_tdxn_build({"tdxn": yaml_content, "parent_path": "/project1/synth", "clear_first": True})
+     ```
+   - Resuelve automáticamente type defaults, crea operadores, cablea entradas, setea expresiones (`=`) y bindings (`~`), puebla contenido de DATs (`text` o tablas) y cocina los nodos en una sola llamada.
+3. **Verificación Inmediata y Calidad de Render:**
+   - Diagnóstico profundo de errores y compilación GLSL: `get_op_errors_deep(root_path="/project1/synth")`.
+   - Evaluación métrica de frame (detecta negro, flat o transparente con PIL): `eval_render_frame(op_path="/project1/synth/out")`.
