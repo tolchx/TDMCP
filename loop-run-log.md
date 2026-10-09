@@ -35,3 +35,6 @@
 - 2026-10-09T03:12:20+00:00 | promocion | L1 | gauntlet-rojo (peso 5) | brief 13_gauntlet_rojo.txt | item 13 | loop-candidates.json
 - 2026-10-09T03:15:39+00:00 | ciclo-diario | L2 | triage 2 candidatos/1 nuevo (NUEVO gauntlet-rojo peso 5, huella 50571fea1ea94298: F2 API core caia con exit 1/0 calls/0.2s = crash de import por SyntaxError en knowledge/live.py del WIP sin commitear - f-string con backslash que Py 3.11 de TD rechaza); item 13 promovido y RESUELTO (fix minimo: hoistear .replace() fuera del f-string; no revierte nada); entorno: offline 21/21, td_probe 6/6, single_home 0 violaciones, gauntlet quick PASS (20261009-001245) + full PASS (F1 9, F2 26, F3.1 15, F3.2 16, F3.3 26, F3.4 12, F3.5 18, F3.6 19, F4 INFO 33; 20261009-001259); test del WIP PASS; WIP ajeno NO commiteado | docs/loop-run-2026-10-09.md | tools/gauntlet/results/20261009-001259
 - 2026-10-09T03:16:04+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=9 | gate.yaml
+- 2026-10-09T06:33:21+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-09T06:33:21+00:00 | gate | — | commit e0b19a9 de 5 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-09T06:44:06+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=0 | gate.yaml
