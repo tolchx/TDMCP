@@ -98,6 +98,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Curvas paramétricas y métricas diferenciales**: `curvePOP` + `lineresamplePOP` + `linemetricsPOP`
   (evaluación de tangentes unitarias, curvatura y arclength normalizado en GPU):
   skill **`td-pop-curves-and-linemetrics`**
+- **Campos vectoriales y confinamiento por SDF**: `fieldPOP` + `noisePOP(curl3d)` + `mathmixPOP`
+  (flujos solenoidales incompresibles con divergencia nula y confinamiento volumétrico):
+  skill **`td-pop-field-vectors`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
