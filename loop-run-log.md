@@ -67,3 +67,5 @@
 - 2026-10-09T07:51:12+00:00 | gate | — | commit f570882 de 4 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-09T07:51:58+00:00 | gate | — | commit sobre 2 archivo(s) | BLOCK: las suites no están verdes (ver detalle) | gate.yaml
 - 2026-10-09T07:54:02+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-09T07:54:02+00:00 | gate | — | commit b386aa4 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-09T11:23:14+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=0 | gate.yaml
