@@ -58,3 +58,12 @@
 - 2026-10-09T07:40:20+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=2 | gate.yaml
 - 2026-10-09T07:40:20+00:00 | gate | — | commit 90e28ba de 3 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-09T07:40:46+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-09T07:40:46+00:00 | gate | — | commit 13b4f77 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-09T07:47:46+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=3 | gate.yaml
+- 2026-10-09T07:48:10+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=3 | gate.yaml
+- 2026-10-09T07:48:10+00:00 | gate | — | commit 719c560 de 3 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-09T07:50:46+00:00 | gate | — | commit sobre 4 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-09T07:51:12+00:00 | gate | — | commit sobre 4 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-09T07:51:12+00:00 | gate | — | commit f570882 de 4 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-09T07:51:58+00:00 | gate | — | commit sobre 2 archivo(s) | BLOCK: las suites no están verdes (ver detalle) | gate.yaml
+- 2026-10-09T07:54:02+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
