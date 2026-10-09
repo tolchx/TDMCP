@@ -95,6 +95,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Interacción con geometría y vecinos**: `neighborPOP` (flocking), `proximityPOP`/`skinPOP`,
   `forceradialPOP`/`fieldPOP` (campos y `specpop`) y **`rayPOP`** (colisiones por raycast):
   skill **`td-pop-neighbors-and-rays`**
+- **Curvas paramétricas y métricas diferenciales**: `curvePOP` + `lineresamplePOP` + `linemetricsPOP`
+  (evaluación de tangentes unitarias, curvatura y arclength normalizado en GPU):
+  skill **`td-pop-curves-and-linemetrics`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
