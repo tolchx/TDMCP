@@ -512,6 +512,286 @@ def t_tdn_diff(a: dict) -> dict:
             "summary": {"added": len(added), "removed": len(removed), "changed": len(changed)}}
 
 
+# ── 7. TDXN Export (v2.1 YAML) ───────────────────────────────────────────────
+
+_TDXN_EXTRACT = r'''
+import json, datetime
+root = op(__ROOT__); o = __OPTS__
+
+def format_val(p):
+    try:
+        if str(p.mode).endswith('EXPRESSION'):
+            return "=" + str(p.expr)
+        elif str(p.mode).endswith('BIND'):
+            return "~" + str(p.bindExpr or '')
+        elif str(getattr(p, 'style', '')) == 'Pulse':
+            return None
+        v = p.eval()
+        return v if isinstance(v, (int, float, bool, str)) else str(v)
+    except Exception:
+        return None
+
+def pars(x):
+    out = {}
+    for p in x.pars():
+        try:
+            if p.isDefault: continue
+            val = format_val(p)
+            if val is not None:
+                out[p.name] = val
+        except Exception:
+            continue
+    return out
+
+def flg(x):
+    f = []
+    for n in ('display', 'render', 'viewer', 'lock', 'bypass', 'allowCooking'):
+        try:
+            if getattr(x, n, False) is True:
+                f.append(n)
+        except Exception: pass
+    return f
+
+def node(x):
+    d = {'name': x.name, 'type': getattr(x, 'OPType', x.type)}
+    try: d['position'] = [int(x.nodeX), int(x.nodeY)]
+    except Exception: pass
+    try: d['size'] = [int(x.nodeWidth), int(x.nodeHeight)]
+    except Exception: pass
+    if o.get('include_color') and str(getattr(x, 'color', 'None')) != 'None':
+        try: d['color'] = [round(float(v), 3) for v in x.color]
+        except Exception: pass
+    if getattr(x, 'comment', None):
+        d['comment'] = str(x.comment)
+    if getattr(x, 'tags', None) and len(x.tags):
+        d['tags'] = sorted(list(x.tags))
+    if x.parent() and x.parent().family == 'COMP':
+        for dn in getattr(x.parent(), 'docked', []) or []:
+            if dn.name == x.name: d['dock'] = x.parent().name
+    f = flg(x)
+    if f: d['flags'] = f
+    ps = pars(x)
+    if ps: d['parameters'] = ps
+    if x.family == 'DAT':
+        try:
+            if getattr(x, 'isText', False):
+                d['dat_content'], d['dat_content_format'] = x.text, 'text'
+            elif getattr(x, 'isTable', False):
+                d['dat_content'], d['dat_content_format'] = [[str(c) for c in r] for r in x.rows()], 'table'
+        except Exception: pass
+    if x.family != 'DAT':
+        try:
+            ins = []
+            for conn in x.inputConnectors:
+                ins.append(conn.connections[0].owner.name if conn.connections else None)
+            if any(i is not None for i in ins): d['inputs'] = ins
+        except Exception: pass
+    if x.family == 'COMP':
+        kids = [node(c) for c in x.children if not c.name.startswith('__')]
+        if kids: d['children'] = kids
+    return d
+
+ops = [node(c) for c in root.children if not c.name.startswith('__')]
+doc = {
+    'format': 'tdxn',
+    'version': '2.0',
+    'generator': 'tolchx-TDMCP/tdxn_export',
+    'build': (int(app.build) if str(getattr(app, 'build', '')).isdigit() else None),
+    'td_build': str(getattr(app, 'build', '') or getattr(app, 'version', '')),
+    'exported_at': datetime.datetime.now().isoformat(timespec='seconds'),
+    'network_path': root.path,
+    'options': {'include_dat_content': bool(o['include_dat_content']), 'include_storage': bool(o['include_storage'])},
+    'operators': ops
+}
+print('<<JSON>>' + json.dumps(doc))
+'''
+
+def t_tdxn_export(a: dict) -> dict:
+    """Exporta red a formato TDXN v2.1 YAML (estándar Embody)."""
+    root = str(a.get("root_path") or "/")
+    opts = {"include_dat_content": a.get("include_dat_content", True) is not False,
+            "include_storage": a.get("include_storage", False) is True,
+            "include_color": a.get("include_color", False) is True}
+    code = _TDXN_EXTRACT.replace("__ROOT__", repr(root)).replace("__OPTS__", repr(opts))
+    ok, doc = exec_code(code, timeout=float(a.get("timeout") or 120))
+    if not ok:
+        return doc
+    n = _count_nodes(doc.get("operators") or [])
+    out_path = a.get("out_path")
+    res = {"ok": True, "format": "tdxn", "version": "2.0", "network_path": doc.get("network_path"),
+           "operators": n, "with_dat_content": opts["include_dat_content"], "td_build": doc.get("td_build")}
+    
+    if out_path:
+        try:
+            import yaml
+            with open(str(out_path), "w", encoding="utf-8") as f:
+                yaml.dump(doc, f, sort_keys=False, allow_unicode=True, default_flow_style=False)
+            res["file"] = str(out_path)
+            res["bytes"] = os.path.getsize(str(out_path))
+        except Exception as e:
+            # Fallback a JSON si YAML falla
+            with open(str(out_path), "w", encoding="utf-8") as f:
+                json.dump(doc, f, indent=2, ensure_ascii=False)
+            res["file"] = str(out_path)
+            res["bytes"] = os.path.getsize(str(out_path))
+            res["notice"] = f"guardado como json ({e})"
+    else:
+        res["tdxn"] = doc
+    return res
+
+
+# ── 8. Render Frame Quality Evaluator ────────────────────────────────────────
+
+def t_eval_render_frame(a: dict) -> dict:
+    """Evalúa calidad visual de una imagen/render (detección de negro, flat o transparente)."""
+    img_path = a.get("image_path")
+    op_path = a.get("op_path")
+    
+    # Si viene un op_path y TouchDesigner está vivo, guardar el TOP a temp
+    if op_path and not img_path:
+        import tempfile
+        tmp_target = os.path.join(tempfile.gettempdir(), "td_eval_frame.png")
+        # Python de TD (<=3.11) PROHIBE un backslash dentro de una expresion f-string:
+        # el .replace() de la ruta sale afuera y el f-string interpola solo el resultado.
+        tmp_target_slash = tmp_target.replace('\\', '/')
+        save_script = f'''
+import json
+node = op({repr(op_path)})
+if not node:
+    print('<<JSON>>' + json.dumps({{"error": "operador no encontrado: " + {repr(op_path)}}}))
+elif node.family != 'TOP':
+    print('<<JSON>>' + json.dumps({{"error": "operador no es TOP: " + {repr(op_path)}}}))
+else:
+    try:
+        node.save({repr(tmp_target_slash)})
+        print('<<JSON>>' + json.dumps({{"ok": True, "saved": {repr(tmp_target_slash)}}}))
+    except Exception as e:
+        print('<<JSON>>' + json.dumps({{"error": str(e)}}))
+'''
+        ok, res = exec_code(save_script, timeout=15)
+        if not ok or "error" in res:
+            return {"ok": False, "error": f"no se pudo guardar frame de {op_path}", "detail": res}
+        img_path = tmp_target
+
+    if not img_path or not os.path.exists(str(img_path)):
+        return {"ok": False, "error": f"archivo de imagen no encontrado: {img_path}"}
+
+    try:
+        from PIL import Image
+        import numpy as np
+        img = Image.open(str(img_path))
+        arr = np.array(img).astype(np.float32)
+        h, w = arr.shape[:2]
+        channels = arr.shape[2] if arr.ndim == 3 else 1
+        
+        # Separar color y alfa si existe
+        if channels >= 3:
+            rgb = arr[..., :3]
+            # Luminancia percibida: 0.299 R + 0.587 G + 0.114 B
+            lum = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
+        else:
+            lum = arr[..., 0] if arr.ndim == 3 else arr
+
+        mean_lum = float(np.mean(lum))
+        std_lum = float(np.std(lum))
+        min_val = float(np.min(lum))
+        max_val = float(np.max(lum))
+        
+        has_alpha = channels == 4
+        alpha_max = float(np.max(arr[..., 3])) if has_alpha else 255.0
+        alpha_mean = float(np.mean(arr[..., 3])) if has_alpha else 255.0
+
+        # Criterios de evaluación (Quality Verdict):
+        if max_val == 0.0 or mean_lum < 0.5:
+            quality = "FAIL"
+            reason = "Frame completamente NEGRO (luminancia nula). Revisá cámaras, luces y flags de render en geometryCOMPs."
+        elif has_alpha and alpha_max == 0.0:
+            quality = "FAIL"
+            reason = "Frame completamente TRANSPARENTE (alfa nulo)."
+        elif std_lum < 0.5:
+            quality = "FAIL"
+            reason = "Frame PLANO / sólido sin variación o detalle (desviación estándar < 0.5)."
+        else:
+            quality = "PASS"
+            reason = "Salida visual verificada correctamente: rango dinámico y contraste activo."
+
+        return {
+            "ok": True,
+            "quality": quality,
+            "verdict": reason,
+            "file": str(img_path),
+            "resolution": f"{w}x{h}",
+            "metrics": {
+                "mean_luminance": round(mean_lum, 2),
+                "std_contrast": round(std_lum, 2),
+                "min": round(min_val, 2),
+                "max": round(max_val, 2),
+                "alpha_mean": round(alpha_mean, 2) if has_alpha else None
+            }
+        }
+    except Exception as e:
+        return {"ok": False, "error": f"error evaluando imagen: {e}"}
+
+
+# ── 9. Deep Operator Errors & Shader Diagnostics ─────────────────────────────
+
+_DEEP_ERRORS = r'''
+import json
+root = op(__ROOT__); o = __OPTS__
+res = {"root": root.path, "errors": [], "warnings": [], "shader_errors": []}
+
+def scan(x):
+    # 1. Errores de cocinado de TD
+    try:
+        e = x.errors()
+        if e: res['errors'].append({"op": x.path, "type": x.type, "errors": e})
+    except Exception: pass
+    
+    # 2. Advertencias
+    try:
+        w = x.warnings()
+        if w: res['warnings'].append({"op": x.path, "type": x.type, "warnings": w})
+    except Exception: pass
+    
+    # 3. Diagnóstico de shaders GLSL (docked _info DAT)
+    try:
+        if 'glsl' in x.type.lower():
+            for d in getattr(x, 'docked', []) or []:
+                if d.name.endswith('_info') and getattr(d, 'isText', False):
+                    txt = d.text.strip()
+                    if txt and any(k in txt.lower() for k in ('error', 'failed', 'compilation error')):
+                        res['shader_errors'].append({"op": x.path, "info_dat": d.path, "details": txt[:800]})
+    except Exception: pass
+
+    if o['recurse'] and x.family == 'COMP':
+        for c in x.children:
+            scan(c)
+
+scan(root)
+print('<<JSON>>' + json.dumps(res))
+'''
+
+def t_get_op_errors_deep(a: dict) -> dict:
+    """Inspección profunda de errores: cocinado, advertencias y compilación GLSL."""
+    root = str(a.get("root_path") or "/")
+    opts = {"recurse": a.get("recurse", True) is not False}
+    code = _DEEP_ERRORS.replace("__ROOT__", repr(root)).replace("__OPTS__", repr(opts))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    if not ok:
+        return res
+    err_count = len(res.get("errors", [])) + len(res.get("shader_errors", []))
+    warn_count = len(res.get("warnings", []))
+    return {
+        "ok": err_count == 0,
+        "clean": err_count == 0 and warn_count == 0,
+        "error_count": err_count,
+        "warning_count": warn_count,
+        "errors": res.get("errors", []),
+        "shader_errors": res.get("shader_errors", []),
+        "warnings": res.get("warnings", [])
+    }
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -531,8 +811,16 @@ LIVE_TOOLS = [
       "include_storage": "bool (default false)", "include_color": "bool (default false: el color del nodo cambia solo)"}, t_tdn_export),
     ("tdn_diff", "Compara dos archivos .tdn (offline, sin TD): operadores agregados/quitados y cambios de parámetros, tipos, flags y cableado.",
      {"path_a": "string (requerido)", "path_b": "string (requerido)"}, t_tdn_diff),
+    ("tdxn_export", "Exporta red completa a TDXN v2.1 YAML (estándar Embody diffable). Ideal para generación o versionado masivo de COMPs en Git.",
+     {"root_path": "string (default /)", "out_path": "string (opcional)", "include_dat_content": "bool (default true)",
+      "include_storage": "bool (default false)", "include_color": "bool (default false)"}, t_tdxn_export),
+    ("eval_render_frame", "Evalúa calidad visual de una imagen o TOP: detecta frames negros, planos o transparentes emitiendo veredicto PASS/FAIL y métricas de luminancia y contraste.",
+     {"image_path": "string (opcional)", "op_path": "string (opcional)"}, t_eval_render_frame),
+    ("get_op_errors_deep", "Diagnóstico profundo de un COMP y sus hijos: detecta errores de cocinado, advertencias y trazas de compilación GLSL en DATs _info.",
+     {"root_path": "string (default /)", "recurse": "bool (default true)"}, t_get_op_errors_deep),
 ]
 
 LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
 # Tools de lectura que no modifican la red de TouchDesigner
-LIVE_READONLY = {"td_status", "find_in_ops", "tdn_diff"}
+LIVE_READONLY = {"td_status", "find_in_ops", "tdn_diff", "eval_render_frame", "get_op_errors_deep"}
+
