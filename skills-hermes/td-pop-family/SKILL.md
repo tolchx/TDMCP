@@ -122,6 +122,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Campos espirales y vórtices GPU**: `forceradialPOP` + `particlePOP` + `noisePOP` + `trailPOP`
   (vorticidad angular en eje Z, multi-fuerza con `specpop`, turbulencia y estelas coherentes con `PartId`):
   skill **`td-pop-forceradial-spiral`**
+- **Morphing multi-objetivo e interpolación GPU**: `blendPOP` + `cacheblendPOP`
+  (interpolación baricéntrica exacta de nubes de puntos y blending temporal VRAM):
+  skill **`td-pop-blend-morphing`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
