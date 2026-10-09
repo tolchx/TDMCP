@@ -116,6 +116,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Reducción en GPU, estadísticas y culling condicional**: `analyzePOP` + `accumulatePOP` + `deletePOP`
   (reducción paralela en árbol, prefix scan acumulativo y stream compaction):
   skill **`td-pop-analytics-culling`**
+- **Colisiones y deflectores de partículas**: `particlePOP` + `limitPOP` + `rayPOP` + `mathmixPOP`
+  (confinamiento de plano/suelo, trazado analítico de rayos de impacto y vectores de rebote):
+  skill **`td-pop-collisions-deflectors`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
