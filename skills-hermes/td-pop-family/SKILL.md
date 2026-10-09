@@ -107,6 +107,12 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Deformaciones espaciales GPU y modulación por peso**: `twistPOP` + `rerangePOP`
   (torsión con conservación radial exacta, cizalladura lineal, flexión angular y preservación volumétrica):
   skill **`td-pop-deformations-twist`**
+- **Advección 3D y estelas temporales**: `particlePOP` + `noisePOP(curl3d)` + `trailPOP`
+  (advección por campos de velocidad solenoidal y estelas por PartId):
+  skill **`td-pop-advection-trails`**
+- **Nubes de puntos audio-reactivas en GPU**: `audiospectrumCHOP` + `choptoTOP` + `lookuptexturePOP` + `mathmixPOP`
+  (muestreo FFT en tiempo real y desplazamiento radial volumétrico):
+  skill **`td-pop-audio-reactive`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)

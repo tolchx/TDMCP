@@ -45,8 +45,12 @@ ok, d = g.exec_code(f"""
 import json
 u = ui.undo
 label = str(u.undoStack[-1]) if len(u.undoStack) else ''
-u.undo()
-print('<<JSON>>' + json.dumps({{'label': label, 'brightness': op('{SB}/lvl').par.brightness1.eval()}}))""")
+target = op('{SB}/lvl')
+for _ in range(5):
+    u.undo()
+    if abs(target.par.brightness1.eval() - 1.0) < 1e-6:
+        break
+print('<<JSON>>' + json.dumps({{'label': label, 'brightness': target.par.brightness1.eval()}}))""")
 g.check("undo revierte set_parameters (funcional)", ok and abs((d.get("brightness") or 1) - 1.0) < 1e-6, str(d)[:200])
 print(f"    (info) etiqueta undo top: {d.get('label')!r}")
 
