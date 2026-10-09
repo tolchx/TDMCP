@@ -113,6 +113,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Nubes de puntos audio-reactivas en GPU**: `audiospectrumCHOP` + `choptoTOP` + `lookuptexturePOP` + `mathmixPOP`
   (muestreo FFT en tiempo real y desplazamiento radial volumétrico):
   skill **`td-pop-audio-reactive`**
+- **Reducción en GPU, estadísticas y culling condicional**: `analyzePOP` + `accumulatePOP` + `deletePOP`
+  (reducción paralela en árbol, prefix scan acumulativo y stream compaction):
+  skill **`td-pop-analytics-culling`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
