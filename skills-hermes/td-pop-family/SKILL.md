@@ -104,6 +104,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Top-to-POP y relieve volumétrico**: `toptoPOP` + `tracePOP` + `mathmixPOP`
   (conversión de texturas 2D a nubes de puntos 3D reactivas y relieve por luminancia):
   skill **`td-pop-top-to-pop`**
+- **Deformaciones espaciales GPU y modulación por peso**: `twistPOP` + `rerangePOP`
+  (torsión con conservación radial exacta, cizalladura lineal, flexión angular y preservación volumétrica):
+  skill **`td-pop-deformations-twist`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
