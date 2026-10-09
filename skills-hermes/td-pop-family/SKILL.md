@@ -119,6 +119,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Colisiones y deflectores de partículas**: `particlePOP` + `limitPOP` + `rayPOP` + `mathmixPOP`
   (confinamiento de plano/suelo, trazado analítico de rayos de impacto y vectores de rebote):
   skill **`td-pop-collisions-deflectors`**
+- **Campos espirales y vórtices GPU**: `forceradialPOP` + `particlePOP` + `noisePOP` + `trailPOP`
+  (vorticidad angular en eje Z, multi-fuerza con `specpop`, turbulencia y estelas coherentes con `PartId`):
+  skill **`td-pop-forceradial-spiral`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
