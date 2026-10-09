@@ -1,0 +1,35 @@
+#!/bin/sh
+# ── Gate mecánico del fork tolchx-TDMCP: el push exige el visto bueno del juez ─
+# Regla (loop-constraints.md): "push solo después del gate y con el visto bueno
+# del juez externo. Los commits locales son libres; el push a main no."
+#
+#   Habilitar:  touch .git/judge-ok     (el loop lo crea SOLO si el juez dio OK)
+#               vence a los 30 minutos
+#   Bypass:     .git/gate-bypass        (decisión humana, queda visible en el repo)
+#
+# Motivo real: el 09/10/2026 un ciclo del loop pusheó 9 archivos (4 ajenos al
+# item) sin pasar por el juez. Con esto, el push no depende del criterio del agente.
+
+BYPASS=".git/gate-bypass"
+JUDGE=".git/judge-ok"
+
+if [ -f "$BYPASS" ]; then
+    echo "gate: bypass activo ($BYPASS) — push sin juez"
+    exit 0
+fi
+
+if [ ! -f "$JUDGE" ]; then
+    echo "gate: PUSH BLOQUEADO — falta el visto bueno del juez externo (.git/judge-ok)."
+    echo "      Si el juez dio OK:  touch .git/judge-ok   (vence a los 30 min)"
+    echo "      Los commits locales no necesitan esto: solo el push."
+    exit 1
+fi
+
+if [ -n "$(find "$JUDGE" -mmin +30 2>/dev/null)" ]; then
+    echo "gate: PUSH BLOQUEADO — el visto bueno del juez venció (más de 30 min)."
+    echo "      Volvé a correr el juez y refrescá el token."
+    exit 1
+fi
+
+echo "gate OK — juez vigente, push permitido"
+exit 0

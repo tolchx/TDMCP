@@ -1,0 +1,57 @@
+#!/bin/sh
+# ── Gate mecánico del fork tolchx-TDMCP (regla: loop-constraints.md) ──────────
+# Un commit solo puede incluir los paths DECLARADOS del item en curso.
+# La lista vive en .git/gate-allowlist (un path por línea, relativo al repo) y
+# vence a los 60 minutos para que no habilite commits futuros por inercia.
+#
+#   Declarar:  python scripts/loop_gate.py --action commit --paths a.py b.md
+#              (o)  printf 'a.py\nb.md\n' > .git/gate-allowlist
+#   Bypass explícito y auditable (queda en el log del commit):  .git/gate-bypass
+#
+# Este hook NO juzga contenido: solo impide que entre algo que nadie declaró
+# (el caso real: un commit que barrió skills y tools ajenos al item).
+
+ALLOW=".git/gate-allowlist"
+BYPASS=".git/gate-bypass"
+
+if [ -f "$BYPASS" ]; then
+    echo "gate: bypass activo ($BYPASS) — commit sin control de paths"
+    exit 0
+fi
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+if [ ! -f "$ALLOW" ]; then
+    echo "gate: BLOQUEADO — no hay .git/gate-allowlist (nada declarado para este commit)."
+    echo "      Declaralo con:  python scripts/loop_gate.py --action commit --paths <paths>"
+    echo "      o:              printf '<path>\n' > .git/gate-allowlist"
+    echo "      Un item por corrida: si hay archivos de otros items, NO entran."
+    exit 1
+fi
+
+if [ -n "$(find "$ALLOW" -mmin +60 2>/dev/null)" ]; then
+    echo "gate: BLOQUEADO — la declaración de paths venció (más de 60 min)."
+    echo "      Volvé a declarar los paths del item antes de commitear."
+    exit 1
+fi
+
+FUERA=""
+for p in $STAGED; do
+    if ! grep -qxF "$p" "$ALLOW"; then
+        FUERA="$FUERA $p"
+    fi
+done
+
+if [ -n "$FUERA" ]; then
+    echo "gate: BLOQUEADO — hay archivos staged que no fueron declarados:$FUERA"
+    echo "      Declarados en $ALLOW:"
+    sed 's/^/        /' "$ALLOW"
+    echo "      Sacalos del stage (git restore --staged <path>) o declaralos si son de este item."
+    exit 1
+fi
+
+echo "gate OK — $(echo "$STAGED" | wc -l | tr -d ' ') archivo(s) dentro de lo declarado"
+exit 0

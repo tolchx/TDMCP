@@ -167,6 +167,15 @@ def do_commit(paths: list[str], mensaje: str) -> int:
     conocidos por el pathspec del commit.
     """
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # Declara los paths del item para el hook mecánico (.git/hooks/pre-commit):
+    # sin esto el hook bloquea el commit (regla: nada fuera de lo declarado).
+    try:
+        allow = os.path.join(".git", "gate-allowlist")
+        with open(allow, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("".join(p.rstrip() + "\n" for p in paths))
+    except OSError as e:  # noqa: BLE001
+        print(f"  ✖ no pude escribir .git/gate-allowlist: {e}", file=sys.stderr)
+        return 2
     code, out = sh_raw(["git", "add", "--"] + paths)
     if code != 0:
         print(f"  ✖ git add falló: {out.strip()[:300]}", file=sys.stderr)

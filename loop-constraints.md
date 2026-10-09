@@ -42,6 +42,22 @@
   son libres; el push a `main` no.
 - Nunca cerrar un item sin evidencia pegada (comando + salida).
 
+## Guard mecánico (hooks — 09/10/2026)
+
+No alcanza con pedirlo en el prompt: hay dos hooks que lo frenan solos.
+
+- **`.git/hooks/pre-commit`** (versionado en `scripts/hooks/pre-commit`): un commit sólo puede
+  incluir los paths declarados en `.git/gate-allowlist` (la escribe `loop_gate.py --do-commit`;
+  un path por línea, **vence a los 60 min**). Si el índice trae archivos de otros ítems, bloquea
+  y los nombra.
+- **`.git/hooks/pre-push`** (`scripts/hooks/pre-push`): el push exige **`.git/judge-ok` fresco**
+  (30 min). Flujo: `touch .git/judge-ok && git push && rm -f .git/judge-ok`, **sólo después del OK
+  del juez externo**.
+- Instalación en un clon nuevo o tras un `git clean`: `sh scripts/install_hooks.sh`.
+- **No se esquivan con `--no-verify`.** Si un hook bloquea: sobra algo en el stage, o falta el juez.
+- Escape explícito y auditable para trabajo manual de Tolch: `.git/gate-bypass` (avisa en pantalla
+  que el control está desactivado; se borra al terminar).
+
 ## Presupuesto
 - Límites en `loop-budget.md`. Al 80% del cupo diario, el loop pasa a modo SOLO REPORTE.
 - Si existe el archivo `loop-pause-all` en la raíz (o `STATE.md` dice `loop: paused`), el loop
