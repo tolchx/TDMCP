@@ -964,3 +964,18 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
 
 
 
+
+### `td_python_fstring_backslash` — el intérprete de TD (Py <= 3.11) no admite backslash dentro de una expresion f-string [V]
+- El Python que corre **dentro** de TD —un `textDAT`/Extension, o el string que se manda a
+  `execute_code`— usa el interprete del build: **TD 2025.32460 = Python 3.11**. En Py < 3.12 una
+  **expresion f-string no puede contener un backslash**: `f"{p.replace('\\', '/')}"` ->
+  `SyntaxError: f-string expression part cannot include a backslash` (PEP 701 lo habilito recien en 3.12).
+- Es un error de **parseo del modulo ENTERO**: si el f-string vive en `knowledge/live.py`, cualquier
+  `import live` cae, y con el todo lo que lo usa (server offline, gauntlet **F2 API core**). La fase **no**
+  reporta fallos por assert: muere con `exit 1`, **0 calls** y ~0.2 s — firma de *import roto*, no de
+  asercion fallida. Leé el exit y los calls antes de interpretar un «FAIL».
+- **Fix verificado (2026-10-09):** sacar la sub-expresion con backslash **afuera** del f-string y
+  interpolar solo el resultado (hoistear `ruta.replace(...)` a una variable y usar `f"{repr(var)}"`).
+  Evidencia: `py_compile` OK · `import live` OK (9 `LIVE_TOOLS`) · gauntlet F2 **PASS (26 calls, 0 fallos)**
+  · `knowledge/test_embody_envoy_tools.py` **PASS** (el `save_script` de `t_eval_render_frame` guardo el
+  frame y devolvio PASS/FAIL correctamente).

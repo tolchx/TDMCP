@@ -159,3 +159,8 @@ Extension DAT and parameterexecuteDAT at X=-200 (left of origin). Main operator 
   plain attributes — persist anything that must survive via `StorageManager` (see Sync to File)
 - **`findChildren(type=textDAT)` without `maxDepth=1`** — crawls into annotateCOMPs and other utility COMPs, triggering compilation of their internal DATs as Python. Always use `maxDepth=1` when loading sibling modules
 - **Assuming op reference pars are valid** — always check for None before using
+- **Backslash en una expresion f-string (interprete de TD, Py <= 3.11)** — si una expresion f-string
+  llama a `.replace()` con una barra invertida literal (p. ej. para pasar rutas Windows a `/`), es
+  `SyntaxError: f-string expression part cannot include a backslash` y el modulo ENTERO no importa
+  (falla SIN asserts, exit 1 con 0 calls). Hoistea el `.replace(...)` afuera del f-string e interpola
+  el resultado. [2026-10-09; ver contrato `td_python_fstring_backslash`]

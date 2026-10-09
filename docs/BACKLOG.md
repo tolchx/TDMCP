@@ -336,3 +336,17 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   este pase?, ¿el snapshot de las 2 skills es el bueno?) y **regla operativa nueva**: cuando hay dos
   sesiones vivas sobre el mismo working tree, **siempre** `--action commit --paths ...` explícito, y
   chequear `git log -1 --stat` antes de pushear.
+
+- [x] 13. **Hallado por el loop (triage automático)** — Gauntlet en rojo (0 fases). Evidencia: (0 calls, p50 0 ms, 0 fallos, 0.2s); 0 calls  p50      0 ms; (reporte: results\20261009-001009\regression-report.json). Cómo lo detectó: `loop_triage.py` (id `gauntlet-rojo`, huella `50571fea1ea94298`). Qué hacer: Una fase del gauntlet en rojo es un hallazgo: abrir item con la fase y su salida, no 'arreglar' deshabilitándola..
+
+  **RESUELTO 2026-10-09** (ciclo diario, TD arriba). El «0 fases» era un **crash de import**, no asserts:
+  `knowledge/live.py` del ARBOL (WIP sin commitear de otra sesion, mtime 10-08 19:00:52) tenia `SyntaxError`
+  en `t_eval_render_frame` — un f-string cuya expresion incluye un backslash literal
+  (`tmp_target.replace('\\', '/')`); **Py 3.11 (el de TD 2025.32460) lo rechaza** (PEP 701 llego en 3.12).
+  `f2_core.py` importa `live` => F2 moria con `exit 1 / 0 calls / 0.2 s`. **Fix minimo, no destructivo:**
+  hoistear el `.replace()` afuera del f-string (`tmp_target_slash`). No revierte ni deshabilita nada.
+  **Evidencia:** `py_compile` OK · `import live` OK (9 LIVE_TOOLS) · gauntlet `--quick` **PASS** (F1 9 / F2 26,
+  `results/20261009-001245`) · **suite COMPLETA PASS** (`results/20261009-001259`: F1 9, F2 26, F3.1 15,
+  F3.2 16, F3.3 26, F3.4 12, F3.5 18, F3.6 19, F4 INFO 33) · `test_embody_envoy_tools.py` **PASS** (funcional).
+  Contrato `td_python_fstring_backslash` anotado. **El WIP NO se commitea** (lo publica su dueno); ver
+  `docs/loop-run-2026-10-09.md` §6.
