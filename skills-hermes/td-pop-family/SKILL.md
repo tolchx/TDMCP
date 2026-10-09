@@ -101,6 +101,9 @@ feedbackPOP has 1 input (reset/initial geometry). Loop back from output null is 
 - **Campos vectoriales y confinamiento por SDF**: `fieldPOP` + `noisePOP(curl3d)` + `mathmixPOP`
   (flujos solenoidales incompresibles con divergencia nula y confinamiento volumétrico):
   skill **`td-pop-field-vectors`**
+- **Top-to-POP y relieve volumétrico**: `toptoPOP` + `tracePOP` + `mathmixPOP`
+  (conversión de texturas 2D a nubes de puntos 3D reactivas y relieve por luminancia):
+  skill **`td-pop-top-to-pop`**
 - **Spatial interaction**: `neighborPOP` adds `Nebr`/`NumNebrs` for flocking/collision
 - **SOP conversion**: `soptoPOP → attributePOP → nullPOP`
 - **Copy/instance**: `copyPOP` (simple) or `glslcopyPOP` (custom per-copy transform, see below)
