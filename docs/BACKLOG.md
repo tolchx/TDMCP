@@ -350,3 +350,5 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   F3.2 16, F3.3 26, F3.4 12, F3.5 18, F3.6 19, F4 INFO 33) · `test_embody_envoy_tools.py` **PASS** (funcional).
   Contrato `td_python_fstring_backslash` anotado. **El WIP NO se commitea** (lo publica su dueno); ver
   `docs/loop-run-2026-10-09.md` §6.
+
+- [ ] 14. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: loop-run-log.md. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `8757227ae92d9f86`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..

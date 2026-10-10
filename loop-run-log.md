@@ -69,3 +69,7 @@
 - 2026-10-09T07:54:02+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
 - 2026-10-09T07:54:02+00:00 | gate | — | commit b386aa4 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-09T11:23:14+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-09T11:23:14+00:00 | gate | — | commit 9bdb539 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-10T03:20:42+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 14 | loop-candidates.json
+- 2026-10-10T03:21:25+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-10T03:21:44+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=0 | gate.yaml
