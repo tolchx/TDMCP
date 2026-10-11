@@ -73,3 +73,6 @@
 - 2026-10-10T03:20:42+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 14 | loop-candidates.json
 - 2026-10-10T03:21:25+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=0 | gate.yaml
 - 2026-10-10T03:21:44+00:00 | gate | — | commit sobre 3 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-10T03:21:44+00:00 | gate | — | commit 09b17d2 de 3 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-11T03:11:13+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-11T03:11:21+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
