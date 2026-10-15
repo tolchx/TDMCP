@@ -86,3 +86,6 @@
 - 2026-10-13T03:18:06+00:00 | gate | — | commit e012242 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-14T03:01:45+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
 - 2026-10-14T03:01:53+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-14T03:01:53+00:00 | gate | — | commit 3ac0c4c de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-15T06:18:22+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-15T06:18:29+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
