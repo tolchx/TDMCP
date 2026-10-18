@@ -95,3 +95,6 @@
 - 2026-10-16T03:21:07+00:00 | gate | — | commit bad0dc1 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-17T03:03:20+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
 - 2026-10-17T03:03:27+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-17T03:03:27+00:00 | gate | — | commit cdd3eca de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-18T03:05:55+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-18T03:06:03+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
