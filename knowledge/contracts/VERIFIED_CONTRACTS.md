@@ -979,3 +979,27 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
   Evidencia: `py_compile` OK · `import live` OK (9 `LIVE_TOOLS`) · gauntlet F2 **PASS (26 calls, 0 fallos)**
   · `knowledge/test_embody_envoy_tools.py` **PASS** (el `save_script` de `t_eval_render_frame` guardo el
   frame y devolvio PASS/FAIL correctamente).
+
+### `jev_juzga_alcance_del_commit` — el juez LLM hereda el alcance del `git status` del repo [V]
+
+- `jev_audit_diff.py` no recibe un diff: recibe un **repo** y lo deriva con
+  `git status --porcelain`. Consecuencia: si el loop lo llama apuntando al working tree, el juez
+  juzga **todo lo sucio** — incluido el WIP de otra sesión — y no el commit que se va a publicar.
+  Con diffs grandes, además, **trunca** (`diff_truncado`) y deja afuera justo el cambio real.
+- Sintoma medible (2026-10-07, mismo contenido): arbol real con escritor concurrente
+  → `ROJO corresponde=0.09..0.21 · diff_truncado`; clon aislado con **solo** los archivos del pase
+  → `VERDE trabajo_real (0.99) · debilita=0.06 · corresponde=0.69`. La diferencia **no** es el
+  contenido juzgado, es la convivencia en el mismo working tree.
+- Regla: el juez se corre sobre un **espejo del commit**, no sobre el arbol.
+  `scripts/loop_gate.py::juez_scope(paths)` lo arma con `git clone --shared --no-hardlinks` +
+  copia del working tree de esos paths (repo de 5.9 MB → clon instantaneo, sin objetos duplicados).
+- **Verificado [V] 2026-10-20 (offline, sin TD):** `python scripts/test_juez_scope.py` → 16/16 PASS,
+  con A/B determinista sobre un repo git temporal: arbol completo = **4** archivos juzgados,
+  scopeado = **1**. El alcance aislado corre como suite del gate (`juez_scope_selftest`): si alguien
+  lo revierte, el siguiente ALLOW lo delata.
+- Segundo sintoma del mismo defecto (medido 2026-10-20): con el alcance ya aislado el diff del commit
+  puede superar el `--max-chars` del juez (16.000 por defecto) y el veredicto vuelve **ROJO
+  `diff_truncado`** mirando un prefijo. Scopeado conviene subir el presupuesto
+  (`--max-chars 40000`): el diff ya **es** el commit, no hay WIP que ensucie.
+- Limite conocido: un `rename` llega al juez como alta del path nuevo (el gate solo conoce el path
+  final); el contenido juzgado es el mismo, el cambio de nombre no.

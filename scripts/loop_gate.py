@@ -29,8 +29,10 @@ import fnmatch
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -278,8 +280,54 @@ def _force_safe_output() -> None:
 JUDGE = os.path.join(os.environ.get("LOCALAPPDATA", ""), "hermes", "scripts", "jev_audit_diff.py")
 
 
-def run_judge(brief: str | None) -> tuple[bool, dict, str]:
-    """Corre el juez externo sobre el árbol. Devuelve (permite, veredicto, motivo).
+def juez_scope(paths: list[str], root: Path | None = None) -> tuple[str | None, str]:
+    """Espejo aislado del COMMIT para el juez externo (ítem 11 del BACKLOG).
+
+    El juez (`jev_audit_diff.py`) arma su diff con `git status --porcelain`: con
+    cualquier WIP ajeno en el working tree juzga archivos que NO entran al commit
+    y, si el diff crece, lo TRUNCA justo sobre el cambio que se va a publicar
+    (ver `docs/BACKLOG.md` ítem 11, reproducible con un clon aislado).
+
+    Acá se le da exactamente el alcance del commit: clon `--shared` del repo en un
+    temporal (sin copiar objetos: vacío y rápido) + el contenido del working tree
+    de los `paths` del gate. El clon queda con esos paths como único diff.
+
+    Devuelve `(ruta_del_clon, motivo)`; `(None, motivo)` si no se pudo aislar
+    (el llamador cae al árbol completo, avisando).
+    """
+    base = Path(root) if root is not None else ROOT
+    tmp = tempfile.mkdtemp(prefix="loop-juez-")
+    dest = os.path.join(tmp, "repo")
+    try:
+        r = subprocess.run(["git", "clone", "--shared", "--no-hardlinks", "--quiet",
+                            str(base), dest],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout or "git clone falló").strip()[:200])
+        destino = Path(dest)
+        for p in paths:
+            src = base / p
+            dst = destino / p
+            if src.is_dir():
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+            elif src.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, dst)
+            elif dst.exists():
+                # borrado en el working tree: el clon tiene que reflejar la baja
+                dst.unlink()
+        return dest, f"juez scopeado a {len(paths)} path(s) del commit (clon aislado, sin WIP ajeno)"
+    except Exception as e:  # noqa: BLE001
+        shutil.rmtree(tmp, ignore_errors=True)
+        return None, f"no se pudo aislar el arbol ({type(e).__name__}: {e}): el juez corre sobre el arbol completo"
+
+
+def run_judge(brief: str | None, paths: list[str] | None = None) -> tuple[bool, dict, str]:
+    """Corre el juez externo. Devuelve (permite, veredicto, motivo).
+
+    Con `paths` (el alcance del commit) el juez corre sobre un clon AISLADO que
+    contiene sólo esos archivos sucios: así no juzga el WIP de otro escritor ni
+    trunca el diff del cambio real (ítem 11). Sin `paths` cae al árbol completo.
 
     Regla de Tolch (advisory, no dependencia): si el juez NO está disponible
     (sin saldo, sin red, script ausente) el loop SIGUE, avisando. Lo que sí
@@ -288,7 +336,21 @@ def run_judge(brief: str | None) -> tuple[bool, dict, str]:
     """
     if not os.path.isfile(JUDGE):
         return True, {"estado": "no_disponible"}, "juez no encontrado: se sigue (advisory)"
-    cmd = ["python", JUDGE, "--repo", str(ROOT), "--json"]
+
+    repo = str(ROOT)
+    scope = "arbol completo"
+    limpia: str | None = None
+    if paths:
+        aislado, scope = juez_scope(paths)
+        if aislado:
+            repo, limpia = aislado, os.path.dirname(aislado)
+
+    cmd = ["python", JUDGE, "--repo", repo, "--json"]
+    if paths:
+        # El diff scopeado ES el commit: truncarlo deja al juez mirando un prefijo
+        # arbitrario del cambio real (síntoma `diff_truncado` del ítem 11). El
+        # presupuesto sube porque el alcance ya no incluye WIP ajeno.
+        cmd += ["--max-chars", "40000"]
     if brief:
         cmd += ["--brief", brief]
     try:
@@ -296,7 +358,12 @@ def run_judge(brief: str | None) -> tuple[bool, dict, str]:
                            errors="replace", timeout=900)
         v = json.loads((r.stdout or "").strip() or "{}")
     except Exception as e:  # timeout, JSON roto, lo que sea
-        return True, {"estado": "error", "detalle": str(e)[:200]}, f"juez no concluyó ({e}): se sigue (advisory)"
+        return True, {"estado": "error", "detalle": str(e)[:200], "scope": scope}, \
+            f"juez no concluyó ({e}): se sigue (advisory)"
+    finally:
+        if limpia:
+            shutil.rmtree(limpia, ignore_errors=True)
+    v["scope"] = scope
 
     naturaleza = str(v.get("naturaleza") or "").lower()
     debilita = float(v.get("debilita") or 0.0)
@@ -310,7 +377,13 @@ def run_judge(brief: str | None) -> tuple[bool, dict, str]:
     if corresponde is not None and float(corresponde) < 0.2:
         motivos.append(f"corresponde_al_brief {corresponde} (< 0.2): no parece ser la tarea pedida")
     permite = not motivos
-    return permite, v, ("; ".join(motivos) if motivos else f"veredicto {v.get('veredicto')} · {naturaleza} · debilita {debilita}")
+    motivos_juez = [str(m) for m in (v.get("motivos") or [])]
+    detalle = f"veredicto {v.get('veredicto')} · {naturaleza} · debilita {debilita}"
+    if v.get("diff_truncado"):
+        detalle += " · diff TRUNCADO por el juez"
+    if motivos_juez:
+        detalle += f" · motivos del juez: {'; '.join(motivos_juez)}"
+    return permite, v, ("; ".join(motivos) if motivos else detalle)
 
 
 def run_tests() -> tuple[bool, dict]:
@@ -332,6 +405,9 @@ def run_tests() -> tuple[bool, dict]:
         ("gauntlet_quick", ["python", "tools/gauntlet/run_regression.py", "--quick"], ROOT),
         ("single_home", ["python", "tools/gauntlet/check_single_home.py"], ROOT),
         ("td_probe_selftest", ["python", "tools/gauntlet/td_probe.py"], ROOT),
+        # alcance del juez externo (ítem 11): sin esto el juez vuelve a diffear el
+        # árbol entero y el veredicto se contamina con WIP ajeno. Autoprueba sin red.
+        ("juez_scope_selftest", ["python", "scripts/test_juez_scope.py"], ROOT),
     ]
     for nombre, cmd, cwd in pasos:
         try:
@@ -433,11 +509,16 @@ def main() -> int:
     concurrentes = concurrent_outside(norm)
 
     if not motivos and args.judge:
-        permite, v, motivo = run_judge(args.brief_file)
+        permite, v, motivo = run_judge(args.brief_file, paths)
         judge_info = {"veredicto": v.get("veredicto"), "naturaleza": v.get("naturaleza"),
                       "debilita": v.get("debilita"), "corresponde_al_brief": v.get("corresponde_al_brief"),
+                      "scope": v.get("scope"), "archivos_juzgados": v.get("archivos_juzgados"),
+                      "diff_truncado": v.get("diff_truncado"), "motivos": v.get("motivos"),
                       "costo_usd": v.get("costo_usd"), "motivo": motivo}
         print(("  \u2714 juez externo (jev): " if permite else "  \u2716 juez externo (jev): BLOQUEA — ") + motivo)
+        if v.get("archivos_juzgados"):
+            print(f"  · juez miró {len(v['archivos_juzgados'])} archivo(s): "
+                  + ", ".join(v["archivos_juzgados"][:6]) + ("…" if len(v["archivos_juzgados"]) > 6 else ""))
         if not permite:
             motivos.append(f"juez externo (jev): {motivo}")
     else:

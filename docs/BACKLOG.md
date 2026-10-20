@@ -296,8 +296,8 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   Herramientas que deja el pase: `tools/fetch_youtube_transcripts.py` (transcripts reutilizables) y
   `tools/verify_tutorial_extracts.py` (verifica que cada cita exista en el transcript: 81/85 = 95%).
 
-- [ ] 11. **Hallazgo del pase del 2026-10-07 — el juez externo (jev) juzga el ÁRBOL ENTERO, no el
-  diff del commit.** `scripts/loop_gate.py::run_judge` arma
+- [x] 11. **Hallazgo del pase del 2026-10-07 — el juez externo (jev) juzga el ÁRBOL ENTERO, no el
+  diff del commit.** CERRADO 2026-10-20 (ciclo diario). `scripts/loop_gate.py::run_judge` arma
   `python jev_audit_diff.py --repo ROOT --json` **sin pasarle los `--paths`** del commit; el juez hace
   `git status --porcelain` y difea *todo* lo sucio (su `construir_diff` usa `git status`, no el
   pathspec). Evidencia de esta sesión (había un escritor concurrente vivo):
@@ -319,6 +319,25 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   (2ª corrida, delta final: `VERDE (0.97) · debilita=0.05 · corresponde=0.63`). En el árbol real, con el
   mismo contenido, da `ROJO corresponde=0.09..0.21 · diff_truncado`. La diferencia es **sólo** el WIP
   ajeno: el juez no está midiendo el commit, está midiendo la convivencia de dos sesiones.
+
+  **RESUELTO 2026-10-20 (ciclo diario, TD abajo — ítem 100% offline).** El fix no toca el juez
+  (vive fuera del repo, en `~/AppData/Local/hermes/scripts/`): el **gate** le da un espejo aislado del
+  commit. `scripts/loop_gate.py`: `juez_scope(paths)` clona el repo con
+  `git clone --shared --no-hardlinks` en un temporal (sin copiar objetos) y copia **sólo** el contenido
+  del working tree de los `paths` del gate (un path borrado se borra en el clon); `run_judge(brief,
+  paths)` corre el juez sobre ese clon y lo limpia en `finally`, cayendo al árbol completo **con aviso**
+  si el aislamiento falla; `main()` pasa los paths y **muestra `archivos_juzgados`** (antes el defecto
+  era invisible). El alcance aislado entró a las suites del gate (`juez_scope_selftest`), así que cada
+  ALLOW futuro prueba que el juez recibió el commit y no el árbol.
+  **Evidencia:** `python scripts/test_juez_scope.py` → **EXIT 0, 16/16 PASS** (repo git temporal con WIP
+  modificado + untracked + borrado, `juez_scope` real y A/B con un juez de prueba: **árbol completo = 4
+  archivos juzgados / scopeado = 1**). Segundo síntoma del mismo ítem, medido al correr el gate: con el
+  alcance aislado el diff del commit dio **25.620 chars** > el `--max-chars` por defecto del juez
+  (16.000) → `ROJO diff_truncado`; ahora, scopeado, el gate le pasa **`--max-chars 40000`** y muestra
+  `motivos`/`diff_truncado` (sin scope sigue en 16.000). Suites del gate en la misma corrida: `server.py --selftest`
+  21/21, `test_protocol.py` exit 0, `check_single_home.py` 0 violaciones, `td_probe.py` 6/6.
+  **Límite anotado:** un `rename` llega al juez como «alta del path nuevo» (el gate sólo conoce el path
+  final); el contenido juzgado es el mismo. Ver `docs/loop-run-2026-10-20.md`.
 
 - [ ] 12. **El commit `6075955` mezcló DOS sesiones (pasó el 2026-10-07, ~11:22:59).** Lo hizo la otra
   sesión viva (autor `tolchx`) y **ya está en `origin/main`**. Entraron en el mismo commit los 4
