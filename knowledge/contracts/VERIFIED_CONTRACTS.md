@@ -999,7 +999,9 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
   lo revierte, el siguiente ALLOW lo delata.
 - Segundo sintoma del mismo defecto (medido 2026-10-20): con el alcance ya aislado el diff del commit
   puede superar el `--max-chars` del juez (16.000 por defecto) y el veredicto vuelve **ROJO
-  `diff_truncado`** mirando un prefijo. Scopeado conviene subir el presupuesto
-  (`--max-chars 40000`): el diff ya **es** el commit, no hay WIP que ensucie.
+  `diff_truncado`** mirando un prefijo. Scopeado conviene subir el presupuesto — 40.000 no alcanzo
+  para un commit de 6 archivos con `knowledge/selftest_protocol.json` (JSON de UNA linea, **47.139
+  chars**); el gate usa **`--max-chars 120000`** scopeado (el diff ya **es** el commit, no hay WIP
+  que ensucie) y 16.000 sin scope.
 - Limite conocido: un `rename` llega al juez como alta del path nuevo (el gate solo conoce el path
   final); el contenido juzgado es el mismo, el cambio de nombre no.

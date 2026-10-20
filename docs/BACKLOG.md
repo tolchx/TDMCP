@@ -333,8 +333,10 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   modificado + untracked + borrado, `juez_scope` real y A/B con un juez de prueba: **árbol completo = 4
   archivos juzgados / scopeado = 1**). Segundo síntoma del mismo ítem, medido al correr el gate: con el
   alcance aislado el diff del commit dio **25.620 chars** > el `--max-chars` por defecto del juez
-  (16.000) → `ROJO diff_truncado`; ahora, scopeado, el gate le pasa **`--max-chars 40000`** y muestra
-  `motivos`/`diff_truncado` (sin scope sigue en 16.000). Suites del gate en la misma corrida: `server.py --selftest`
+  (16.000) → `ROJO diff_truncado`; con 40.000 **volvió a truncar** (commit de 6 archivos con
+  `knowledge/selftest_protocol.json`, JSON de una línea: **47.139 chars**) → el valor final es
+  **`--max-chars 120000`** scopeado, y el gate ahora muestra `motivos`/`diff_truncado` (sin scope
+  sigue en 16.000). Suites del gate en la misma corrida: `server.py --selftest`
   21/21, `test_protocol.py` exit 0, `check_single_home.py` 0 violaciones, `td_probe.py` 6/6.
   **Límite anotado:** un `rename` llega al juez como «alta del path nuevo» (el gate sólo conoce el path
   final); el contenido juzgado es el mismo. Ver `docs/loop-run-2026-10-20.md`.

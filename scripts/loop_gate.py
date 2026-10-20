@@ -349,8 +349,11 @@ def run_judge(brief: str | None, paths: list[str] | None = None) -> tuple[bool, 
     if paths:
         # El diff scopeado ES el commit: truncarlo deja al juez mirando un prefijo
         # arbitrario del cambio real (síntoma `diff_truncado` del ítem 11). El
-        # presupuesto sube porque el alcance ya no incluye WIP ajeno.
-        cmd += ["--max-chars", "40000"]
+        # presupuesto sube porque el alcance ya no incluye WIP ajeno. Medición
+        # 2026-10-20: un commit de 6 archivos con `knowledge/selftest_protocol.json`
+        # (JSON de UNA línea, ~17 KB de diff) dio 47.139 chars y truncó también con
+        # 40.000; 120.000 lo cubre con margen.
+        cmd += ["--max-chars", "120000"]
     if brief:
         cmd += ["--brief", brief]
     try:

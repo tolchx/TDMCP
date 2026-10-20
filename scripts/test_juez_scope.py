@@ -142,8 +142,8 @@ def main() -> int:
             check("run_judge permite (advisory, juez VERDE)", permite, motivo)
             check("el juez miró sólo a.txt", vistos == ["a.txt"], f"visto: {vistos}")
             check("el veredicto declara el scope aislado", "clon aislado" in str(v.get("scope")), str(v.get("scope")))
-            check("scopeado: el juez recibe --max-chars 40000 (el diff ES el commit)",
-                  v.get("max_chars") == 40000, str(v.get("max_chars")))
+            check("scopeado: el juez recibe --max-chars 120000 (el diff ES el commit)",
+                  v.get("max_chars") == 120000, str(v.get("max_chars")))
 
             print("[3] A/B del ítem 11: sin scope el juez ve el WIP ajeno")
             _, v2, _ = loop_gate.run_judge(None, None)
