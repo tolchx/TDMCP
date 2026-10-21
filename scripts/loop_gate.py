@@ -411,6 +411,9 @@ def run_tests() -> tuple[bool, dict]:
         # alcance del juez externo (ítem 11): sin esto el juez vuelve a diffear el
         # árbol entero y el veredicto se contamina con WIP ajeno. Autoprueba sin red.
         ("juez_scope_selftest", ["python", "scripts/test_juez_scope.py"], ROOT),
+        # señal de evidencia en rojo del triage (ítem 6): antes globeaba sin recursión
+        # y buscaba `all_ok`, así que jamás veía un rojo de fase. Autoprueba sin red.
+        ("triage_evidence_selftest", ["python", "scripts/test_triage_evidence.py"], ROOT),
     ]
     for nombre, cmd, cwd in pasos:
         try:

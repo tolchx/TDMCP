@@ -1005,3 +1005,31 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
   que ensucie) y 16.000 sin scope.
 - Limite conocido: un `rename` llega al juez como alta del path nuevo (el gate solo conoce el path
   final); el contenido juzgado es el mismo, el cambio de nombre no.
+
+### `triage_ve_la_evidencia_vigente` — la evidencia del gauntlet vive en `results/<run_id>/` y usa `ok`, no `all_ok` [V]
+
+- **Forma real en disco** (medida 2026-10-21 sobre este repo): `tools/gauntlet/results/**/*.json` =
+  **934** archivos; en la **raiz** de `results/` hay **1** (`f4-ab-comparison.json`). Todo lo demás
+  vive en `results/<run_id>/` (`<run_id>` = `YYYYMMDD-HHMMSS`): `f1-smoke-summary.json`,
+  `f2-core-summary.json`, `f3-*-summary.json`, `regression-report.json`, `.jsonl` por fase.
+- **Esquemas** (no intercambiables): el summary de fase es
+  `{"phase", "run_id", "calls", "p50_ms", "p95_ms", "failures": [str], "meta", "ok": bool}` — **no
+  tiene `all_ok` ni `checks`**. El reporte agregado es
+  `{"run_id", "finished", "url", "overall": "PASS"|"FAIL", "env", "phases": {label: {"verdict", "failures", "exit", "calls"}}, "baseline", "baseline_diff"}`.
+  El viejo `{"all_ok", "checks":[{"name","ok"}]}` existe solo en sondas sueltas.
+- **Consecuencia (defecto real, no teorico):** `sig_live_evidence_fail()` globeaba
+  `results/*.json` **sin recursion** y preguntaba `data.get("all_ok") is False` → **cero** candidatos
+  posibles, con 184 JSON en `ok:false` en disco. La señal de "aceptación en vivo en rojo" era
+  inalcanzable: el triage solo podia descubrir arboles sucios (por eso 12 corridas seguidas de no-op).
+- **Regla:** la evidencia se lee de la **ultima corrida** (`max` por nombre de `run_id`), no del arbol
+  entero: recorrer los 934 JSON convierte al triage en una maquina de ruido con 184 rojos historicos ya
+  superados. Si hay `regression-report.json`, se usa **solo** ese (agrega las fases → un candidato por
+  corrida, no uno por fase); si no, los `*-summary.json` de esa corrida.
+- **Verificado [V] 2026-10-21 (offline, sin TD):** `python scripts/test_triage_evidence.py` →
+  **13/13 PASS**, con A/B determinista sobre fixtures: misma corrida roja anidada → logica vieja **0**
+  candidatos, logica nueva **1**; rojo viejo + verde nuevo → **0**; verde viejo + rojo nuevo → **1** con
+  el `run_id` nuevo. Corre como suite del gate (`triage_evidence_selftest`). Sobre el repo real da **0**
+  candidatos (la ultima corrida, `20261009-082307`, es PASS): el fix no inunda de ruido.
+- Limite conocido: `sig_gauntlet_rojo` sigue corriendo solo `--quick` (F1+F2), asi que un rojo de F3+
+  no se detecta por esa via (si por la evidencia escrita, desde este fix).
+

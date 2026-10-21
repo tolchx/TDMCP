@@ -103,28 +103,97 @@ def sig_queue_drift() -> list[dict]:
     }]
 
 
+_RUN_RE = re.compile(r"^\d{8}-\d{6}$")
+
+
+def _ultima_corrida(d: Path) -> Path | None:
+    """Corrida más reciente de un dir de evidencia (`results/<run_id>/`).
+
+    El gauntlet escribe `*-summary.json` y `regression-report.json` DENTRO de
+    `results/<run_id>/`, no en la raíz de `results/`. Si el dir no tiene corridas
+    (evidencia suelta de las sondas), se usa el propio dir.
+    """
+    if not d.exists():
+        return None
+    corridas = [p for p in d.iterdir() if p.is_dir() and _RUN_RE.match(p.name)]
+    return max(corridas, key=lambda p: p.name) if corridas else d
+
+
+def _archivos_de_evidencia(d: Path) -> list[Path]:
+    """JSON que cuentan como evidencia VIGENTE de ese dir.
+
+    Solo la última corrida: 184 de los 934 JSON del repo son rojos históricos ya
+    superados; escanear todo convertiría al triage en una máquina de ruido. Si hay
+    `regression-report.json` (agrega todas las fases) se usa ese solo, para no
+    emitir un candidato por fase.
+    """
+    corrida = _ultima_corrida(d)
+    if corrida is None:
+        return []
+    reporte = corrida / "regression-report.json"
+    if reporte.exists():
+        return [reporte]
+    resumenes = sorted(corrida.glob("*-summary.json"))
+    if resumenes:
+        return resumenes
+    return sorted(corrida.glob("*.json"))
+
+
+def _rojo_de(data: dict) -> tuple[bool, list[str]]:
+    """(es_rojo, motivos) con el esquema REAL del gauntlet, y el viejo por compat.
+
+    Esquema real de los summary: `{"ok": bool, "failures": [str, ...]}`.
+    Esquema real del reporte: `{"overall": "PASS"|"FAIL", "phases": {label: {...}}}`.
+    Esquema viejo de las sondas: `{"all_ok": bool, "checks": [{name, ok}]}`.
+    """
+    if data.get("all_ok") is False:
+        return True, [c.get("name") for c in data.get("checks", []) if not c.get("ok")]
+    if data.get("ok") is False:
+        return True, list(data.get("failures") or []) or ["ok=false sin detalle"]
+    overall = str(data.get("overall") or "").upper()
+    if overall in {"FAIL", "FALLIDO", "ROJO", "RED"}:
+        motivos = []
+        for label, ph in (data.get("phases") or {}).items():
+            if ph.get("verdict") == "FAIL" or ph.get("ok") is False:
+                fallas = ph.get("failures") or []
+                motivos.append(f"{label}: {fallas[0] if fallas else 'FAIL'}")
+        return True, motivos[:8] or [f"overall={overall}"]
+    return False, []
+
+
 def sig_live_evidence_fail() -> list[dict]:
-    """Evidencia de aceptación en vivo que quedó en rojo."""
+    """Evidencia de aceptación en vivo que quedó en rojo.
+
+    Antes esta señal era incapaz de dispararse: globeaba `results/*.json` SIN
+    recursión (1 archivo en la raíz contra 934 anidados) y buscaba `all_ok`, que el
+    gauntlet no escribe. Resultado: los rojos de fase nunca llegaban a candidato.
+    """
     out = []
     for d in EVIDENCE_DIRS:
-        for f in sorted(d.glob("*.json")) if d.exists() else []:
+        for f in _archivos_de_evidencia(d):
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
             except Exception:  # noqa: BLE001
                 continue
-            if data.get("all_ok") is False:
-                fallas = [c.get("name") for c in data.get("checks", []) if not c.get("ok")]
-                out.append({
-                    "id": f"vivo-rojo-{f.stem}",
-                    "titulo": f"Aceptación en vivo en ROJO: {f.name}",
-                    "evidencia": fallas[:8],
-                    "sugerencia": f"Reproducir con `{_comando_de(f.stem)}` y abrir item con el fallo concreto.",
-                    "peso": 5,
-                })
+            if not isinstance(data, dict):
+                continue
+            es_rojo, motivos = _rojo_de(data)
+            if not es_rojo:
+                continue
+            corrida = f.parent.name
+            out.append({
+                "id": f"vivo-rojo-{corrida}-{f.stem}",
+                "titulo": f"Aceptación en vivo en ROJO: {corrida}/{f.name}",
+                "evidencia": motivos[:8],
+                "sugerencia": f"Reproducir con `{_comando_de(f.stem)}` y abrir item con el fallo concreto.",
+                "peso": 5,
+            })
     return out
 
 
 def _comando_de(stem: str) -> str:
+    if _RUN_RE.match(stem) or stem.startswith("regression") or re.match(r"^f\d", stem):
+        return "python tools/gauntlet/run_regression.py"
     if "chain" in stem:
         return "node scripts/live/twozero_chain_live.mjs --scope /"
     if "http" in stem:

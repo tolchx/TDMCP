@@ -234,6 +234,22 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `tools/gauntlet/results/*.json` **sin recursión** → los `*-summary.json` dentro de
   `results/<run_id>/` nunca se vuelven candidato `vivo-rojo-*`; mismo agujero en `sig_gauntlet_rojo`
   (sólo corre `--quick`, F1+F2). Evidencia completa: `docs/loop-run-2026-10-02.md`.
+  **PARCIAL 2026-10-21 — cerrado el sub-hallazgo OFFLINE del triage (lo demás sigue abierto).**
+  Medido en vivo, no de memoria: `results/**/*.json` = **934** archivos, de los cuales **1** está en la
+  raíz (el único que el glob no recursivo podía ver) y **184** tienen `ok:false`; además el esquema real
+  del gauntlet es `ok`/`failures` (summary) y `overall`/`phases` (reporte), **no** `all_ok`/`checks`.
+  O sea: la señal de "aceptación en vivo en rojo" no podía dispararse **por dos motivos a la vez**.
+  Fix (un tema, sin refactor): `_ultima_corrida()` + `_archivos_de_evidencia()` + `_rojo_de()` en
+  `scripts/loop_triage.py` — mira **sólo la última corrida** de cada dir de evidencia (para no convertir
+  los 184 rojos históricos en ruido), usa `regression-report.json` si existe (un candidato por corrida,
+  no uno por fase) y entiende los tres esquemas. `_comando_de()` sugiere el gauntlet para las fases.
+  Autoprueba ejecutando la función real sobre fixtures: `python scripts/test_triage_evidence.py` →
+  **13/13 PASS**, con A/B del defecto (lógica vieja 0 candidatos sobre el mismo fixture rojo, nueva 1).
+  Corre como suite del gate (`triage_evidence_selftest`). Contrato: `triage_ve_la_evidencia_vigente`.
+  **Sigue abierto en este ítem** (no se tocó, es otro tema/corrida): (a) robustecer el check de F3.2
+  flaky — requiere TD arriba para verificar; (b) `sig_gauntlet_rojo` sigue corriendo sólo `--quick`
+  (F1+F2), así que un rojo de F3+ no entra por esa vía aunque ahora sí entre por la evidencia escrita.
+
 
 - [x] 7. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: knowledge/server.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `cebefde95bf63597`).
   **CERRADO 2026-10-05:** consolidado con ítem 8.
