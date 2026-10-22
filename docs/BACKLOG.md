@@ -249,6 +249,19 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   **Sigue abierto en este ítem** (no se tocó, es otro tema/corrida): (a) robustecer el check de F3.2
   flaky — requiere TD arriba para verificar; (b) `sig_gauntlet_rojo` sigue corriendo sólo `--quick`
   (F1+F2), así que un rojo de F3+ no entra por esa vía aunque ahora sí entre por la evidencia escrita.
+  **CERRADO (b) 2026-10-22 — la señal EN VIVO del triage ya corre la suite completa.** `sig_tests()`
+  ejecutaba `run_regression.py --quick` y leía el veredicto de un regex sobre el stdout: un rojo de
+  F3+ de la misma corrida era invisible (el ciclo podía decir "sin novedades" con F3 caída). Ahora
+  con `--full` corre la suite **completa** y las fases en rojo salen del `regression-report.json`
+  escrito por esa corrida (`_corridas_del_gauntlet` + `_rojo_de_corrida` + `_rojo_de`, el parser ya
+  probado); si el reporte es legible la señal **no duplica** el candidato (lo levanta
+  `sig_live_evidence_fail`), el regex sobre stdout queda sólo de fallback, `exit 2` sigue siendo
+  entorno y un reporte PASS manda sobre el exit code. Autoprueba **21/21 PASS** (8 chequeos nuevos,
+  `sh` monkeypatcheado, ejecutan la función real); A/B del defecto sobre el mismo fixture: viejo **0**
+  candidatos, nuevo **1** con `F3.2 Reloj audio: …`. La suite completa corre sólo con `--full` (ciclo
+  diario), no en el triage de 4 h. Contrato: `triage_corrida_en_vivo_suite_completa`.
+  **Sigue abierto en este ítem:** (a) el check de F3.2 flaky — requiere TD arriba para verificar, y
+  falta la verificación EN VIVO de (b) con TD arriba (hoy: offline con fixtures).
 
 
 - [x] 7. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: knowledge/server.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `cebefde95bf63597`).

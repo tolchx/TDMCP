@@ -36,9 +36,12 @@ sys.path.insert(0, str(AQUI))
 import loop_triage  # noqa: E402
 
 FALLOS: list[str] = []
+CORRIDOS = 0
 
 
 def check(nombre: str, ok: bool, detalle: str = "") -> None:
+    global CORRIDOS
+    CORRIDOS += 1
     print(("  PASS  " if ok else "  FAIL  ") + nombre + (f" — {detalle}" if detalle and not ok else ""))
     if not ok:
         FALLOS.append(nombre)
@@ -82,6 +85,12 @@ REPORTE_ROJO = {"run_id": "20261021-000200", "overall": "FAIL",
                                         "failures": ["reposition_operators mueve de verdad"]}}}
 REPORTE_VERDE = {"run_id": "20261021-000200", "overall": "PASS",
                  "phases": {"F1  Smoke": {"verdict": "PASS", "failures": []}}}
+# Rojo en una fase que el `--quick` NUNCA corre (F1+F2): el caso del ítem 6(b).
+REPORTE_F3_ROJO = {"run_id": "20261022-000100", "overall": "FAIL",
+                   "phases": {"F1  Smoke": {"verdict": "PASS", "failures": []},
+                              "F2  API core": {"verdict": "PASS", "failures": []},
+                              "F3.2 Reloj audio": {"verdict": "FAIL",
+                                                   "failures": ["par animado por expresion cambia en el tiempo"]}}}
 
 
 def main() -> int:
@@ -150,6 +159,68 @@ def main() -> int:
               loop_triage._comando_de("f2-core"))
         check("el reporte también",
               loop_triage._comando_de("regression-report") == "python tools/gauntlet/run_regression.py")
+        print("8. La señal EN VIVO corre la suite completa (ítem 6b)")
+        g = tmp / "gauntlet"
+        escribir(g / "20261021-235900" / "regression-report.json", REPORTE_VERDE)  # corrida previa
+        llamadas: list[list[str]] = []
+
+        def correr_tests(base: Path, code: int, salida: str, reporte: dict | None = None,
+                         run_id: str = "20261022-000100") -> list[dict]:
+            """Corre la señal REAL con un gauntlet simulado (`sh` monkeypatcheado).
+
+            Si `reporte` no es None, el gauntlet simulado escribe su
+            `regression-report.json` durante la corrida (como el real).
+            """
+            llamadas.clear()
+
+            def sh_falso(args, timeout=1800):  # noqa: ANN001, ARG001
+                llamadas.append(list(args))
+                if reporte is not None:
+                    escribir(base / run_id / "regression-report.json", reporte)
+                return code, salida
+
+            previo_sh, previo_base = loop_triage.sh, loop_triage.GAUNTLET_RESULTS
+            loop_triage.sh, loop_triage.GAUNTLET_RESULTS = sh_falso, base
+            try:
+                return loop_triage.sig_tests(True)
+            finally:
+                loop_triage.sh, loop_triage.GAUNTLET_RESULTS = previo_sh, previo_base
+
+        n = correr_tests(g, 1, "x  F3.2 Reloj audio  FAIL", REPORTE_F3_ROJO)
+        check("corre el gauntlet SIN --quick (suite completa, F3+ incluida)",
+              llamadas and llamadas[0] == ["python", "tools/gauntlet/run_regression.py"],
+              str(llamadas))
+        check("con el rojo ya escrito, la señal en vivo no duplica el candidato", n == [], str(n))
+        n_ev = correr(g)
+        check("la evidencia escrita SÍ lo levanta, nombrando la fase F3 caída",
+              len(n_ev) == 1 and any("F3" in str(x) for x in n_ev[0]["evidencia"]), str(n_ev))
+
+        print("9. Sin --full no corre nada (cadencia de 4 h)")
+        llamadas.clear()
+        previo = loop_triage.sh
+        loop_triage.sh = lambda args, timeout=1800: (llamadas.append(list(args)), (0, ""))[1]
+        try:
+            n_sin_full = loop_triage.sig_tests(False)
+        finally:
+            loop_triage.sh = previo
+        check("full=False → 0 llamadas al gauntlet", n_sin_full == [] and llamadas == [], str(llamadas))
+
+        print("10. Entorno caído (exit 2) no es rojo")
+        check("exit 2 → 0 candidatos aunque no haya reporte",
+              correr_tests(tmp / "gauntlet_vacio2", 2, "MCP server no responde en 13316") == [])
+
+        print("11. Fallback: el gauntlet murió sin escribir reporte")
+        n = correr_tests(tmp / "gauntlet_sin_reporte", 1,
+                         "x  F2  API core  FAIL  3 calls | reposition_operators")
+        check("emite el candidato `gauntlet-rojo`", len(n) == 1 and n[0]["id"] == "gauntlet-rojo", str(n))
+        check("con el texto del fail del stdout",
+              bool(n) and any("reposition_operators" in str(x) for x in n[0]["evidencia"]),
+              str(n[0]["evidencia"]) if n else "")
+
+        print("12. El reporte escrito manda sobre el exit code")
+        check("reporte PASS + exit 1 → 0 candidatos (no se inventa un rojo)",
+              correr_tests(tmp / "gauntlet_pass_exit1", 1, "FAIL 1 fases", REPORTE_VERDE,
+                           run_id="20261022-000700") == [])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -157,7 +228,7 @@ def main() -> int:
     if FALLOS:
         print(f"FAIL: {len(FALLOS)} chequeo(s) — {', '.join(FALLOS)}")
         return 1
-    print("PASS: 13/13 chequeos")
+    print(f"PASS: {CORRIDOS - len(FALLOS)}/{CORRIDOS} chequeos")
     return 0
 
 

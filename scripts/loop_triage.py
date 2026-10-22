@@ -38,6 +38,9 @@ CANDIDATES = ROOT / "loop-candidates.json"
 CLIENT_LOG = Path(os.environ.get("TEMP", "/tmp")) / "tdmcp-client.log"
 # Fork tolchx: la evidencia de aceptación en vivo vive en los resultados del gauntlet.
 EVIDENCE_DIRS = [ROOT / "tools" / "gauntlet" / "results"]
+# Dir donde el gauntlet escribe `results/<run_id>/`. Es el mismo que EVIDENCE_DIRS[0],
+# pero separado porque la señal en vivo necesita Comparar antes/después de SU corrida.
+GAUNTLET_RESULTS = ROOT / "tools" / "gauntlet" / "results"
 
 
 def paused() -> bool:
@@ -161,6 +164,37 @@ def _rojo_de(data: dict) -> tuple[bool, list[str]]:
     return False, []
 
 
+def _corridas_del_gauntlet() -> set[str]:
+    """Nombres de las corridas (`results/<run_id>/`) presentes AHORA en el dir del gauntlet."""
+    base = GAUNTLET_RESULTS
+    if not base.exists():
+        return set()
+    return {p.name for p in base.iterdir() if p.is_dir() and _RUN_RE.match(p.name)}
+
+
+def _rojo_de_corrida(nuevas: list[str]) -> tuple[str, list[str], bool]:
+    """(run_id, motivos, hay_reporte) de las corridas que escribió la corrida en vivo.
+
+    Devuelve `hay_reporte=True` cuando encontró un `regression-report.json` legible de
+    la corrida nueva: en ese caso `motivos` es la lista de fases en rojo (vacía si el
+    reporte dice PASS). `hay_reporte=False` significa que el gauntlet no dejó reporte
+    (murió antes) y el llamador tiene que caer al stdout.
+    """
+    for run_id in reversed(nuevas):
+        f = GAUNTLET_RESULTS / run_id / "regression-report.json"
+        if not f.exists():
+            continue
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        if not isinstance(data, dict):
+            continue
+        es_rojo, motivos = _rojo_de(data)
+        return run_id, (motivos if es_rojo else []), True
+    return "", [], False
+
+
 def sig_live_evidence_fail() -> list[dict]:
     """Evidencia de aceptación en vivo que quedó en rojo.
 
@@ -268,23 +302,39 @@ def sig_stale_briefs() -> list[dict]:
 
 
 def sig_tests(full: bool) -> list[dict]:
+    """Corre la suite del gauntlet y reporta fases en rojo.
+
+    Ítem 6, sub-hallazgo (b): antes esto corría `--quick` (F1+F2), así que un rojo de
+    F3+ **no podía entrar por esta vía**: la corrida "en vivo" del triage podía decir
+    "sin novedades" con una fase F3 caída. Ahora con `--full` corre la suite COMPLETA,
+    y las fases en rojo se leen del `regression-report.json` que escribió ESTA corrida
+    con `_rojo_de()` (esquema real `overall`/`phases`), no de un regex sobre el stdout.
+    Cuando el reporte de la corrida nueva es legible, la señal NO emite candidato: la
+    evidencia escrita ya la reporta `sig_live_evidence_fail()` (un candidato por
+    corrida, no dos por el mismo rojo). El regex sobre stdout queda sólo de fallback
+    para cuando el gauntlet murió antes de escribir el reporte.
+    exit 2 = entorno caído (no es rojo) → se saltea, como siempre.
+    """
     if not full:
         return []
-    out = []
-    # Fork tolchx: la "suite" es el gauntlet corto (F1+F2). exit 2 = entorno caído (no rojo).
-    code, salida = sh(["python", "tools/gauntlet/run_regression.py", "--quick"], timeout=1800)
+    antes = _corridas_del_gauntlet()
+    code, salida = sh(["python", "tools/gauntlet/run_regression.py"], timeout=1800)
     if code in (0, 2):
         return []
-    m = re.search(r"FAIL\s*[:)]?\s*(\d+)", salida)
-    en_rojo = re.findall(r"(?:FAIL|✖)\s*[:\-]?\s*(.+)$", salida, re.M)[:8]
-    out.append({
+    corrida, motivos, hay_reporte = _rojo_de_corrida(sorted(_corridas_del_gauntlet() - antes))
+    if hay_reporte:
+        # El rojo ya está escrito como evidencia: lo levanta sig_live_evidence_fail().
+        # También un PASS escrito manda sobre el exit code (no se inventa un rojo).
+        return []
+    motivos = motivos or re.findall(r"(?:FAIL|✖)\s*[:\-]?\s*(.+)$", salida, re.M)[:8] or [salida[-500:]]
+    n_fases = re.search(r"FAIL\s*[:)]?\s*(\d+)", salida)
+    return [{
         "id": "gauntlet-rojo",
-        "titulo": f"Gauntlet en rojo ({m.group(1) if m else '?'} fases)",
-        "evidencia": en_rojo or salida[-500:],
+        "titulo": f"Gauntlet en rojo ({n_fases.group(1) if n_fases else '?'} fases)",
+        "evidencia": motivos,
         "sugerencia": "Una fase del gauntlet en rojo es un hallazgo: abrir item con la fase y su salida, no 'arreglar' deshabilitándola.",
         "peso": 5,
-    })
-    return out
+    }]
 
 
 SIGNALS = [sig_dirty_tree, sig_queue_drift, sig_live_evidence_fail,

@@ -1030,6 +1030,32 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
   candidatos, logica nueva **1**; rojo viejo + verde nuevo → **0**; verde viejo + rojo nuevo → **1** con
   el `run_id` nuevo. Corre como suite del gate (`triage_evidence_selftest`). Sobre el repo real da **0**
   candidatos (la ultima corrida, `20261009-082307`, es PASS): el fix no inunda de ruido.
-- Limite conocido: `sig_gauntlet_rojo` sigue corriendo solo `--quick` (F1+F2), asi que un rojo de F3+
-  no se detecta por esa via (si por la evidencia escrita, desde este fix).
+- Limite conocido: `sig_gauntlet_rojo` (`sig_tests`) corría solo `--quick` (F1+F2), asi que un rojo de
+  F3+ no se detectaba por esa via (si por la evidencia escrita, desde este fix). **Cerrado el
+  2026-10-22** en el contrato `triage_corrida_en_vivo_suite_completa`.
+
+### `triage_corrida_en_vivo_suite_completa` — la señal EN VIVO del triage corría `--quick`, así que un rojo de F3+ era invisible [V]
+
+- **Defecto real (ítem 6b):** `sig_tests(full=True)` ejecutaba `run_regression.py **--quick**`
+  (F1+F2) y leía el veredicto de un **regex sobre el stdout**. Un rojo de F3+ dentro de la misma
+  corrida no podía entrar por esa vía: la suite completa **nunca se ejecutaba** desde el triage, así
+  que el ciclo podía imprimir "sin novedades" con F3 caída.
+- **Fix (un tema):** con `--full` corre la suite **completa** (sin `--quick`); las fases en rojo se
+  leen del `regression-report.json` que escribió **esa** corrida (`_corridas_del_gauntlet()` →
+  diferencia antes/después → `_rojo_de_corrida()` → `_rojo_de()`), no del stdout. Si el reporte es
+  legible, la señal en vivo **no emite candidato**: la evidencia escrita ya la levanta
+  `sig_live_evidence_fail()` → **un** candidato por corrida, no dos por el mismo rojo. El regex sobre
+  stdout queda **sólo** como fallback (el gauntlet murió antes de escribir el reporte).
+- **Reglas de borde (medidas):** `exit 2` = entorno caído → se saltea (no es rojo); reporte **PASS**
+  manda sobre un `exit != 0` (no se inventa un rojo); `full=False` (triage de 4 h) **no corre nada**.
+- **Costo:** la suite completa corre sólo con `--full` (ciclo diario / manual), no en la cadencia de 4 h.
+- **Verificado [V] 2026-10-22 (offline, sin TD):** `python scripts/test_triage_evidence.py` →
+  **21/21 PASS**, 8 chequeos nuevos que ejecutan la función real con `sh` monkeypatcheado (argv sin
+  `--quick`; no duplicación; la evidencia levanta la fase F3; `full=False` no corre; `exit 2` no es
+  rojo; fallback `gauntlet-rojo` con el texto del stdout; reporte PASS + `exit 1` → 0). A/B sobre el
+  mismo fixture: lógica vieja (quick verde, F3 roja) → **0** candidatos; nueva →
+  **1** (`vivo-rojo-20261022-000200-regression-report`) con `F3.2 Reloj audio: …` en la evidencia.
+- **Límite conocido:** falta la verificación **en vivo** (TD arriba) de que una suite completa real
+  en rojo entre como candidato por esta vía; hoy está verificado offline con fixtures. La corrida real
+  tampoco se puede simular: `run_regression.py` pre-chequea el MCP en `13316` y sale 2 sin TD.
 
