@@ -94,10 +94,20 @@ class Gauntlet:
     # ── llamada con log ──────────────────────────────────────────────────
     def call(self, tool: str, args: dict | None = None, note: str = "",
              timeout: float | None = None, quiet: bool = False) -> dict:
-        self._seq += 1
+        # C14/td_slow_operation: el rate limiter del componente puede responder
+        # "recovering from a slow operation" y pide reintentar la MISMA llamada.
+        # Sin este retry, una corrida en batería arrastra el cooldown a la fase
+        # siguiente (falso rojo en revolve/tube/topology, medido 2026-10-29).
         t0 = time.time()
-        r = self._post({"jsonrpc": "2.0", "id": self._seq, "method": "tools/call",
-                        "params": {"name": tool, "arguments": args or {}}}, timeout)
+        r = {}
+        for attempt in range(3):
+            self._seq += 1
+            r = self._post({"jsonrpc": "2.0", "id": self._seq, "method": "tools/call",
+                            "params": {"name": tool, "arguments": args or {}}}, timeout)
+            if "recovering from a slow operation" not in self.text_of(r):
+                break
+            if attempt < 2:
+                time.sleep(1.5)
         ms = round((time.time() - t0) * 1000, 1)
         self._log({"tool": tool, "args": args or {}, "ms": ms, "note": note,
                    "response": self.text_of(r)[:4000]})

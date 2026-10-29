@@ -945,7 +945,8 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
 - En `rayPOP` (Input 0 = origen/dirección de rayos, Input 1 = geometría de colisión), al activar
   los toggles de medición se generan en GPU los siguientes atributos exactos [V]:
   - `dist=True` crea el canal de distancia **`RayDistance`**.
-  - `hitnormal=True` crea el vector normal de impacto **`RayHitNormal`**.
+  - `hitnormal=True`: **corregido 2026-10-29** — en 2025.32460 NO crea `RayHitNormal`; el op
+    reescribe `N` con la normal del impacto incluso con el toggle en False (ver C19).
   - `numhits=True` crea el conteo de impactos **`RayNumHits`**.
 - La combinación `rayPOP` + `mathmixPOP` es el estándar en OP Snippets para rebotes físicos
   sin requerir bucles pesados de shaders en CPU ni simulaciones lentas.
@@ -1059,3 +1060,105 @@ Evidencia: 102 componentes `.tox` analizados en `Samples/Learn/OPSnippets/Snippe
   en rojo entre como candidato por esta vía; hoy está verificado offline con fixtures. La corrida real
   tampoco se puede simular: `run_regression.py` pre-chequea el MCP en `13316` y sale 2 sin TD.
 
+## C19 — rayPOP y copyPOP medidos en vivo (2026-10-29, batería reg-20261029-2040, 34/34)
+
+Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, MCP en `127.0.0.1:13316`.
+Evidencia: `tools/gauntlet/results/reg-20261029-2040/` (ignorada por git; se regenera con
+`python tools/gauntlet/regression_pop.py`). Builds: `tools/gauntlet/build_pop_ray.py` (24/24)
+y `tools/gauntlet/build_pop_copy.py` (20/20).
+
+### `raypop_reescribe_P_y_N` — el rayo mueve P al impacto y pisa N, con o sin toggles [V]
+
+- Escena de medición: `gridPOP` 3x3 en `z=-1` con `N=+Z` (input 0) contra un `boxPOP` 1x1x1
+  centrado (input 1). Salida: **9 pts / 4 prims** (la topología del input 0 se conserva).
+- Con **todos** los toggles de salida apagados, `P` ya está en el primer impacto
+  (`z=-0.5`) y `N` ya es la normal del impacto (`-Z`). Los toggles **no** desactivan la
+  reescritura: sólo agregan los atributos `Ray*`.
+- `dist` -> `RayDistance` (0.5 exacto en los 9 rayos).
+- `numhits` -> `RayNumHits`: [`3,2,3,2,4,2,3,2,3`] en la grilla 3x3 (las caras se triangulan;
+  el rayo central pasa por la diagonal de las dos caras y cuenta 4).
+- `hitprimindex` -> `RayPrimIndex` (0 en la cara frontal).
+- `inside` -> `RayInside`. **Quirk medido:** con los 9 orígenes FUERA de la caja, las 4
+  esquinas dan `1` y el resto `0`; no usarlo como test de volumen en impactos de borde.
+- `hitnormal` -> **no crea `RayHitNormal`** en este build; `N` ya se reescribe siempre.
+  (Corrige la línea de C18 que afirmaba lo contrario.)
+- `barycoords` -> no agrega ningún atributo de punto visible (`pointAttributes` queda
+  `[P,N,Tex,Ray*]`); no asumir `RayBary*`.
+
+### `raypop_sentinelas_de_miss` — los miss usan centinelas, no valores "razonables" [V]
+
+Con una grilla 3x3 de tamaño 3 (sólo el centro toca la caja 1x1):
+
+- `P` queda en el origen del rayo (`z=-1`), **no** se mueve.
+- `RayDistance = 100000000.0` (1e8).
+- `RayPrimIndex = 4294967296.0` (2^32: el sentinel de "sin primitiva" como float).
+- `RayNumHits = 0`, `RayInside = 0`.
+
+Si un shader o un `mathPOP` consume estos atributos, hay que filtrar el sentinel; promediar
+`RayDistance` sin filtrar mete 1e8 en la media.
+
+### `raypop_limit_lift_negate` — límites y signos que no son los obvios [V]
+
+- `limitraylength=True` + `scale=0.6`: `P` queda a `0.6 * 0.5 = 0.3` del origen
+  (`z=-0.7`), pero `RayDistance` sigue reportando el impacto real (`0.5`) y `RayNumHits=4`.
+  El límite recorta **P**, no los atributos de medición.
+- `lift=0.1`: `P` pasa de `-0.5` a `-0.4`, es decir se mueve **contra** la normal outward
+  (hacia el origen del rayo), no a lo largo de la normal.
+- `negateray=True`: sin impactos; `P` queda en `-1`, `N` en `+Z`, `RayNumHits=0`,
+  `RayDistance=1e8`, `RayPrimIndex=2^32`.
+- `bypass=True`: passthrough exacto del input 0 (9 pts / 4 prims, `P=-1`, `N=+1`), sin `Ray*`.
+
+### `raypop_hw_y_bounces` — HW tracing sólo da el primer hit; los rebotes exigen N [V]
+
+- `hwraytracing='fastbuild'` y `'fasttrace'`: mismo conteo (9/4) y mismo resultado en esta
+  escena. Cambia la semántica: **sólo el primer impacto** (`RayNumHits=1` en el hit) y los
+  miss llevan los mismos centinelas (P sin mover, `RayDistance=1e8`, `RayNumHits=0`).
+  En CPU un rayo que atraviesa la caja cuenta 2-4 impactos; en HW cuenta 1.
+- `numbounces=2` **exige N en la geometría de colisión**. Sin N:
+  `Error: Can't do multiple bounces, the collision geometry doesn't have normals.` y la
+  salida queda intacta (9/4). Con una `spherePOP` en `normal='pointNormals'` y la grilla en
+  `z=-2`: **27 pts / 9 prims** (3 puntos por rayo: origen + 2 rebotes; 1 prim por rayo), sin
+  error. `connectpoints` no cambió los conteos en esta configuración.
+- Cuidado con los parámetros "normal" de los POPs: son **menús**, no toggles.
+  `spherePOP.normal` = `['none','pointNormals','vertNormals']` (default `none`);
+  `normalPOP.nml` = `['noaction','alwayscompute','computeifnone','remove']` (default
+  `noaction`). Pasar `True` deja el valor inválido y **no genera N** (el build no falla;
+  el error aparece recién en `rayPOP`).
+- `rayattrib` es un menú **dinámico**: con la grilla de entrada lista `[P,N,Tex,Tex.i01]`,
+  no un set fijo `{N,PartVel}`. Si el atributo de dirección no existe en el input, no se
+  puede elegir.
+
+### `copypop_formula_y_plantilla` — copias = fuente x template x ncy [V]
+
+- Input 0 = geometría fuente (`boxPOP` 8 pts / 6 quads), input 1 = puntos template
+  (`gridPOP` 3x3 = 9 pts).
+- **Sin template:** `ncy` copia la fuente ncy veces y las copias quedan **superpuestas**
+  (mismo `P`): 1 -> 8/6, 2 -> 16/12, 3 -> 24/18.
+- **Con template:** 1 -> 72/54, 2 -> 144/108. Fórmula:
+  `puntos = fuente_puntos * template_puntos * ncy` (prims análogo).
+- `dotemplatetranslate` está **OFF por default**: las 72 copias quedan apiladas en la fuente
+  (`P` en `[-0.5,0.5]`). Encendido, `P = fuente + punto_template` (x/y en `[-1,1]`, z en
+  `[-0.5,0.5]`; la primera copia da `P_0 = [-1,0,0,-1,...]`).
+- `copyid` respeta el scope: `'point'` -> `pointAttributes`, `'primitive'` ->
+  `primAttributes`, `'vertex'` -> `vertAttributes` (siempre con el nombre `CopyId`).
+  **Quirk:** con `ncy=1` NO se emite `CopyId` en ningún scope, aunque el template genere 9
+  copias; el atributo aparece recién con `ncy>1`.
+- `bypass=True` devuelve la fuente intacta (8/6).
+- **QUIRK medido:** los pars de transform de la fuente (`tx`, `sx`, `scale`) **no cambian
+  `P`** en la configuración probada (template translate ON, ncy=1): `P` queda idéntico antes
+  y después de `tx=1`, `sx=2`, `scale=2`. Para ubicar copias hay que usar los puntos del
+  template; no confiar en estos pars para posicionar.
+
+### `rate_limiter_cascada` — un cooldown del MCP contamina el build siguiente [V]
+
+- La primera corrida de la batería con los 2 builds nuevos (`reg-20261029-2035`) dio
+  **31/34**: `revolvePOP`, `tubePOP` y `topologyPOP` fallaron en cascada con
+  `TouchDesigner is recovering from a slow operation. Wait 0.9s, then retry this exact call`.
+- No era regresión: los 3 builds pasan solos (12/12, 15/15, 13/13). El cooldown que dispara
+  una operación lenta de un build hacía fallar el `create_operator`/`set_parameters` del
+  siguiente.
+- Fix en el harness: `Gauntlet.call()` reintenta hasta 3 veces cuando el texto trae
+  `recovering from a slow operation` (espera 1.5 s) y `regression_pop.py` deja 1 s entre
+  builds. Segunda corrida completa: **34/34, 251.8 s** (`reg-20261029-2040`).
+- Regla: un rojo de batería con ese mensaje se reintenta antes de declarar regresión; el
+  mensaje es del rate limiter (C14), no del operador.

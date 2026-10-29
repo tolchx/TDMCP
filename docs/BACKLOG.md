@@ -56,6 +56,9 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | **`build_pop_topology.py`** (cobertura: topologyPOP) | `results/reg-20261002-022418` — 13/13 cheks, 0 fallos — `primsourcemode='specpop'`+`primspop=B`: 9 pts de A / 4 quads de B, P del INPUT, `topology='ref'` vivo (0/8/4 con cook explícito del origen), 'copy' NO congela, maxpoints=5 → 5/4 determinístico → C17 |
 | **`build_pop_lookuptexture.py`** (cobertura: lookuptexturePOP) | `results/reg-20261002-022418` — 14/14 cheks, 0 fallos — sin `overrideautoattr` NO aparece attr; con override+scope Color+attrtype color crea Color 4c, `interpolate=False` muestrea texel EXACTO (pertenencia a los 59 texels), swap constantTOP 0.9→0.898 (±1 LSB), offset 0.125 desplaza y 0 restaura → C17 |
 | batería completa 26 builds | `results/reg-20261002-022418` — 26/26 exit 0, 167.2 s |
+| **`build_pop_ray.py`** (cobertura 5d: rayPOP — impacto/atributos, centinelas de miss, limit, lift, HW, bounces) | `results/reg-20261029-2040` — 24/24 cheks, 0 fallos, PNG 2104 px → C19 (corrige C18: no `RayHitNormal`) |
+| **`build_pop_copy.py`** (cobertura 5d: copyPOP — ncy, template translate, CopyId, bypass) | `results/reg-20261029-2040` — 20/20 cheks, 0 fallos, PNG 9833 px → C19 |
+| batería completa 34 builds | `results/reg-20261029-2040` — 34/34 exit 0, 251.8 s (primer intento `reg-20261029-2035` 31/34 por cascada del rate limiter; fix en C19/`rate_limiter_cascada`) |
 | sonda desechable `probe_bound2.py` (6 fases, borrada tras medir) | `results/probe_bound2` — cierra `grouppop_bound_sin_efecto_api`: con `bound0enabled=ON` excluye de verdad (radio = 0.5·scale ABSOLUTO, frontera inclusiva, invert = complemento exacto 8/12↔12/8, bound∩attr = AND fijo entre páginas, combine solo entre bloques de la misma secuencia: or 10 / xor 6 / and 4 / nor 10); el build 5c no encendía el Toggle → "sin efecto"; membresía STALE tras el primer enable → C17 |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
@@ -220,6 +223,14 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `probe_bound2.py` (sonda desechable, 6 fases) halló el Toggle `bound0enabled` (default OFF) y
   midió el modelo completo de exclusión; ver C17.
 
+  **TRAMO 5d-1 CERRADO 2026-10-29 (TD vivo, MCP 1.1.55, build 2025.32460):** rayPOP y copyPOP
+  medidos con builds versionados (`build_pop_ray.py` 24/24, `build_pop_copy.py` 20/20; batería
+  `reg-20261029-2040` 34/34, 251.8 s). Cierran 2 de los 62 tipos listados al cierre 5c; el total
+  no se recalcula porque la batería ya tenía builds posteriores a 5c (`line`, `curve`,
+  `field_vectors`, `twist`, `analytics_cull`, `blend`) sin fila propia. Contratos **C19** y
+  corrección de C18 (`RayHitNormal` no existe en este build). Detalle:
+  `docs/pop-coverage-2026-10-29.md`.
+
 - [ ] 6. **Hallado por el ciclo diario (2026-10-02, verificación de entorno)** — el check de F3.2
   (`f3-n2-audio-clock`) es **FLAKY**. En la suite #1 de hoy (`results/20261002-000742`) falló
   `f3_n2_audio_clock.py:102` "par animado por expresion cambia en el tiempo" con
@@ -309,9 +320,11 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `specpop`, `proximity`/`skin`, **`rayPOP`**). Detalle y provenance: `docs/pop-tutorials-2026-10-07.md`.
   **Todo el conocimiento [T] está SIN verificar en vivo** (había un escritor concurrente sobre el
   mismo TD; la suite TD no se corrió, ver §5 del reporte). Deuda accionable, por orden de valor:
-  - **`rayPOP`**: 0 mediciones. Inputs (puntos + geometría), `fastbuild`, salidas
-    (`hitnormal`/`dist`/`numhits`/`inside`/`barycoords`/`hitprimindex`) y el **gating por
-    `mathcombinePOP` con atributo 0/1** como selector del `mix`. Candidato #1 del ítem 5d.
+  - **`rayPOP`**: **MEDIDO 2026-10-29** (`build_pop_ray.py`, 24/24; C19 y
+    `docs/pop-coverage-2026-10-29.md`): inputs (puntos + geometría), `fastbuild`/`fasttrace`,
+    salidas (`dist`/`numhits`/`inside`/`hitprimindex`; `hitnormal` no crea attr propio: pisa N;
+    `barycoords` no agrega attr visible) y centinelas de miss. Queda pendiente el **gating por
+    `mathcombinePOP` con atributo 0/1** como selector del `mix` (no medido todavía).
   - **Flocking con `neighborPOP`** (3 bandas + steering) y el error de alineación (delta vs normal
     objetivo): receta sin un solo número medido.
   - **`forceradialPOP` standalone** (`mathmix A*B` → escalar, `A+B` → sumar a `P`) y su gotcha

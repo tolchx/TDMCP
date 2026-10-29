@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""regression_pop.py — batería de regresión de los 32 builds POP (runs verdes en TD vivo).
+"""regression_pop.py — batería de regresión de los 34 builds POP (runs verdes en TD vivo).
 
 Corre los builds en orden; cada uno DESTRUYE y reconstruye su red ROOT (verificación en
 frío), así que el orden sólo importa para no pisar la misma red dos veces: el monitor
@@ -54,6 +54,8 @@ BATERIA = [
     ("build_pop_twist.py", "cobertura: twistPOP + bend/shear/squash + conservación radial y confinamiento (/pop_twist)"),
     ("build_pop_analytics_cull.py", "cobertura: analyzePOP + accumulatePOP + deletePOP (/pop_analytics_cull)"),
     ("build_pop_blend.py", "cobertura: blendPOP + cacheblendPOP + morphing baricéntrico (/pop_blend)"),
+    ("build_pop_ray.py", "cobertura 5d: rayPOP (impactos, centinelas, limit, HW, bounces) (/pop_ray)"),
+    ("build_pop_copy.py", "cobertura 5d: copyPOP (ncy, template translate, CopyId, bypass) (/pop_copy)"),
     ("build_monitor_pop.py", "monitor GPU: heatmap de P.y sobre la nube (/pop_sim_trails)"),
 ]
 
@@ -75,6 +77,10 @@ def main() -> int:
         dt = time.monotonic() - t1
         resultados.append((script, proc.returncode, dt))
         print("--> %s: exit %d (%.1f s)" % (script, proc.returncode, dt), flush=True)
+        # Aire entre builds: el rate limiter del MCP puede quedar en cooldown tras
+        # una operacion lenta (C14). Sin pausa, el rojo de un build contamina al
+        # siguiente (medido 2026-10-29: revolve -> tube -> topology).
+        time.sleep(1.0)
         if proc.returncode != 0:
             print("\n*** FALLÓ %s — la batería continúa con el resto para informe completo "
                   "(el exit final será 1) ***" % script, flush=True)
