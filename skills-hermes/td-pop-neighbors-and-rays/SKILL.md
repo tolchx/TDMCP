@@ -82,21 +82,36 @@ Entrega, por punto, información de sus vecinos por distancia. Params reales: `n
 `incquerypt`, **`addprefix`**, `castintstofloats`, `nebrptattrs`.
 
 Pitfalls:
-- **[V] `nebroutput='avg'` no promedia nada sin `nebrptattrs='P'`** (default `''` → P crudo); en modo
-  `avg` también promedia `NumNebrs`. Los arrays por vecino llegan como `Nebr_0_`, `NebrP_0_`,
-  `Dist_0_` (doble underscore final). Ver `neighborpop_arrays_y_avg` en los contratos.
-- **[T]** Como el promedio de posición de los vecinos escribe sobre un atributo, **puede pisar `P`**
-  del propio punto. Usá **`addprefix`** (o renombrá) para que la salida no colisione con `P` — el
-  síntoma es "el promedio de vecinos me movió todos los puntos a otro lado".
-- **[T]** `maxneighbors` es un **tope de muestreo**: si la densidad lo supera, el promedio es sesgado
-  y aparecen ráfagas/inestabilidad. Ver el presupuesto en `td-pop-particle-systems` §3.
+- **[V] `nebroutput='avg'` no promedia nada sin `nebrptattrs='P'`** (default `''` → P crudo); los
+  arrays por vecino llegan como `Nebr_0_`, `NebrP_0_`, `Dist_0_` (doble underscore final).
+  Ver `neighborpop_arrays_y_avg` en los contratos.
+- **[V]** `incquerypt` default es **ON** y el promedio **incluye al query point**: P' = (P + Σ vecinos)
+  / (1 + n). Medido esta vez: línea 5 pts, único vecino a 0.27 → P0 va de −0.54 a
+  (−0.54 + −0.27)/2 = **−0.405**; con `incquerypt=0` el mismo setup da P0 = **−0.27** (sólo el
+  vecino). La esquina 0.4 del C15 cierra con self incluido: (0.5+0.5+0.3+0.3)/4.
+- **[V] El avg de `nebrptattrs='P'` PISA la 'P' del punto in-place** (sin scope de cliente). Para
+  no pisar: `addprefix` extrae a otro atributo — **[T], hoy la sonda de addprefix no cerró**
+  (ver la anomalía del binding del poptoCHOP en los contratos).
+- **[V] `maxneighbors` default = 5** (no 8 ni 16): es tope de muestreo Y entra al divisor del
+  promedio; la densidad que lo excede sesga (presupuesto en `td-pop-particle-systems` §3).
+- **[V] Sentinela por punto sin vecinos: `Nebr_0_*` = 4294967296 (= 2^32)**, no NaN ni −1;
+  no confundirlo con un índice válido.
 
-### 2.1 Receta de flocking (boids, nodos — sin GLSL) **[T]**
+### 2.1 Receta de flocking (boids, nodos — sin GLSL) **[T]** — las 3 bandas, ahora [V]
 ```text
 pointgeneratorPOP → randomPOP (randomiza N) → neighborPOP → mathPOP (rename) → mathcombinePOP → feedback
 ```
-- **Dos o tres radios**, no uno: atracción ≈ **0.5** (cohesión), alineación ≈ **0.3**, repulsión ≈
-  **0.25** (separación). Los rangos en conflicto en un solo operador no dan boids.
+- **[V] «Dos o tres radios» = 3 neighborPOP distintos** sobre la MISMA chain: un `maxdistance`
+  único por op no puede separar las bandas. Sonda de hoy (línea de 5 pts, paso 0.27, `incquerypt=0`,
+  `maxneighbors=5`; ver contrato `neighborpop_bandas`, 4294967296 = 2^32 en este ajuste):
+  | banda | maxdistance | NumNebrs medidos |
+  |---|---|---|
+  | repulsión (separación) | 0.25 | `0` en los 5 pts |
+  | alineación | 0.30 | `[1, 2, 2, 2, 1]` |
+  | atracción / cohesión | 0.55 | `[2, 3, 4, 3, 2]` |
+  o sea los rangos del tutorial (0.5 / 0.3 / 0.25) SÍ separan tres vecindarios distintos sobre
+  la misma línea. Sentinela `4294967296 = 2^32` cuando la banda cae vacía (banda 0.25 → 0 vecinos
+  en los 5 pts).
 - Fuerzas de steering del ejemplo: atracción **0.01** por ciclo, paso **0.02** a lo largo de la
   normal, fuerza de centrado **0.03**.
 - **Alineación = el DELTA** entre tu normal actual y la normal objetivo; el error típico es usar la

@@ -703,6 +703,33 @@ con nn=3, interior (0.1,0.1) → (0.1,0.1). NumNebrs TAMBIÉN se promedia en mod
 (interior muestra 12.0 = suma de 8 vecinos+query). Nombres REALES (live-neighborPOP.json):
 `nebrtype/maxdistance/maxneighbors/nebroutput/nebrs/numnebrs/dodist/nebrptattrs`.
 
+### `neighborpop_bandas` — un solo radio no separa las 3 bandas de flocking; el promedio incluye al query point [V]
+Línea determinista de 5 pts (paso 0.27, `P_0=[-0.54,-0.27,0.0,0.27,0.54]`), tres `neighborPOP`
+con `incquerypt=0`, `maxneighbors=5`, `nebroutput='nebr'` sobre la misma cadena: banda 0.25 →
+`NumNebrs [0,0,0,0,0]` (punto sin vecinos; los arrays `Nebr_*` traen **4294967296 = 2^32**, no NaN
+ni -1); banda 0.30 → `[1,2,2,2,1]` (sólo el vecino ±1 de la línea); banda 0.55 → `[2,3,4,3,2]`
+(±1 y ±2). Los tres rangos del tutorial (repulsión 0.25 / alineación 0.3 / cohesión 0.5) separan
+TRES vecindarios distintos — implicancia: flocking real = 3 `neighborPOP` en paralelo (un radio
+por op), no un solo op re-configurado.
+En modo `avg` con `nebrptattrs='P'` e `incquerypt` DEFAULT (1), el promedio INCLUYE al query:
+P0 va de -0.54 a (-0.54 + -0.27)/2 = **-0.405**; con `incquerypt=0` el mismo setup da P0 =
+**-0.27** (sólo el vecino). La esquina 0.4 del C15 cierra con self incluido:
+(0.5+0.5+0.3+0.3)/4 = 0.4 exacto — no contradice nada, es la misma semántica.
+`maxneighbors` default = 5 (no 8). Pregunta abierta: en esta corrida `NumNebrs` quedó CRUDO
+([1,2,2,2,1]) con `nebrptattrs='P'` + avg, mientras C15 lo vio promediado (12.0) — probablemente
+se promedia sólo si entra en `nebrptattrs`; cerrarlo en próxima sesión. La sonda `addprefix`
+no cerró por la anomalía del binding del chequeador, abajo.
+
+### `poptochop_binding_anomalia` — el binding `par.pop` a randomPOP/nullPOP da 0 canales [!]
+Sonda 2026-10-30 tarde (TD vivo, 2025.32460). `chkNull2.par.pop` alternando a
+`/pop_5d_flock/rnd`, `/pop_5d_flock/rnd2` y `/pop_5d_flock/nul2`, doble cook: los 3 dan
+0 canales, a la vez que los chequeadores viejos `chkA/chkB/chkC` (al estilo C15, sobre
+neighborPOP) siguen llenos en la misma red. No es la config del randomize (clonó la C16 del
+contrato `randompop_set_scope_noop`) y no es el doble cook: quedó como anomalía para cerrar.
+Candidata a causa: el `par.pop` del chequeador exige algo de cadena/name que randomPOP/nullPOP
+no aporta, o el aporte de atributos viene por la ruta del neighborPOP previo.
+**Marcada [!], no cerrada: no citarla como [V] ni usarla para bloquear builds.**
+
 ### `connectivitypop_tabla_prims` — reconecta sin tocar puntos; el cerrojo sólo entra por firstdim [V]
 Grilla 4x4 (16 pts, 9 quads nativos) re-conectada (prims medidos): points=16, lines=12,
 linestrips=4, triangles=18, alttriangles=18, quads=9, none=0; los PUNTOS no cambian en

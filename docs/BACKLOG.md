@@ -442,3 +442,13 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `docs/loop-run-2026-10-09.md` §6.
 
 - [ ] 14. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: loop-run-log.md. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `8757227ae92d9f86`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+
+- [ ] 15. **Cerrar las 3 colas del tramo bandas/steering (boids-lite, sesión del 2026-10-30 tarde):**
+  (a) `poptochop_binding_anomalia` — el chequeador ligado por `par.pop` a `randomPOP`/`nullPOP`
+  da 0 canales mientras los viejos sobre `neighborPOP` llenan; repro en `/pop_5d_flock` (TD 2025.32460).
+  (b) con (a) resuelta, medir `addprefix` en modo `avg` (evitar pisar `P`) y el randomize de `N`
+  con `randomPOP` (`combineop='set'`, `outputattrscope='N'`), que la misma anomalía dejó sin medir.
+  (c) brazo delta del steering: `mathmixPOP` (comb `scopea/scopeb/scopec`) — comparar contra el
+  esquema 'snap' directo para cerrar la receta §2.1 de `td-pop-neighbors-and-rays`. Detalles y
+  números en `docs/loop-run-2026-10-30.md` §11 y contratos `neighborpop_bandas` /
+  `poptochop_binding_anomalia`.
