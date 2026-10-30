@@ -1557,7 +1557,7 @@ TOOL_MAP = {name: (desc, schema, fn) for name, desc, schema, fn in TOOLS}
 
 SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
-    "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (35 tools) para TouchDesigner. "
+    "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (40 tools) para TouchDesigner. "
     "Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars "
     "(soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, "
     "contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. "
@@ -1567,7 +1567,8 @@ INSTRUCTIONS = (
     "td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, "
     "td_harvest_pattern, td_build_control_panel, td_render_contact_sheet, td_setup_audio_analyzer, "
     "td_setup_scene_switcher, td_preset_manager, td_setup_gpu_instancing, td_setup_postfx_chain, "
-    "td_setup_io_bridge, td_record_movie, td_heal_network) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+    "td_setup_io_bridge, td_record_movie, td_heal_network, td_setup_display_canvas, td_setup_pbr_stage, "
+    "td_sync_external_tox, td_setup_ai_stream, td_benchmark_longevity) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
 )
 
 

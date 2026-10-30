@@ -14,7 +14,7 @@
     "version": "0.2.0",
     "title": "td-knowledge — capa de conocimiento offline de TouchDesigner"
    },
-   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (35 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, td_harvest_pattern, td_build_control_panel, td_render_contact_sheet, td_setup_audio_analyzer, td_setup_scene_switcher, td_preset_manager, td_setup_gpu_instancing, td_setup_postfx_chain, td_setup_io_bridge, td_record_movie, td_heal_network) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (40 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, td_harvest_pattern, td_build_control_panel, td_render_contact_sheet, td_setup_audio_analyzer, td_setup_scene_switcher, td_preset_manager, td_setup_gpu_instancing, td_setup_postfx_chain, td_setup_io_bridge, td_record_movie, td_heal_network, td_setup_display_canvas, td_setup_pbr_stage, td_sync_external_tox, td_setup_ai_stream, td_benchmark_longevity) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
   }
  },
  {
@@ -1807,6 +1807,228 @@
      },
      "annotations": {
       "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_setup_display_canvas",
+     "description": "Pilar 21 — Multi-Display Canvas & Edge Blending: genera canvas multi-pantalla / multi-proyector con cálculo exacto de solapamientos (overlap), crops individuales por proyector, generador de patrones de test y windowCOMP de span opcional.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default display_canvas)"
+       },
+       "num_displays": {
+        "type": "integer",
+        "description": "int (default 2, rango 1..8)"
+       },
+       "display_width": {
+        "type": "integer",
+        "description": "int (default 1920)"
+       },
+       "display_height": {
+        "type": "integer",
+        "description": "int (default 1080)"
+       },
+       "layout": {
+        "type": "string",
+        "description": "horizontal|vertical (default horizontal)"
+       },
+       "overlap_pixels": {
+        "type": "integer",
+        "description": "int (default 120)"
+       },
+       "test_pattern": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       },
+       "input_top": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "create_window": {
+        "type": "boolean",
+        "description": "bool (default false)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_setup_pbr_stage",
+     "description": "Pilar 22 — PBR Staging & Environment Lighting: monta un set de iluminación cinematográfica 3D (Key/Fill/Rim lights + environmentlightCOMP con mapa HDRI o procedural), plano de suelo PBR receptor de sombras, material PBR para sujetos, cámara calibrada y renderTOP libre de trampas.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default pbr_stage)"
+       },
+       "env_map": {
+        "type": "string",
+        "description": "string (opcional: ruta a TOP HDRI/sky)"
+       },
+       "env_dimmer": {
+        "type": "string",
+        "description": "float (default 0.8)"
+       },
+       "key_dimmer": {
+        "type": "string",
+        "description": "float (default 1.0)"
+       },
+       "fill_dimmer": {
+        "type": "string",
+        "description": "float (default 0.35)"
+       },
+       "rim_dimmer": {
+        "type": "string",
+        "description": "float (default 0.65)"
+       },
+       "include_ground": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       },
+       "ground_size": {
+        "type": "string",
+        "description": "float (default 30.0)"
+       },
+       "ground_roughness": {
+        "type": "string",
+        "description": "float (default 0.8)"
+       },
+       "camera_tz": {
+        "type": "string",
+        "description": "float (default 4.5)"
+       },
+       "resolution": {
+        "type": "string",
+        "description": "string (default 1280x720)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_sync_external_tox",
+     "description": "Pilar 23 — Sincronización y Hot-Reload de Componentes TOX: inspecciona dependencias externas en disco, audita drifts, exporta componentes a .tox de forma atómica y ejecuta Hot-Reload en memoria sin perder Custom Parameters.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "comp_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "action": {
+        "type": "string",
+        "description": "inspect|export|reload|bind (default inspect)"
+       },
+       "tox_path": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "recurse": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       },
+       "bind_external": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_setup_ai_stream",
+     "description": "Pilar 24 — Conector Streaming GenAI & ComfyUI: arquitectura puente llave en mano para IA generativa en tiempo real (webclientDAT/websocketDAT, cola de prompts tableDAT, métricas de latencia CHOP, Custom Parameters y texture outTOP).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default ai_bridge)"
+       },
+       "backend": {
+        "type": "string",
+        "description": "comfyui|websocket|rest (default comfyui)"
+       },
+       "server_url": {
+        "type": "string",
+        "description": "string (default http://127.0.0.1:8188)"
+       },
+       "input_top": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "default_prompt": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "negative_prompt": {
+        "type": "string",
+        "description": "string (opcional)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_benchmark_longevity",
+     "description": "Pilar 25 — Longevity & 24/7 Resilience Benchmark: auditoría de estabilidad para instalaciones desatendidas; muestrea deltas de memoria VRAM GPU y CPU a lo largo del tiempo, audita nodos con riesgo de acumulación ilimitada y emite veredicto EXHIBITION_READY vs MEMORY_LEAK_RISK.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "container_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "duration_frames": {
+        "type": "integer",
+        "description": "int (default 60, rango 10..300)"
+       },
+       "audit_buffers": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       },
+       "sample_interval": {
+        "type": "integer",
+        "description": "int (default 10)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
       "openWorldHint": true
      }
     }

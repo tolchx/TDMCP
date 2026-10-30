@@ -165,7 +165,7 @@ This fork integrates the complete **offline knowledge layer + high-level composi
 
 Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-### Dual-Server Architecture (83 Tools Total)
+### Dual-Server Architecture (88 Tools Total)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -175,9 +175,9 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
                     │ stdio (JSON-RPC)               │ SSE / HTTP (:13316)
                     ▼                                ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│     td-knowledge (57 Tools)          │  │     TDMCP.tox (26 Tools)     │
+│     td-knowledge (62 Tools)          │  │     TDMCP.tox (26 Tools)     │
 │   • 22 Offline Tools (0% TD overhead)│  │   • 26 In-Process Live Tools │
-│   • 35 High-Level Live Tools         │  │   • Direct TD Python engine  │
+│   • 40 High-Level Live Tools         │  │   • Direct TD Python engine  │
 │   • 1,302 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
 │   • 79 GLSL Shaders + 15 Lessons     │  │   • Undo-per-call & stats    │
 │   • 625-Op Topology + 97-POP Matrix  │  │   • Compatible w/ 2025.32460 │
@@ -186,9 +186,9 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
 
 ---
 
-### `td-knowledge` Tool Reference (57 Tools: 22 Offline + 35 Live)
+### `td-knowledge` Tool Reference (62 Tools: 22 Offline + 40 Live)
 
-The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **35 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
+The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **40 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
 
 | Category | Tool | Description |
 |---|---|---|
@@ -237,9 +237,13 @@ The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs
 | | `td_setup_io_bridge` | **Pilar 18 — Universal Show I/O Hub**: turnkey interface for OSC, MIDI, DMX/Art-Net, or UDP with built-in loopback/signal generators for instant live verification. |
 | | `td_record_movie` | **Pilar 19 — Deterministic Animation & Loop Recorder**: cooks $N$ frames sequentially at exact FPS, exporting clean animated GIFs / loop assets with verified disk sizes. |
 | | `td_heal_network` | **Pilar 20 — Autonomous Self-Healing Doctor**: scans and automatically repairs residual `torus1` traps, missing display/render flags, unmapped custom resolutions, disconnected render cameras, and simulation NaNs. |
+| | `td_setup_display_canvas` | **Pilar 21 — Multi-Display Canvas & Edge Blending**: generates multi-projector/display canvases with overlap calculation, per-display crop TOPs, test pattern overlays, and span windowCOMP. |
+| | `td_setup_pbr_stage` | **Pilar 22 — PBR Staging & Environment Lighting**: builds a 3D cinematic lighting studio with Key/Fill/Rim lights, environmentlightCOMP (HDRI/procedural), shadow catcher ground plane, subject PBR material, camera, and renderTOP. |
+| | `td_sync_external_tox` | **Pilar 23 — External TOX Hot-Reload & Sync**: inspects on-disk `.tox` dependencies, audits drifts, atomically exports components to disk, and executes hot-reloading preserving parameters and state. |
+| | `td_setup_ai_stream` | **Pilar 24 — GenAI & ComfyUI Streaming Bridge**: turnkey baseCOMP for real-time AI generation (webclientDAT/websocketDAT, prompt queue tableDAT, latency metrics CHOP, and output texture nullTOP). |
 | | `tdn_export` / `tdn_diff` | Export a live network to **TDN v1.4 JSON** and diff two `.tdn` files offline. |
 | | `tdxn_export` / `tdxn_build` | Export or build a complete network from **TDXN v2.1 YAML** (`=expr`, `~bind`, DATs, flags) in a single call. |
-| **Live Verification, Camera & Profiling (Require TD)** | `td_verify_network` | **Single-call Gauntlet verifier**: runs 4 settle cook passes, audits `geometryCOMP` ownership (`torus1` deleted, `display`/`render` flags, `numPoints`/`numPrims > 0`), checks POPs/CHOPs for `NaN`/`Inf`, runs `get_op_errors_deep` and `eval_render_frame`, and returns `PASS`/`FAIL` with `actionable_fixes`. |
+| **Live Verification, Camera & Profiling (Require TD)** | `td_benchmark_longevity` | **Pilar 25 — 24/7 Longevity & Resilience Benchmark**: non-invasive soak testing for unattended installations; samples live GPU VRAM and CPU memory slopes over time, audits unbounded buffers (feedbacks, trails, growing DATs), and outputs `EXHIBITION_READY` vs `MEMORY_LEAK_RISK` verdicts. |
 | | `td_frame_camera_to_geo` | **Pilar 8a — Mathematical 3D Auto-Framing**: computes the combined world AABB of all active POPs/SOPs across `geometryCOMP`s and frames the `cameraCOMP` (`tx, ty, tz, near, far`) using camera FOV and render aspect ratio. |
 | | `td_visual_diff` | **Pilar 8b — Quantitative Pixel Diff**: compares two TOPs or PNGs pixel-by-pixel, returning `mean_abs_diff`, `changed_pixels_pct`, `psnr_db`, and verdict (`SIGNIFICANT_CHANGE` / `SUBTLE_CHANGE` / `IDENTICAL_NO_OP`). |
 | | `td_render_contact_sheet` | **Pilar 12 — Multi-Frame Temporal Vision**: steps a simulation/network across $N$ samples spaced by `step_frames`, composites an $R \times C$ contact sheet PNG with progress bars, and computes inter-frame motion metrics (`ANIMATING` / `STATIC` / `BLANK`). |

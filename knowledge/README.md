@@ -34,7 +34,7 @@ mismo proceso y sin bridge (:44444 retirado):
 | `glsl_curriculum` | Currículum estructurado GLSL (`glsl_curriculum.json` con `entry='<id>'` y `learning_path=true`) + librería POP + 79 shaders sueltos. |
 | `contracts` | **Contratos verificados en vivo** contra TD 2025.32460 + TDMCP 1.1.55, servidos desde `contracts/VERIFIED_CONTRACTS.md` (versionado, no derivado). |
 
-## Tools live (35) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
+## Tools live (40) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
 
 | Tool | Qué hace (y por qué complementa al oficial) |
 |---|---|
@@ -73,6 +73,11 @@ mismo proceso y sin bridge (:44444 retirado):
 | `td_setup_io_bridge` | **Pilar 18**: hub de I/O para shows en vivo (OSC, MIDI, DMX/Art-Net, UDP) con generadores de señal loopback de prueba para validación inmediata. |
 | `td_record_movie` | **Pilar 19**: grabador determinístico de animaciones/loops cocinando paso a paso al FPS objetivo y codificando GIF animado con métricas de archivo y verificación visual. |
 | `td_heal_network` | **Pilar 20**: médico y cirujano autónomo de redes: repara trampas de `torus1`, flags `display`/`render` apagados, `outputresolution='custom'` sin dimensiones, cámaras desconectadas y NaNs en simulación, con soporte `dry_run` y verificación post-cura. |
+| `td_setup_display_canvas` | **Pilar 21**: generador de canvas multi-pantalla / multi-proyector con cálculo exacto de overlap/solapamientos, crops individuales por proyector, generador de patrones de test y windowCOMP de span opcional. |
+| `td_setup_pbr_stage` | **Pilar 22**: estudio de iluminación 3D cinematográfica con Key/Fill/Rim lights, environmentlightCOMP (HDRI/procedural), suelo PBR receptor de sombras, material PBR para sujetos, cámara y renderTOP. |
+| `td_sync_external_tox` | **Pilar 23**: gestor y hot-reload de componentes externos `.tox`: audita dependencias en disco, detecta drifts, exporta componentes atómicamente y recarga en memoria sin perder parámetros ni estado. |
+| `td_setup_ai_stream` | **Pilar 24**: puente de streaming para IA generativa y ComfyUI en tiempo real: webclientDAT/websocketDAT, cola de prompts tableDAT, métricas de latencia CHOP y outTOP de texturas generadas. |
+| `td_benchmark_longevity` | **Pilar 25**: benchmark de resiliencia y longevidad 24/7 para instalaciones desatendidas: muestrea deltas de memoria VRAM GPU y CPU a lo largo del tiempo, audita nodos con riesgo de fuga y emite veredicto EXHIBITION_READY vs MEMORY_LEAK_RISK. |
 
 ## Watchdog
 
@@ -99,8 +104,8 @@ python knowledge/build_assets.py --import-archive C:/ruta/backup/td-knowledge-kb
 ```bash
 python knowledge/server.py                 # servidor stdio (habla MCP por stdin/stdout)
 python knowledge/server.py --selftest      # corre las 22 tools offline con args de prueba
-python knowledge/test_protocol.py          # handshake + tools/list (57 tools) + llamadas por protocolo
-python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 37 stages)
+python knowledge/test_protocol.py          # handshake + tools/list (62 tools) + llamadas por protocolo
+python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 42 stages)
 ```
 
 Verificado en Windows 11 · Python 3.10 / 3.13 · TouchDesigner 2025.32460 · TDMCP 1.1.55.

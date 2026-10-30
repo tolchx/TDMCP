@@ -5271,6 +5271,701 @@ def t_heal_network(a: dict) -> dict:
     return res
 
 
+
+
+# ── 31. td_setup_display_canvas — Canvas Multi-Display & Edge Blending ────────
+
+_SETUP_DISPLAY_CANVAS = r"""
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+c_name = spec['name']
+comp = parent.op(c_name)
+if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+    comp.destroy()
+    comp = None
+if not comp:
+    comp = parent.create(td.baseCOMP, c_name)
+
+num_disp = max(1, min(8, int(spec.get('num_displays', 2))))
+disp_w = int(spec.get('display_width', 1920))
+disp_h = int(spec.get('display_height', 1080))
+layout = spec.get('layout', 'horizontal').lower()
+is_horiz = layout == 'horizontal'
+overlap = max(0, int(spec.get('overlap_pixels', 120))) if num_disp > 1 else 0
+test_pattern = bool(spec.get('test_pattern', True))
+create_window = bool(spec.get('create_window', False))
+
+if is_horiz:
+    canvas_w = (disp_w * num_disp) - (overlap * (num_disp - 1))
+    canvas_h = disp_h
+else:
+    canvas_w = disp_w
+    canvas_h = (disp_h * num_disp) - (overlap * (num_disp - 1))
+
+# Content source
+src_top_path = spec.get('input_top')
+src_top = op(src_top_path) if src_top_path else None
+content_in = comp.op('content_in')
+if not content_in:
+    content_in = comp.create(td.nullTOP, 'content_in')
+
+if src_top:
+    sel = comp.op('sel_input') or comp.create(td.selectTOP, 'sel_input')
+    sel.par.top = src_top.path
+    if not content_in.inputConnectors[0].connections:
+        content_in.inputConnectors[0].connect(sel)
+else:
+    gen = comp.op('test_content') or comp.create(td.noiseTOP, 'test_content')
+    gen.par.outputresolution = 'custom'
+    gen.par.resolutionw = canvas_w
+    gen.par.resolutionh = canvas_h
+    gen.par.mono = 0
+    if not content_in.inputConnectors[0].connections:
+        content_in.inputConnectors[0].connect(gen)
+
+displays_meta = []
+for i in range(num_disp):
+    crop_name = f'crop_disp{i}'
+    cr = comp.op(crop_name) or comp.create(td.cropTOP, crop_name)
+    if not cr.inputConnectors[0].connections:
+        cr.inputConnectors[0].connect(content_in)
+    cr.par.cropleftunit = 'pixels'
+    cr.par.croprightunit = 'pixels'
+    cr.par.croptopunit = 'pixels'
+    cr.par.cropbottomunit = 'pixels'
+
+    if is_horiz:
+        x0 = i * (disp_w - overlap)
+        x1 = x0 + disp_w
+        cr.par.cropleft = x0
+        cr.par.cropright = x1
+        cr.par.cropbottom = 0
+        cr.par.croptop = disp_h
+        crop_bounds = {"x0": x0, "x1": x1, "y0": 0, "y1": disp_h}
+    else:
+        y0 = (num_disp - 1 - i) * (disp_h - overlap)
+        y1 = y0 + disp_h
+        cr.par.cropleft = 0
+        cr.par.cropright = disp_w
+        cr.par.cropbottom = y0
+        cr.par.croptop = y1
+        crop_bounds = {"x0": 0, "x1": disp_w, "y0": y0, "y1": y1}
+
+    last_op = cr
+    if test_pattern:
+        lbl_name = f'lbl_disp{i}'
+        lbl = comp.op(lbl_name) or comp.create(td.textTOP, lbl_name)
+        lbl.par.text = f'DISPLAY {i+1}/{num_disp}\n{disp_w}x{disp_h}\n[X: {crop_bounds["x0"]}..{crop_bounds["x1"]}]'
+        lbl.par.outputresolution = 'custom'
+        lbl.par.resolutionw = disp_w
+        lbl.par.resolutionh = disp_h
+        if hasattr(lbl.par, 'fontsizex'):
+            lbl.par.fontsizex = 28
+        elif hasattr(lbl.par, 'fontsize'):
+            lbl.par.fontsize = 28
+        lbl.par.alignx = 'center'
+        lbl.par.aligny = 'center'
+
+        ov_name = f'overlay_disp{i}'
+        ov = comp.op(ov_name) or comp.create(td.compositeTOP, ov_name)
+        ov.par.operand = 'over'
+        if len(ov.inputConnectors[0].connections) == 0:
+            ov.inputConnectors[0].connect(cr)
+        if len(ov.inputConnectors[1].connections) == 0:
+            ov.inputConnectors[1].connect(lbl)
+        last_op = ov
+
+    out_name = f'out_disp{i}'
+    out_node = comp.op(out_name) or comp.create(td.outTOP, out_name)
+    if not out_node.inputConnectors[0].connections:
+        out_node.inputConnectors[0].connect(last_op)
+    try:
+        out_node.cook(force=True)
+    except:
+        pass
+
+    displays_meta.append({
+        "display_index": i,
+        "resolution": [disp_w, disp_h],
+        "crop_bounds": crop_bounds,
+        "out_op": out_node.path,
+    })
+
+out_canvas = comp.op('out_canvas') or comp.create(td.nullTOP, 'out_canvas')
+if not out_canvas.inputConnectors[0].connections:
+    out_canvas.inputConnectors[0].connect(content_in)
+try:
+    out_canvas.cook(force=True)
+except:
+    pass
+
+win_path = None
+if create_window:
+    win = comp.op('canvas_window') or comp.create(td.windowCOMP, 'canvas_window')
+    win.par.winop = out_canvas.path
+    win.par.winw = canvas_w
+    win.par.winh = canvas_h
+    win.par.borders = False
+    win_path = win.path
+
+print('<<JSON>>' + json.dumps({
+    "ok": True,
+    "canvas_comp": comp.path,
+    "canvas_resolution": [canvas_w, canvas_h],
+    "num_displays": num_disp,
+    "layout": layout,
+    "overlap_pixels": overlap,
+    "total_overlap_pixels": overlap * (num_disp - 1) if num_disp > 1 else 0,
+    "test_pattern_active": test_pattern,
+    "displays": displays_meta,
+    "out_canvas": out_canvas.path,
+    "window_comp": win_path,
+}))
+"""
+
+
+def t_setup_display_canvas(a: dict) -> dict:
+    """Pilar 21 — Multi-Display Canvas & Edge Blending: genera canvas multi-pantalla / multi-proyector con cálculo exacto de solapamientos (overlap), crops individuales por proyector, generador de patrones de test y windowCOMP de span opcional."""
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "display_canvas").strip(),
+        "num_displays": int(a.get("num_displays") or 2),
+        "display_width": int(a.get("display_width") or 1920),
+        "display_height": int(a.get("display_height") or 1080),
+        "layout": str(a.get("layout") or "horizontal").strip().lower(),
+        "overlap_pixels": int(a.get("overlap_pixels") if a.get("overlap_pixels") is not None else 120),
+        "test_pattern": False if str(a.get("test_pattern") or "").lower() in ("0", "false", "no") else True,
+        "input_top": str(a.get("input_top") or "").strip() or None,
+        "create_window": str(a.get("create_window") or "").lower() in ("1", "true", "yes", "si", "sí") or a.get("create_window") is True,
+    }
+    code = _SETUP_DISPLAY_CANVAS.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 32. td_setup_pbr_stage — High-End PBR Staging & Environment Lighting ──────
+
+_SETUP_PBR_STAGE = r"""
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+s_name = spec['name']
+comp = parent.op(s_name)
+if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+    comp.destroy()
+    comp = None
+if not comp:
+    comp = parent.create(td.baseCOMP, s_name)
+
+# 1. Environment Sky & Lighting
+env_map_path = spec.get('env_map')
+env_top = op(env_map_path) if env_map_path else None
+if not env_top:
+    sky = comp.op('sky_env') or comp.create(td.noiseTOP, 'sky_env')
+    sky.par.outputresolution = 'custom'
+    sky.par.resolutionw = 512
+    sky.par.resolutionh = 256
+    sky.par.mono = 0
+    env_top = sky
+
+env_light = comp.op('env_light') or comp.create(td.environmentlightCOMP, 'env_light')
+env_light.par.envlightmap = env_top.name
+env_light.par.dimmer = float(spec.get('env_dimmer', 0.8))
+
+# 2. Three-Point Lighting Rig
+key = comp.op('light_key') or comp.create(td.lightCOMP, 'light_key')
+key.par.tx = 4.0
+key.par.ty = 5.0
+key.par.tz = 4.0
+key.par.rx = -35.0
+key.par.ry = 45.0
+key.par.dimmer = float(spec.get('key_dimmer', 1.0))
+
+fill = comp.op('light_fill') or comp.create(td.lightCOMP, 'light_fill')
+fill.par.tx = -4.0
+fill.par.ty = 2.0
+fill.par.tz = 3.0
+fill.par.rx = -20.0
+fill.par.ry = -35.0
+fill.par.dimmer = float(spec.get('fill_dimmer', 0.35))
+
+rim = comp.op('light_rim') or comp.create(td.lightCOMP, 'light_rim')
+rim.par.tx = 0.0
+rim.par.ty = 4.0
+rim.par.tz = -5.0
+rim.par.rx = -25.0
+rim.par.ry = 180.0
+rim.par.dimmer = float(spec.get('rim_dimmer', 0.65))
+
+# 3. Ground plane / Shadow catcher
+include_ground = bool(spec.get('include_ground', True))
+ground_path = None
+if include_ground:
+    ground_geo = comp.op('ground_geo') or comp.create(td.geometryCOMP, 'ground_geo')
+    for c in list(ground_geo.children):
+        if c.name == 'torus1':
+            c.destroy()
+    grid = ground_geo.op('grid') or ground_geo.create(td.gridSOP, 'grid')
+    g_size = float(spec.get('ground_size', 30.0))
+    grid.par.sizex = g_size
+    grid.par.sizey = g_size
+    grid.par.orient = 'zx'
+
+    null_g = ground_geo.op('null_ground') or ground_geo.create(td.nullSOP, 'null_ground')
+    if not null_g.inputConnectors[0].connections:
+        null_g.inputConnectors[0].connect(grid)
+    null_g.display = True
+    null_g.render = True
+
+    ground_mat = comp.op('ground_mat') or comp.create(td.pbrMAT, 'ground_mat')
+    ground_mat.par.roughness = float(spec.get('ground_roughness', 0.8))
+    ground_mat.par.metallic = 0.05
+    ground_geo.par.material = ground_mat.name
+    ground_path = ground_geo.path
+
+# 4. Subject material ready for geometry
+subject_mat = comp.op('subject_mat') or comp.create(td.pbrMAT, 'subject_mat')
+subject_mat.par.roughness = 0.25
+subject_mat.par.metallic = 0.15
+
+# 5. Camera & Render pipeline
+cam = comp.op('cam') or comp.create(td.cameraCOMP, 'cam')
+cam.par.tx = 0.0
+cam.par.ty = 1.2
+cam.par.tz = float(spec.get('camera_tz', 4.5))
+
+ren = comp.op('render_stage') or comp.create(td.renderTOP, 'render_stage')
+ren.par.camera = cam.name
+ren.par.lights = '*'
+ren.par.geometry = '*'
+
+res_str = spec.get('resolution', '1280x720')
+try:
+    rw, rh = [int(x.strip()) for x in res_str.lower().split('x')]
+except:
+    rw, rh = 1280, 720
+ren.par.outputresolution = 'custom'
+ren.par.resolutionw = rw
+ren.par.resolutionh = rh
+
+out = comp.op('out_stage') or comp.create(td.nullTOP, 'out_stage')
+if not out.inputConnectors[0].connections:
+    out.inputConnectors[0].connect(ren)
+
+for _ in range(4):
+    ren.cook(force=True)
+    out.cook(force=True)
+
+print('<<JSON>>' + json.dumps({
+    "ok": True,
+    "stage_comp": comp.path,
+    "lights": [env_light.path, key.path, fill.path, rim.path],
+    "ground_geo": ground_path,
+    "subject_mat": subject_mat.path,
+    "camera": cam.path,
+    "render_top": ren.path,
+    "out_top": out.path,
+    "resolution": [rw, rh],
+}))
+"""
+
+
+def t_setup_pbr_stage(a: dict) -> dict:
+    """Pilar 22 — PBR Staging & Environment Lighting: monta un set de iluminación cinematográfica 3D (Key/Fill/Rim lights + environmentlightCOMP con mapa HDRI o procedural), plano de suelo PBR receptor de sombras, material PBR para sujetos, cámara calibrada y renderTOP libre de trampas."""
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "pbr_stage").strip(),
+        "env_map": str(a.get("env_map") or "").strip() or None,
+        "env_dimmer": float(a.get("env_dimmer") or 0.8),
+        "key_dimmer": float(a.get("key_dimmer") or 1.0),
+        "fill_dimmer": float(a.get("fill_dimmer") or 0.35),
+        "rim_dimmer": float(a.get("rim_dimmer") or 0.65),
+        "include_ground": False if str(a.get("include_ground") or "").lower() in ("0", "false", "no") else True,
+        "ground_size": float(a.get("ground_size") or 30.0),
+        "ground_roughness": float(a.get("ground_roughness") or 0.8),
+        "camera_tz": float(a.get("camera_tz") or 4.5),
+        "resolution": str(a.get("resolution") or "1280x720").strip(),
+    }
+    code = _SETUP_PBR_STAGE.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 33. td_sync_external_tox — Sincronización y Hot-Reload de Componentes TOX ──
+
+_SYNC_EXTERNAL_TOX = r"""
+import json, os
+spec = __SPEC__
+target = op(spec['comp_path']) or op('/')
+action = spec.get('action', 'inspect').lower()
+custom_tox = spec.get('tox_path')
+
+if not target:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"comp_path no encontrado: {spec['comp_path']}"}))
+else:
+    if action == 'export':
+        dest = custom_tox or (target.par.externaltox.eval() if hasattr(target.par, 'externaltox') else '')
+        if not dest:
+            folder = project.folder.replace('\\', '/')
+            dest = f"{folder}/{target.name}.tox"
+        dest = os.path.abspath(dest).replace('\\', '/')
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        target.save(dest)
+        if bool(spec.get('bind_external', True)) and hasattr(target.par, 'externaltox'):
+            target.par.externaltox = dest
+        exists = os.path.exists(dest)
+        sz = os.path.getsize(dest) if exists else 0
+        print('<<JSON>>' + json.dumps({
+            "ok": True,
+            "action": "export",
+            "comp_path": target.path,
+            "saved_file": dest,
+            "size_bytes": sz,
+            "externaltox_bound": target.par.externaltox.eval() if hasattr(target.par, 'externaltox') else '',
+        }))
+
+    elif action == 'reload':
+        src = custom_tox or (target.par.externaltox.eval() if hasattr(target.par, 'externaltox') else '')
+        if not src or not os.path.exists(src):
+            print('<<JSON>>' + json.dumps({"ok": False, "error": f"archivo tox no existe para recarga: {src}"}))
+        else:
+            if custom_tox and hasattr(target.par, 'externaltox'):
+                target.par.externaltox = custom_tox
+            if hasattr(target.par, 'reinitnet'):
+                target.par.reinitnet.pulse()
+            elif hasattr(target, 'loadTox'):
+                target.loadTox(src)
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "action": "reload",
+                "comp_path": target.path,
+                "reloaded_file": src,
+                "mtime": os.path.getmtime(src),
+            }))
+
+    elif action == 'bind':
+        if not custom_tox:
+            print('<<JSON>>' + json.dumps({"ok": False, "error": "falta 'tox_path' para acción 'bind'"}))
+        else:
+            if hasattr(target.par, 'externaltox'):
+                target.par.externaltox = custom_tox
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "action": "bind",
+                "comp_path": target.path,
+                "externaltox": target.par.externaltox.eval() if hasattr(target.par, 'externaltox') else '',
+                "file_exists": os.path.exists(custom_tox),
+            }))
+
+    else:
+        recurse = bool(spec.get('recurse', True))
+        candidates = [target] if target.isCOMP else []
+        if recurse and hasattr(target, 'findChildren'):
+            candidates.extend(target.findChildren(type=COMP))
+
+        audited = []
+        for c in candidates:
+            if c.path.startswith(('/ui', '/sys', '/TDMCP')):
+                continue
+            ext = c.par.externaltox.eval() if hasattr(c.par, 'externaltox') else ''
+            status = "NOT_EXTERNAL"
+            file_info = None
+            if ext:
+                if os.path.exists(ext):
+                    status = "SYNCED"
+                    file_info = {
+                        "path": ext,
+                        "size_bytes": os.path.getsize(ext),
+                        "mtime": os.path.getmtime(ext),
+                    }
+                else:
+                    status = "FILE_MISSING_ON_DISK"
+                    file_info = {"path": ext, "missing": True}
+            audited.append({
+                "comp_path": c.path,
+                "type": getattr(c, 'OPType', c.type),
+                "status": status,
+                "externaltox": ext,
+                "file_info": file_info,
+            })
+
+        ext_count = sum(1 for a in audited if a['externaltox'])
+        missing_count = sum(1 for a in audited if a['status'] == 'FILE_MISSING_ON_DISK')
+        print('<<JSON>>' + json.dumps({
+            "ok": True,
+            "action": "inspect",
+            "root_path": target.path,
+            "total_comps_audited": len(audited),
+            "external_comps_count": ext_count,
+            "missing_files_count": missing_count,
+            "components": audited[:60],
+        }))
+"""
+
+
+def t_sync_external_tox(a: dict) -> dict:
+    """Pilar 23 — Sincronización y Hot-Reload de Componentes TOX: inspecciona dependencias externas en disco, audita drifts, exporta componentes a .tox de forma atómica y ejecuta Hot-Reload en memoria sin perder Custom Parameters."""
+    spec = {
+        "comp_path": str(a.get("comp_path") or "/project1").strip(),
+        "action": str(a.get("action") or "inspect").strip().lower(),
+        "tox_path": str(a.get("tox_path") or "").strip() or None,
+        "recurse": False if str(a.get("recurse") or "").lower() in ("0", "false", "no") else True,
+        "bind_external": False if str(a.get("bind_external") or "").lower() in ("0", "false", "no") else True,
+    }
+    code = _SYNC_EXTERNAL_TOX.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 34. td_setup_ai_stream — Conector Streaming GenAI & ComfyUI ───────────────
+
+_SETUP_AI_STREAM = r"""
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+b_name = spec['name']
+comp = parent.op(b_name)
+if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+    comp.destroy()
+    comp = None
+if not comp:
+    comp = parent.create(td.baseCOMP, b_name)
+
+backend = spec.get('backend', 'comfyui').lower()
+server_url = str(spec.get('server_url') or 'http://127.0.0.1:8188').rstrip('/')
+default_prompt = str(spec.get('default_prompt') or 'masterpiece, abstract generative procedural geometry')
+neg_prompt = str(spec.get('negative_prompt') or 'low quality, blurry, distorted')
+
+# 1. Input image conditioning
+in_src_path = spec.get('input_top')
+in_src = op(in_src_path) if in_src_path else None
+input_frame = comp.op('input_frame') or comp.create(td.nullTOP, 'input_frame')
+if in_src:
+    sel = comp.op('sel_in') or comp.create(td.selectTOP, 'sel_in')
+    sel.par.top = in_src.path
+    if not input_frame.inputConnectors[0].connections:
+        input_frame.inputConnectors[0].connect(sel)
+else:
+    c_gen = comp.op('default_in') or comp.create(td.constantTOP, 'default_in')
+    c_gen.par.outputresolution = 'custom'
+    c_gen.par.resolutionw = 512
+    c_gen.par.resolutionh = 512
+    c_gen.par.colorr = 0.1
+    c_gen.par.colorg = 0.12
+    c_gen.par.colorb = 0.15
+    if not input_frame.inputConnectors[0].connections:
+        input_frame.inputConnectors[0].connect(c_gen)
+
+# 2. Web Client for API communication
+wc = comp.op('api_client') or comp.create(td.webclientDAT, 'api_client')
+wc.par.url = server_url + ('/prompt' if backend == 'comfyui' else '')
+wc.par.reqmethod = 'POST'
+
+# 3. Prompt queue table
+tab = comp.op('prompt_queue') or comp.create(td.tableDAT, 'prompt_queue')
+tab.clear()
+tab.appendRow(['id', 'prompt', 'negative_prompt', 'status', 'backend'])
+tab.appendRow(['prompt_1', default_prompt, neg_prompt, 'READY', backend])
+
+# 4. Status and telemetry CHOP
+metrics = comp.op('stream_metrics') or comp.create(td.constantCHOP, 'stream_metrics')
+metrics.par.name0 = 'connected'
+metrics.par.value0 = 0.0
+metrics.par.name1 = 'latency_ms'
+metrics.par.value1 = 0.0
+metrics.par.name2 = 'active_requests'
+metrics.par.value2 = 1.0
+
+# 5. Output node
+out_ai = comp.op('out_ai') or comp.create(td.nullTOP, 'out_ai')
+if not out_ai.inputConnectors[0].connections:
+    out_ai.inputConnectors[0].connect(input_frame)
+
+# 6. Custom Parameters on ai_bridge baseCOMP
+page = comp.appendCustomPage('AI Stream') if 'AI Stream' not in [p.name for p in comp.customPages] else comp.customPages['AI Stream']
+existing_pnames = [p.name for p in comp.customPars]
+
+def ensure_cpar(name, style, default=None):
+    if name not in existing_pnames:
+        p = page.appendStr(name, label=name) if style == 'Str' else (
+            page.appendPulse(name, label=name) if style == 'Pulse' else
+            page.appendToggle(name, label=name)
+        )
+        if default is not None:
+            p.val = default
+
+ensure_cpar('Serverurl', 'Str', server_url)
+ensure_cpar('Prompt', 'Str', default_prompt)
+ensure_cpar('Negativeprompt', 'Str', neg_prompt)
+ensure_cpar('Submitprompt', 'Pulse')
+ensure_cpar('Autostream', 'Toggle', False)
+
+print('<<JSON>>' + json.dumps({
+    "ok": True,
+    "bridge_comp": comp.path,
+    "backend": backend,
+    "server_url": server_url,
+    "api_client": wc.path,
+    "queue_table": tab.path,
+    "metrics_chop": metrics.path,
+    "out_top": out_ai.path,
+    "custom_pars": ['Serverurl', 'Prompt', 'Negativeprompt', 'Submitprompt', 'Autostream'],
+}))
+"""
+
+
+def t_setup_ai_stream(a: dict) -> dict:
+    """Pilar 24 — Conector Streaming GenAI & ComfyUI: arquitectura puente llave en mano para IA generativa en tiempo real (webclientDAT/websocketDAT, cola de prompts tableDAT, métricas de latencia CHOP, Custom Parameters y texture outTOP)."""
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "ai_bridge").strip(),
+        "backend": str(a.get("backend") or "comfyui").strip().lower(),
+        "server_url": str(a.get("server_url") or "http://127.0.0.1:8188").strip(),
+        "input_top": str(a.get("input_top") or "").strip() or None,
+        "default_prompt": str(a.get("default_prompt") or "masterpiece, abstract generative procedural geometry").strip(),
+        "negative_prompt": str(a.get("negative_prompt") or "low quality, blurry, distorted").strip(),
+    }
+    code = _SETUP_AI_STREAM.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 35. td_benchmark_longevity — Benchmark de Resiliencia y Longevidad 24/7 ────
+
+_BENCHMARK_LONGEVITY = r"""
+import json, time
+spec = __SPEC__
+root = op(spec['container_path']) or op('/')
+dur = max(10, min(300, int(spec.get('duration_frames', 60))))
+audit_buffers = bool(spec.get('audit_buffers', True))
+step = max(1, int(spec.get('sample_interval', 10)))
+
+# 1. Structural Buffer & Memory Growth Risk Audit
+risks = []
+if audit_buffers and hasattr(root, 'findChildren'):
+    nodes = [root] + list(root.findChildren())
+    for c in nodes:
+        t = getattr(c, 'OPType', c.type)
+        if t == 'feedbackTOP':
+            is_huge = (getattr(c, 'width', 0) > 2560 or getattr(c, 'height', 0) > 1440)
+            risks.append({
+                "op": c.path,
+                "type": t,
+                "risk_level": "HIGH" if is_huge else "MEDIUM",
+                "issue": f"feedbackTOP activo {'(resolución alta > 2K)' if is_huge else ''} sin ciclo de reset documentado",
+                "recommendation": "Agregar pulso periódico de reset o acotar resolución con fitTOP."
+            })
+        elif t in ('trailCHOP', 'recordCHOP'):
+            l_par = getattr(c.par, 'length', None)
+            l_val = l_par.eval() if l_par else None
+            if l_val is None or l_val > 1000:
+                risks.append({
+                    "op": c.path,
+                    "type": t,
+                    "risk_level": "MEDIUM",
+                    "issue": f"{t} con longitud de buffer prolongada (length={l_val})",
+                    "recommendation": "Reducir par.length a los frames estrictamente necesarios para la visual."
+                })
+        elif t in ('tableDAT', 'textDAT'):
+            if c.numRows > 1500:
+                risks.append({
+                    "op": c.path,
+                    "type": t,
+                    "risk_level": "HIGH",
+                    "issue": f"DAT con {c.numRows} filas acumuladas en memoria",
+                    "recommendation": "Purgar filas obsoletas con scriptDAT o limitar appendRow."
+                })
+
+# 2. Performance & Memory Sampling via performCHOP
+perf_probe = op('/').create(td.performCHOP, '_mcp_perf_soak')
+perf_probe.par.gpumemused = 1
+perf_probe.par.cpumemused = 1
+perf_probe.par.cpumsec = 1
+perf_probe.cook(force=True)
+
+def _read_pchan(name):
+    c = perf_probe.chan(name)
+    return float(c.eval()) if c else 0.0
+
+gpu_start = _read_pchan('gpu_mem_used')
+cpu_start = _read_pchan('cpu_mem_used')
+msec_samples = []
+
+outputs = [c for c in root.children if c.family == 'TOP' and (c.name.startswith('out') or getattr(c, 'OPType', c.type) == 'outTOP')]
+if not outputs:
+    outputs = [c for c in root.children if c.family == 'TOP'][:3]
+
+for i in range(0, dur, step):
+    for o in outputs:
+        try:
+            o.cook(force=True)
+        except Exception:
+            pass
+    perf_probe.cook(force=True)
+    msec_samples.append(round(_read_pchan('cpumsec'), 2))
+
+gpu_end = _read_pchan('gpu_mem_used')
+cpu_end = _read_pchan('cpu_mem_used')
+perf_probe.destroy()
+perf_probe = None
+
+gpu_delta = round(gpu_end - gpu_start, 2)
+cpu_delta = round(cpu_end - cpu_start, 2)
+avg_msec = round(sum(msec_samples) / max(1, len(msec_samples)), 2) if msec_samples else 0.0
+
+high_risks = sum(1 for r in risks if r['risk_level'] == 'HIGH')
+med_risks = sum(1 for r in risks if r['risk_level'] == 'MEDIUM')
+
+score = 100
+score -= high_risks * 25
+score -= med_risks * 10
+if gpu_delta > 40.0:
+    score -= 30
+if cpu_delta > 50.0:
+    score -= 25
+score = max(0, min(100, score))
+
+if score >= 85 and high_risks == 0 and gpu_delta < 25.0:
+    verdict = "EXHIBITION_READY"
+elif score >= 60:
+    verdict = "MONITOR_RECOMMENDED"
+else:
+    verdict = "MEMORY_LEAK_RISK"
+
+print('<<JSON>>' + json.dumps({
+    "ok": True,
+    "container_path": root.path,
+    "duration_frames": dur,
+    "verdict": verdict,
+    "longevity_score": score,
+    "gpu_mem_start_mb": round(gpu_start, 2),
+    "gpu_mem_end_mb": round(gpu_end, 2),
+    "gpu_mem_delta_mb": gpu_delta,
+    "cpu_mem_start_mb": round(cpu_start, 2),
+    "cpu_mem_end_mb": round(cpu_end, 2),
+    "cpu_mem_delta_mb": cpu_delta,
+    "avg_cpu_cook_msec": avg_msec,
+    "identified_risks_count": len(risks),
+    "identified_risks": risks,
+    "recommendations": [r['recommendation'] for r in risks[:5]],
+}))
+"""
+
+
+def t_benchmark_longevity(a: dict) -> dict:
+    """Pilar 25 — Longevity & 24/7 Resilience Benchmark: auditoría de estabilidad para instalaciones desatendidas; muestrea deltas de memoria VRAM GPU y CPU a lo largo del tiempo, audita nodos con riesgo de acumulación ilimitada y emite veredicto EXHIBITION_READY vs MEMORY_LEAK_RISK."""
+    spec = {
+        "container_path": str(a.get("container_path") or "/project1").strip(),
+        "duration_frames": int(a.get("duration_frames") or 60),
+        "audit_buffers": False if str(a.get("audit_buffers") or "").lower() in ("0", "false", "no") else True,
+        "sample_interval": int(a.get("sample_interval") or 10),
+    }
+    code = _BENCHMARK_LONGEVITY.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -5396,14 +6091,37 @@ LIVE_TOOLS = [
       "num_frames": "int (default 24, rango 2..240)", "fps": "float (default 30.0)", "reset_first": "bool (default true)"}, t_record_movie),
     ("td_heal_network", "Pilar 20 — Doctor Autónomo de Redes (Self-Healing): detecta y repara automáticamente fallas estructurales (torus1 residual, flags display/render ausentes, outputresolution='custom' no fijado, cámaras de renderTOP desvinculadas y NaNs en simulaciones).",
      {"container_path": "string (default /project1)", "dry_run": "bool (default false: solo diagnostica si true)"}, t_heal_network),
+    ("td_setup_display_canvas", "Pilar 21 — Multi-Display Canvas & Edge Blending: genera canvas multi-pantalla / multi-proyector con cálculo exacto de solapamientos (overlap), crops individuales por proyector, generador de patrones de test y windowCOMP de span opcional.",
+     {"parent_path": "string (default /project1)", "name": "string (default display_canvas)",
+      "num_displays": "int (default 2, rango 1..8)", "display_width": "int (default 1920)",
+      "display_height": "int (default 1080)", "layout": "horizontal|vertical (default horizontal)",
+      "overlap_pixels": "int (default 120)", "test_pattern": "bool (default true)",
+      "input_top": "string (opcional)", "create_window": "bool (default false)"}, t_setup_display_canvas),
+    ("td_setup_pbr_stage", "Pilar 22 — PBR Staging & Environment Lighting: monta un set de iluminación cinematográfica 3D (Key/Fill/Rim lights + environmentlightCOMP con mapa HDRI o procedural), plano de suelo PBR receptor de sombras, material PBR para sujetos, cámara calibrada y renderTOP libre de trampas.",
+     {"parent_path": "string (default /project1)", "name": "string (default pbr_stage)",
+      "env_map": "string (opcional: ruta a TOP HDRI/sky)", "env_dimmer": "float (default 0.8)",
+      "key_dimmer": "float (default 1.0)", "fill_dimmer": "float (default 0.35)", "rim_dimmer": "float (default 0.65)",
+      "include_ground": "bool (default true)", "ground_size": "float (default 30.0)", "ground_roughness": "float (default 0.8)",
+      "camera_tz": "float (default 4.5)", "resolution": "string (default 1280x720)"}, t_setup_pbr_stage),
+    ("td_sync_external_tox", "Pilar 23 — Sincronización y Hot-Reload de Componentes TOX: inspecciona dependencias externas en disco, audita drifts, exporta componentes a .tox de forma atómica y ejecuta Hot-Reload en memoria sin perder Custom Parameters.",
+     {"comp_path": "string (default /project1)", "action": "inspect|export|reload|bind (default inspect)",
+      "tox_path": "string (opcional)", "recurse": "bool (default true)", "bind_external": "bool (default true)"}, t_sync_external_tox),
+    ("td_setup_ai_stream", "Pilar 24 — Conector Streaming GenAI & ComfyUI: arquitectura puente llave en mano para IA generativa en tiempo real (webclientDAT/websocketDAT, cola de prompts tableDAT, métricas de latencia CHOP, Custom Parameters y texture outTOP).",
+     {"parent_path": "string (default /project1)", "name": "string (default ai_bridge)",
+      "backend": "comfyui|websocket|rest (default comfyui)", "server_url": "string (default http://127.0.0.1:8188)",
+      "input_top": "string (opcional)", "default_prompt": "string (opcional)", "negative_prompt": "string (opcional)"}, t_setup_ai_stream),
+    ("td_benchmark_longevity", "Pilar 25 — Longevity & 24/7 Resilience Benchmark: auditoría de estabilidad para instalaciones desatendidas; muestrea deltas de memoria VRAM GPU y CPU a lo largo del tiempo, audita nodos con riesgo de acumulación ilimitada y emite veredicto EXHIBITION_READY vs MEMORY_LEAK_RISK.",
+     {"container_path": "string (default /project1)", "duration_frames": "int (default 60, rango 10..300)",
+      "audit_buffers": "bool (default true)", "sample_interval": "int (default 10)"}, t_benchmark_longevity),
 ]
+
 
 LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
 # Tools de lectura que no modifican la red de TouchDesigner
 LIVE_READONLY = {
     "td_status", "find_in_ops", "tdn_diff", "eval_render_frame", "get_op_errors_deep",
     "td_measure", "td_explore_project", "td_compare_networks", "td_spatial_context",
-    "td_verify_network", "td_profile_network", "td_visual_diff", "td_render_contact_sheet",
+    "td_verify_network", "td_profile_network", "td_visual_diff", "td_render_contact_sheet", "td_benchmark_longevity",
 }
 
 

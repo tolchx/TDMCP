@@ -367,12 +367,72 @@ heal_real = live.t_heal_network({"container_path": SB, "dry_run": False})
 show("heal_network (applied)", heal_real, 1000)
 assert heal_real.get("ok") is True and heal_real.get("fixes_count", 0) >= 1, f"heal real falló: {heal_real}"
 
-print("\n### 37. cleanup")
+print("\n### 37. td_setup_display_canvas (Pilar 21)")
+canvas_res = live.t_setup_display_canvas({
+    "parent_path": SB,
+    "name": "master_canvas",
+    "num_displays": 2,
+    "display_width": 1920,
+    "display_height": 1080,
+    "overlap_pixels": 80,
+    "input_top": SB + "/p1_scene_out",
+    "test_pattern": True,
+})
+show("setup_display_canvas", canvas_res, 1200)
+assert canvas_res.get("ok") is True and len(canvas_res.get("displays", [])) == 2, f"setup_display_canvas falló: {canvas_res}"
+
+print("\n### 38. td_setup_pbr_stage (Pilar 22)")
+pbr_res = live.t_setup_pbr_stage({
+    "parent_path": SB,
+    "name": "stage_pbr",
+    "include_ground": True,
+    "resolution": "1280x720",
+})
+show("setup_pbr_stage", pbr_res, 1200)
+assert pbr_res.get("ok") is True and len(pbr_res.get("lights", [])) == 4 and pbr_res.get("render_top"), f"setup_pbr_stage falló: {pbr_res}"
+
+print("\n### 39. td_sync_external_tox (Pilar 23)")
+tox_insp = live.t_sync_external_tox({"comp_path": SB, "action": "inspect"})
+show("sync_external_tox (inspect)", tox_insp, 1200)
+assert tox_insp.get("ok") is True and tox_insp.get("total_comps_audited", 0) >= 1, f"tox inspect falló: {tox_insp}"
+
+tox_tmp = os.path.join(tempfile.gettempdir(), "test_stage_pbr.tox").replace("\\", "/")
+tox_exp = live.t_sync_external_tox({"comp_path": SB + "/stage_pbr", "action": "export", "tox_path": tox_tmp})
+show("sync_external_tox (export)", tox_exp, 1000)
+assert tox_exp.get("ok") is True and os.path.exists(tox_tmp), f"tox export falló: {tox_exp}"
+
+tox_rel = live.t_sync_external_tox({"comp_path": SB + "/stage_pbr", "action": "reload"})
+show("sync_external_tox (reload)", tox_rel, 1000)
+assert tox_rel.get("ok") is True, f"tox reload falló: {tox_rel}"
+
+print("\n### 40. td_setup_ai_stream (Pilar 24)")
+ai_res = live.t_setup_ai_stream({
+    "parent_path": SB,
+    "name": "ai_gateway",
+    "backend": "comfyui",
+    "server_url": "http://127.0.0.1:8188",
+    "input_top": SB + "/p1_scene_out",
+})
+show("setup_ai_stream", ai_res, 1200)
+assert ai_res.get("ok") is True and ai_res.get("queue_table") and ai_res.get("api_client"), f"setup_ai_stream falló: {ai_res}"
+
+print("\n### 41. td_benchmark_longevity (Pilar 25)")
+soak_res = live.t_benchmark_longevity({
+    "container_path": SB,
+    "duration_frames": 20,
+    "sample_interval": 5,
+    "audit_buffers": True,
+})
+show("benchmark_longevity", soak_res, 1200)
+assert soak_res.get("ok") is True and soak_res.get("verdict") in ("EXHIBITION_READY", "MONITOR_RECOMMENDED", "MEMORY_LEAK_RISK"), f"benchmark_longevity falló: {soak_res}"
+
+print("\n### 42. cleanup")
 for p in (SB, "/hermes_live_b"):
     ok, r = live.call("delete_operator", {"path": p})
     print(p, "->", json.dumps(r, ensure_ascii=False)[:160])
-for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn"), cs_res.get("contact_sheet_path"), rec_res.get("file_path")):
+for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn"), cs_res.get("contact_sheet_path"), rec_res.get("file_path"), tox_tmp):
     if f and os.path.exists(f):
-        os.remove(f)
+        try: os.remove(f)
+        except: pass
 print("temporales borrados")
-print("\nALL 37 LIVE STAGES PASSED OK.")
+print("\nALL 42 LIVE STAGES PASSED OK.")
