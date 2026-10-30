@@ -426,7 +426,45 @@ soak_res = live.t_benchmark_longevity({
 show("benchmark_longevity", soak_res, 1200)
 assert soak_res.get("ok") is True and soak_res.get("verdict") in ("EXHIBITION_READY", "MONITOR_RECOMMENDED", "MEMORY_LEAK_RISK"), f"benchmark_longevity falló: {soak_res}"
 
-print("\n### 42. cleanup")
+print("\n### 42. td_network_tidy (NetworkTidy Layout & Undo)")
+# Setup messy nodes inside a sub-container in SB
+live.exec_code(f'''
+import json
+sb = op({SB!r})
+sub = sb.op('tidy_test') or sb.create(baseCOMP, 'tidy_test')
+for c in list(sub.children): c.destroy()
+o1 = sub.create(constantTOP, 'src')
+o2 = sub.create(levelTOP, 'filter')
+o3 = sub.create(nullTOP, 'final_out')
+o4 = sub.create(noiseCHOP, 'loose_noise')
+o1.outputConnectors[0].connect(o2)
+o2.outputConnectors[0].connect(o3)
+o1.nodeX, o1.nodeY = 800, 100
+o2.nodeX, o2.nodeY = 300, 500
+o3.nodeX, o3.nodeY = -150, 0
+o4.nodeX, o4.nodeY = 900, 900
+print('<<JSON>>' + json.dumps({{'ok': True}}))
+''')
+tidy_res = live.t_network_tidy({
+    "network_path": SB + "/tidy_test",
+    "action": "tidy",
+    "column_gap": 60,
+    "row_gap": 30,
+    "straighten_wires": True,
+    "grid_loose": True,
+    "animate": False,
+})
+show("network_tidy (tidy)", tidy_res, 1200)
+assert tidy_res.get("ok") is True and tidy_res.get("moved_count", 0) >= 3, f"network_tidy tidy falló: {tidy_res}"
+
+undo_res = live.t_network_tidy({
+    "network_path": SB + "/tidy_test",
+    "action": "undo",
+})
+show("network_tidy (undo)", undo_res, 1200)
+assert undo_res.get("ok") is True and undo_res.get("restored_nodes_count", 0) >= 3, f"network_tidy undo falló: {undo_res}"
+
+print("\n### 43. cleanup")
 for p in (SB, "/hermes_live_b"):
     ok, r = live.call("delete_operator", {"path": p})
     print(p, "->", json.dumps(r, ensure_ascii=False)[:160])
@@ -435,4 +473,4 @@ for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn"), 
         try: os.remove(f)
         except: pass
 print("temporales borrados")
-print("\nALL 42 LIVE STAGES PASSED OK.")
+print("\nALL 43 LIVE STAGES PASSED OK.")

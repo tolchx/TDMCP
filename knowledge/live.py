@@ -5966,6 +5966,158 @@ def t_benchmark_longevity(a: dict) -> dict:
     return res
 
 
+_NETWORK_TIDY = r'''
+import json, os
+
+spec = __SPEC__
+
+tidy_comp_path = spec.get('tidy_comp_path')
+tox_path = spec.get('tox_path') or r'C:/Users/Tolch/Desktop/tox/NetworkTidy.tox'
+network_path = str(spec.get('network_path') or '/project1').strip()
+action = str(spec.get('action') or 'tidy').lower().strip()
+scope = str(spec.get('scope') or 'all').lower().strip()
+column_gap = int(spec.get('column_gap') if spec.get('column_gap') is not None else 60)
+row_gap = int(spec.get('row_gap') if spec.get('row_gap') is not None else 30)
+straighten_wires = bool(spec.get('straighten_wires', True))
+grid_loose = bool(spec.get('grid_loose', True))
+fit_annotations = bool(spec.get('fit_annotations', True))
+animate = bool(spec.get('animate', False))
+duration = float(spec.get('animation_duration') or 0.6)
+frame_result = bool(spec.get('frame_result', True))
+
+# Localizar o cargar el componente tidy
+tidy = None
+if tidy_comp_path:
+    tidy = op(tidy_comp_path)
+if tidy is None:
+    tidy = op('/network_tidy')
+if tidy is None and hasattr(op, 'network_tidy'):
+    tidy = op.network_tidy
+if tidy is None:
+    candidates = op('/').findChildren(name='*network_tidy*', type=baseCOMP)
+    if candidates:
+        tidy = candidates[0]
+if tidy is None and tox_path:
+    if os.path.exists(tox_path):
+        loaded = op('/').loadTox(tox_path)
+        if loaded:
+            loaded.name = 'network_tidy'
+            tidy = loaded
+
+if tidy is None or not hasattr(tidy.ext, 'TidyExt'):
+    print('<<JSON>>' + json.dumps({
+        'ok': False,
+        'error': f"NetworkTidy COMP no encontrado en el proyecto y no se pudo cargar desde: {tox_path}",
+    }))
+else:
+    # Contenedor objetivo
+    net = op(network_path)
+    if net is None and network_path == '/project1':
+        net = op('/')
+        network_path = '/'
+
+    if net is None:
+        print('<<JSON>>' + json.dumps({
+            'ok': False,
+            'error': f"Contenedor '{network_path}' no existe en TouchDesigner.",
+        }))
+    else:
+        # Configurar parámetros en NetworkTidy
+        tidy.par.Network = net
+        if hasattr(tidy.par, 'Scope'):
+            tidy.par.Scope = scope
+        if hasattr(tidy.par, 'Gapx'):
+            tidy.par.Gapx = column_gap
+        if hasattr(tidy.par, 'Gapy'):
+            tidy.par.Gapy = row_gap
+        if hasattr(tidy.par, 'Straighten'):
+            tidy.par.Straighten = straighten_wires
+        if hasattr(tidy.par, 'Gridloose'):
+            tidy.par.Gridloose = grid_loose
+        if hasattr(tidy.par, 'Annotations'):
+            tidy.par.Annotations = fit_annotations
+        if hasattr(tidy.par, 'Animate'):
+            tidy.par.Animate = animate
+        if hasattr(tidy.par, 'Duration'):
+            tidy.par.Duration = duration
+        if hasattr(tidy.par, 'Frame'):
+            tidy.par.Frame = frame_result
+
+        before_pos = {o.name: [round(o.nodeX), round(o.nodeY)] for o in net.children if o != tidy}
+
+        if action == 'undo':
+            had_moves = bool(getattr(tidy.ext.TidyExt, 'lastMoves', {}))
+            tidy.ext.TidyExt.Undo()
+            status_msg = str(tidy.par.Status.eval()) if hasattr(tidy.par, 'Status') else 'Undo ejecutado'
+            after_pos = {o.name: [round(o.nodeX), round(o.nodeY)] for o in net.children if o != tidy}
+            moved = [name for name, pos in after_pos.items() if before_pos.get(name) != pos]
+            print('<<JSON>>' + json.dumps({
+                'ok': True,
+                'action': 'undo',
+                'network_path': net.path,
+                'tidy_comp': tidy.path,
+                'status': status_msg,
+                'had_moves_to_undo': had_moves,
+                'nodes_total': len(after_pos),
+                'restored_nodes_count': len(moved),
+                'restored_nodes': moved,
+                'positions': after_pos,
+                'can_undo': bool(getattr(tidy.ext.TidyExt, 'lastMoves', {})),
+            }))
+        else:
+            tidy.ext.TidyExt.Tidy()
+            status_msg = str(tidy.par.Status.eval()) if hasattr(tidy.par, 'Status') else 'Tidy ejecutado'
+            after_pos = {o.name: [round(o.nodeX), round(o.nodeY)] for o in net.children if o != tidy}
+            moved = [name for name, pos in after_pos.items() if before_pos.get(name) != pos]
+            print('<<JSON>>' + json.dumps({
+                'ok': True,
+                'action': 'tidy',
+                'network_path': net.path,
+                'tidy_comp': tidy.path,
+                'status': status_msg,
+                'nodes_total': len(after_pos),
+                'moved_count': len(moved),
+                'moved_nodes': moved,
+                'positions': after_pos,
+                'before_positions': before_pos,
+                'can_undo': bool(getattr(tidy.ext.TidyExt, 'lastMoves', {})),
+                'settings': {
+                    'scope': scope,
+                    'column_gap': column_gap,
+                    'row_gap': row_gap,
+                    'straighten_wires': straighten_wires,
+                    'grid_loose': grid_loose,
+                    'fit_annotations': fit_annotations,
+                    'animate': animate,
+                    'duration': duration,
+                    'frame_result': frame_result,
+                }
+            }))
+'''
+
+
+def t_network_tidy(a: dict) -> dict:
+    """Ordena y embellece redes de TouchDesigner usando la extensión NetworkTidy (layout izquierda-a-derecha por flujo de datos, columnas alineadas, desenredo de cables cruzados, grilla de nodos sueltos, adaptación de annotations y docked ops). Soporta acciones 'tidy' y 'undo', scope 'all' o 'selected', y carga automática desde disco si no está en la red."""
+    spec = {
+        "network_path": str(a.get("network_path") or "/project1").strip(),
+        "action": str(a.get("action") or "tidy").strip().lower(),
+        "scope": str(a.get("scope") or "all").strip().lower(),
+        "column_gap": int(a.get("column_gap") if a.get("column_gap") is not None else 60),
+        "row_gap": int(a.get("row_gap") if a.get("row_gap") is not None else 30),
+        "straighten_wires": False if str(a.get("straighten_wires") or "").lower() in ("0", "false", "no") else True,
+        "grid_loose": False if str(a.get("grid_loose") or "").lower() in ("0", "false", "no") else True,
+        "fit_annotations": False if str(a.get("fit_annotations") or "").lower() in ("0", "false", "no") else True,
+        "animate": True if str(a.get("animate") or "").lower() in ("1", "true", "yes") else False,
+        "animation_duration": float(a.get("animation_duration") or 0.6),
+        "frame_result": False if str(a.get("frame_result") or "").lower() in ("0", "false", "no") else True,
+        "tidy_comp_path": a.get("tidy_comp_path"),
+        "tox_path": a.get("tox_path") or r"C:/Users/Tolch/Desktop/tox/NetworkTidy.tox",
+    }
+    code = _NETWORK_TIDY.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -6113,6 +6265,20 @@ LIVE_TOOLS = [
     ("td_benchmark_longevity", "Pilar 25 — Longevity & 24/7 Resilience Benchmark: auditoría de estabilidad para instalaciones desatendidas; muestrea deltas de memoria VRAM GPU y CPU a lo largo del tiempo, audita nodos con riesgo de acumulación ilimitada y emite veredicto EXHIBITION_READY vs MEMORY_LEAK_RISK.",
      {"container_path": "string (default /project1)", "duration_frames": "int (default 60, rango 10..300)",
       "audit_buffers": "bool (default true)", "sample_interval": "int (default 10)"}, t_benchmark_longevity),
+    ("td_network_tidy", "Ordena y embellece redes de TouchDesigner usando la extensión NetworkTidy (layout izquierda-a-derecha por flujo de datos, columnas alineadas, desenredo de cables cruzados, grilla de nodos sueltos, adaptación de annotations y docked ops). Soporta acciones 'tidy' y 'undo', scope 'all' o 'selected', y carga automática desde disco si no está en la red.",
+     {"network_path": "string (default /project1: contenedor COMP a ordenar)",
+      "action": "tidy|undo (default tidy)",
+      "scope": "all|selected (default all)",
+      "column_gap": "int (default 60)",
+      "row_gap": "int (default 30)",
+      "straighten_wires": "bool (default true)",
+      "grid_loose": "bool (default true)",
+      "fit_annotations": "bool (default true)",
+      "animate": "bool (default false: false para ejecución instantánea vía MCP)",
+      "animation_duration": "float (default 0.6)",
+      "frame_result": "bool (default true)",
+      "tidy_comp_path": "string (opcional: ruta a /network_tidy si se renombró)",
+      "tox_path": "string (opcional: ruta a NetworkTidy.tox en disco si no está cargado)"}, t_network_tidy),
 ]
 
 

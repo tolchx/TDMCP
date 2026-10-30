@@ -165,7 +165,7 @@ This fork integrates the complete **offline knowledge layer + high-level composi
 
 Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-### Dual-Server Architecture (88 Tools Total)
+### Dual-Server Architecture (89 Tools Total)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -175,9 +175,9 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
                     │ stdio (JSON-RPC)               │ SSE / HTTP (:13316)
                     ▼                                ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│     td-knowledge (62 Tools)          │  │     TDMCP.tox (26 Tools)     │
+│     td-knowledge (63 Tools)          │  │     TDMCP.tox (26 Tools)     │
 │   • 22 Offline Tools (0% TD overhead)│  │   • 26 In-Process Live Tools │
-│   • 40 High-Level Live Tools         │  │   • Direct TD Python engine  │
+│   • 41 High-Level Live Tools         │  │   • Direct TD Python engine  │
 │   • 1,302 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
 │   • 79 GLSL Shaders + 15 Lessons     │  │   • Undo-per-call & stats    │
 │   • 625-Op Topology + 97-POP Matrix  │  │   • Compatible w/ 2025.32460 │
@@ -186,9 +186,9 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
 
 ---
 
-### `td-knowledge` Tool Reference (62 Tools: 22 Offline + 40 Live)
+### `td-knowledge` Tool Reference (63 Tools: 22 Offline + 41 Live)
 
-The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **40 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
+The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **41 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
 
 | Category | Tool | Description |
 |---|---|---|
@@ -217,6 +217,7 @@ The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs
 | **Live Inspection & Layout (Require TD)** | `td_status` | Live health check returning project, build (`runningBuild` + `buildMismatch`), FPS, and **cooking clock diagnosis** (`power`, `timelinePlay`, `realTime`, `cookingVerdict`). |
 | | `find_in_ops` | Single-call deep search across DAT text/tables, parameter expressions, parameter names, comments, and operator names (with `max_nodes`/`max_sec` budget). |
 | | `auto_layout` | Topological layer layout engine (zero wire crossings), with `dry_run` preview. |
+| | `td_network_tidy` | **NetworkTidy Layout & Undo Engine**: ordenamiento profesional izquierda-a-derecha por flujo de datos (columnas alineadas, desenredo de cables cruzados, grilla de nodos sueltos por tipo, adaptación de anotaciones y nodos docked) con soporte `tidy` y `undo` instantáneo o animado. |
 | | `smart_connect` | Intelligent connector selecting the right input index from `topology.json`, KB, and live build docs. |
 | | `td_measure` | Live signal & geometry meter: CHOP channel range (`min`, `max`, `mean`, `is_constant`, `is_normalized_01`, `suggested_scale`/`suggested_offset`), POP/SOP `numPoints`/`numPrims`/`bounds`/attributes, TOP dimensions, or DAT rows/text. |
 | | `td_explore_project` | Single-call container/project X-ray: counts by family/type, child COMPs, GLSL shaders, `customPars`, active errors, and heaviest operators by `cookTime`. |

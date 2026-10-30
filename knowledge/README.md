@@ -78,6 +78,7 @@ mismo proceso y sin bridge (:44444 retirado):
 | `td_sync_external_tox` | **Pilar 23**: gestor y hot-reload de componentes externos `.tox`: audita dependencias en disco, detecta drifts, exporta componentes atómicamente y recarga en memoria sin perder parámetros ni estado. |
 | `td_setup_ai_stream` | **Pilar 24**: puente de streaming para IA generativa y ComfyUI en tiempo real: webclientDAT/websocketDAT, cola de prompts tableDAT, métricas de latencia CHOP y outTOP de texturas generadas. |
 | `td_benchmark_longevity` | **Pilar 25**: benchmark de resiliencia y longevidad 24/7 para instalaciones desatendidas: muestrea deltas de memoria VRAM GPU y CPU a lo largo del tiempo, audita nodos con riesgo de fuga y emite veredicto EXHIBITION_READY vs MEMORY_LEAK_RISK. |
+| `td_network_tidy` | **NetworkTidy Layout & Undo**: integración con la extensión NetworkTidy; realiza layout profesional izquierda-a-derecha por flujo de datos, columnas alineadas, desenredo de cables cruzados, grilla de nodos sueltos por tipo, adaptación de anotaciones y soporte `tidy` / `undo` instantáneo o animado. |
 
 ## Watchdog
 
@@ -104,8 +105,8 @@ python knowledge/build_assets.py --import-archive C:/ruta/backup/td-knowledge-kb
 ```bash
 python knowledge/server.py                 # servidor stdio (habla MCP por stdin/stdout)
 python knowledge/server.py --selftest      # corre las 22 tools offline con args de prueba
-python knowledge/test_protocol.py          # handshake + tools/list (62 tools) + llamadas por protocolo
-python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 42 stages)
+python knowledge/test_protocol.py          # handshake + tools/list (63 tools) + llamadas por protocolo
+python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 43 stages)
 ```
 
 Verificado en Windows 11 · Python 3.10 / 3.13 · TouchDesigner 2025.32460 · TDMCP 1.1.55.
