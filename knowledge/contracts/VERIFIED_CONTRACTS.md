@@ -1230,3 +1230,104 @@ contra `boxPOP` 1x1 centrado (input 1), con `numhits=True`.
   midió con un atributo fraccional proveniente de otro bloque.
 - La escena depende del triangulado del `boxPOP`: si un build futuro cambia `RayNumHits=4`
   en el centro, el test numérico debe fallar y volver a medir, no relajarse.
+
+---
+
+## C21 — forceradialPOP medido en vivo (2026-10-30, batería reg-20261030-003135, 35/36 + flaky ajeno)
+
+Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, MCP en `127.0.0.1:13316`.
+Evidencia: `tools/gauntlet/results/reg-20261030-003135/` (ignorada por git; se regenera con
+`python tools/gauntlet/regression_pop.py`). Build: `tools/gauntlet/build_pop_forceradial.py`
+(26/26, PNG 46 px, 49 puntos). La batería salió **272.2 s, 35/36**: el único rojo fue
+`build_monitor_pop.py` (check de calibración libre de escala, `|Δ|=0.0526` vs umbral `0.03`),
+un build que **no toca** `/pop_forceradial` y que dio **2/2 PASS en dos re-ejecuciones
+aisladas** justo después → **flaky medido, no regresión de este ítem**. `Layout /pop_*: PASS`.
+Escena: `gridPOP` 3x3 de tamaño 2 (r=1 en los cardinales, r=sqrt(2) en las esquinas) ->
+`forceradialPOP`, leído con `poptoCHOP` (canales `PartForce_0/1/2`, `P_0/1/2`).
+
+### `forceradial_nombre_de_tipo` — el tipo es `forceradialPOP` [V]
+
+- `create_operator` con **`forceRadialPOP`** (el nombre que sale de la doc de Derivative y
+  del índice `knowledge/kb/pops/index.json`) devuelve **isError**.
+- Con **`forceradialPOP`** crea `type='forceradial'`, `OPType='forceradialPOP'`.
+- Regla: en código, el nombre de tipo va con minúscula inicial. El índice de la KB es una
+  lista de páginas de doc, **no** una lista de nombres de tipo válidos.
+
+### `forceradial_atributos_y_defaults` — pasa los puntos y agrega PartForce [V]
+
+- No crea puntos: 9 de entrada -> 9 de salida. Atributos de salida: `P`, `N`, `Tex`,
+  **`PartForce`** (el que consume `particlePOP`).
+- Defaults medidos: `radial=True`, `radialstrength=1.0`, `spiral=False`,
+  `direction=(0,1,0)`, `falloff='scurve'` (menú: `None`, `S Curve`, `Inverse Distance`),
+  `falloffradius=2.0`, `globforce=(0,-0.1,0)`, `globforcemult=0.0`,
+  `windspeed=(1,0,0)`, `windspeedmult=0.0`.
+- Con los defaults ya hay fuerza: **la radial viene prendida**.
+
+### `forceradial_radial_falloff` — valores exactos, curva sin fórmula [V]
+
+- `radial` strength 1, centro en el origen: en **r=1** la fuerza es la dirección radial
+  unitaria exacta (`±1.0` en el eje, `0.0` en el otro); en **r=sqrt(2)** cada eje vale
+  `0.44769`, o sea **|F| = 0.6331**.
+- `radialstrength` es **lineal**: strength 2 da `2.0` en r=1 y `0.89538` en r=sqrt(2).
+- El falloff `scurve` **no** es la smoothstep clásica con plateau 0.5 (esa predeciría
+  `0.6274`) ni un falloff lineal (`0.2929`): es una curva propia del build. Se documenta la
+  **tabla medida**, no una fórmula.
+- **Gotcha del centro:** en `r=0` la dirección radial no existe y la fuerza cae a
+  `direction` normalizado con **strength pleno** -> `(0,1,0)` con strength 1 y `(0,2,0)`
+  con strength 2. Un punto exactamente en el centro **no** queda quieto: sale eyectado
+  según `direction`.
+
+### `forceradial_spiral_direction` — el gotcha del tutorial, confirmado [V]
+
+- `spiral=True` con **`direction=(0,0,0)`** -> `PartForce = 0` en **todos** los puntos.
+  Es la causa del "no pasa nada" de la receta: sin eje no hay plano de giro.
+- `direction=(0,0,1)` gira **+90° (CCW)** en XY: `(1,0,0)->(0,1,0)`, `(0,1,0)->(-1,0,0)`;
+  las magnitudes son las mismas del falloff (`1.0` en r=1, `0.6331` en r=sqrt(2)).
+- En el centro la espiral da **0** (a diferencia de la radial, que cae a `direction`).
+- `direction` default es `(0,1,0)` y `radial` default está prendida: si sólo se prende
+  `spiral`, la radial sigue sumando. Apagarla antes de medir un vórtice "puro".
+
+### `forceradial_global_force_gate` — globforcemult default 0 [V]
+
+- `globforce` se **multiplica** por `globforcemult` y **no** pasa por el falloff:
+  `globforcez=2` con mult 0 (default) -> `0`; con mult 1 -> `(0,-0.1,2)` **constante** en
+  los 9 puntos (el `-0.1` es el `globforcey` default).
+- Mismo patrón para `windspeed` / `windspeedmult` (no barrido a fondo en este pase).
+
+### `forceradial_map_escalar` — la página `map` es el mecanismo del "escalar" [V]
+
+- `map0op` = op POP de referencia. Al setearlo, el menú de `map0element` se vuelve
+  **dinámico** y lista los atributos de ESE op (apareció `Dist2` junto a `P`, `N`, `Tex`).
+- `map0parm` elige el parámetro destino (`globforce`, `globforcemult`, `windspeed`, ...) y
+  `map0combineop` = `set` | `multiply` | `add`.
+- Medido: `mc` (`mathcombinePOP`, `comb0oper='dot'`, `scopea=scopeb='P'`, `result='Dist2'`
+  -> `Dist2 = dot(P,P)`) + `map0element='Dist2'`, `map0parm='globforcemult'`,
+  `combine='set'`, `globforcez=2` -> **`PartForce.z = 2*Dist2` exacto** (`4.0 / 2.0 / 0.0`
+  para `Dist2 = 2 / 1 / 0`) y `PartForce.y = -0.1*Dist2`.
+- El escalar se aplica **por punto**: la página `map` es el camino real del "A*B -> escalar"
+  de la receta; no hace falta ningún cable extra.
+- **El par `globforcemult` sigue leyéndose `1.0`** (el map no escribe el par: lo pisa por
+  punto) y **el toggle `map` se lee `0`** aunque el mapeo funciona. No sirve como indicador
+  de que el mapa está activo.
+
+### `forceradial_render_en_puntos` — gridPOP emite quads (C2) [V]
+
+- El `gridPOP` emite **prims (quads)**: con un `pointspriteMAT`, el render pinta una
+  **superficie** (4.865 px encendidos a 171x96), no puntos. Para ver puntos hay que pasar
+  por `convertPOP` con `convert='topointprims'` antes del terminal.
+- La captura de `view_operator` sale **171x96** aunque se pida `resolution='medium'`, y el
+  `pointsize` no escala con la captura: 49 puntos ≈ **46 px** encendidos. El rango útil para
+  distinguir "puntos" de "cara rellena" es `30 <= px_lit < 2000`.
+- El `geometryCOMP` auto-crea un `torusPOP` que dibuja y enmascara el render (C2): hay que
+  borrarlo, como en los demás builds.
+
+### `forceradial_limites` — qué NO se midió [V]
+
+- **`planar` y `axial`** (`planar`, `planarexponent`, `planarstrength`, `axial`,
+  `axialrx/ry/rz`, `axialstrength`) **no** medidos.
+- `falloffplateau`, `falloffsteepness`, `falloffbias`, `fallofflimitrange` **no** barridos:
+  por eso la curva queda como tabla y no como fórmula.
+- **`specpop`** (fuerzas por especificación, multi-vórtice) **no** medido: la sonda usó un
+  solo centro.
+- `map0combineop` `multiply` / `add` no medidos (sólo `set`).
+- No se midió el consumo dentro de `particlePOP` (simulación completa) en este pase.

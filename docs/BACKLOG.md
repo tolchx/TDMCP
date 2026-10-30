@@ -236,6 +236,20 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   `analytics_cull`, `blend`) sin fila propia. Contratos **C19**, **C20** y corrección de C18
   (`RayHitNormal` no existe en este build). Detalle: `docs/pop-coverage-2026-10-29.md`.
 
+  **TRAMO 5d-2 CERRADO 2026-10-30 (TD vivo, MCP 1.1.55, build 2025.32460):** `forceradialPOP`
+  medido con `build_pop_forceradial.py` (**26/26**; batería `reg-20261030-003135` **35/36**,
+  272.2 s, layout PASS — el único rojo fue `build_monitor_pop.py`, flaky ajeno verificado con
+  2/2 PASS aislados). Cierra el primer punto de la deuda del **ítem 10** (`forceradialPOP`
+  standalone + gotcha `direction=000`) y agrega el mecanismo que faltaba: la **página `map`**
+  (escalar de otro POP -> parámetro de fuerza, por punto). Contrato **C21**: el tipo es
+  `forceradialPOP` (con `forceRadialPOP` la tool devuelve isError), la radial viene ON por
+  default, el centro cae a `direction` con strength pleno, `spiral` con `direction=000` da
+  cero absoluto, `globforcemult=0` anula `globforce`, y el map pisa `globforcemult` por punto
+  **sin** escribirlo en el par ni prender el toggle `map`. El `gridPOP` emite quads: sin
+  `convertPOP` a `topointprims` el render muestra una cara, no puntos. Detalle:
+  `docs/loop-run-2026-10-30.md`. Siguen abiertos `planar`/`axial`, `specpop` y los pars de
+  falloff.
+
 - [ ] 6. **Hallado por el ciclo diario (2026-10-02, verificación de entorno)** — el check de F3.2
   (`f3-n2-audio-clock`) es **FLAKY**. En la suite #1 de hoy (`results/20261002-000742`) falló
   `f3_n2_audio_clock.py:102` "par animado por expresion cambia en el tiempo" con
@@ -334,8 +348,14 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
     el build verifica además que no quede ningún nodo solapado.
   - **Flocking con `neighborPOP`** (3 bandas + steering) y el error de alineación (delta vs normal
     objetivo): receta sin un solo número medido.
-  - **`forceradialPOP` standalone** (`mathmix A*B` → escalar, `A+B` → sumar a `P`) y su gotcha
-    `direction=000` anula la espiral.
+  - **`forceradialPOP` standalone**: **MEDIDO 2026-10-30** (`build_pop_forceradial.py`, 26/26;
+    C21 y `docs/loop-run-2026-10-30.md`): la gotcha del tutorial `direction=000` queda
+    **confirmada en vivo** (PartForce=0 en los 9 puntos), la espiral gira +90° CCW con
+    `direction=(0,0,1)`, `globforcemult=0` (default) anula `globforce`, en el centro la radial
+    cae a `direction` con strength pleno, y el "escalar" de la receta viaja por la **página
+    `map`** (`map0op`+`map0element`+`map0parm`+`combine='set'`), que pisa el parámetro por
+    punto sin escribir el par. Quedan sin medir `planar`/`axial`, `specpop` y los pars de
+    falloff (`plateau`/`steepness`/`bias`/`limitrange`).
   - **Reset de simulación**: choque abierto entre el atajo de teclado del tutorial
     (`initialize`/timer) y `particle_initialize_enferma` (C10: `initializepulse`+`preroll` hinchan el
     buffer por API). Medir con una sonda antes de adoptar el reset del tutorial en código.

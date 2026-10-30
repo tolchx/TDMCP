@@ -57,6 +57,7 @@ BATERIA = [
     ("build_pop_ray.py", "cobertura 5d: rayPOP (impactos, centinelas, limit, HW, bounces) (/pop_ray)"),
     ("build_pop_copy.py", "cobertura 5d: copyPOP (ncy, template translate, CopyId, bypass) (/pop_copy)"),
     ("build_pop_mathcombine.py", "cobertura 5d: mathcombinePOP (gating rayPOP gt/mix, mathmix) (/pop_mathcombine)"),
+    ("build_pop_forceradial.py", "cobertura 5d-2: forceradialPOP (radial/spiral, gotcha direction=000, pagina map) (/pop_forceradial)"),
     ("build_monitor_pop.py", "monitor GPU: heatmap de P.y sobre la nube (/pop_sim_trails)"),
 ]
 

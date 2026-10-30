@@ -53,13 +53,35 @@ Replaces legacy SOP setups (Metaballs + Copy stamping + Force SOP) with 100% GPU
 ## Key Parameters & Exact Rules
 
 ### 1. Spiral Force Setup (`forceradialPOP`)
-- `radial`: `False` (turn off simple radial push/pull unless radial expansion is desired).
+- **Type name is `forceradialPOP`, lowercase initial** — `forceRadialPOP` returns isError in
+  TD 2025.32460 even though the Derivative docs page is titled "Force Radial POP" [V 2026-10-30].
+- `radial`: **default is ON** (`radialstrength=1.0`). Turn it `False` when you want a pure
+  vortex, otherwise the radial push adds to the spiral [V].
 - `spiral`: `True` (enables tangential rotational force around the specified axis).
 - `directionx`, `directiony`, `directionz`: Vector determining the axis of rotation (e.g., `directionz = 1.0` spins particles around the Z axis in the XY plane).
-- `spiralstrength`: Rotational torque multiplier (e.g. `0.5` to `2.0`).
-- `falloffradius`: Spatial reach of the force center (e.g. `0.6` - `1.5`).
-- `falloff`: `'scurve'` (smooth easing) or `'inversedist'` (hyperbolic falloff).
+  - **`direction=(0,0,0)` kills the force completely**: `PartForce = 0` on every point. This is
+    the real cause of "the vortex does nothing" [V].
+  - Default `direction` is `(0,1,0)`.
+- `spiralstrength`: Rotational torque multiplier (e.g. `0.5` to `2.0`). Magnitudes follow the
+  falloff exactly like the radial: `1.0` at `r=1`, `0.6331` at `r=sqrt(2)` with the default
+  `falloffradius=2.0` [V].
+- `falloffradius`: Spatial reach of the force center (default `2.0`).
+- `falloff`: menu is `'scurve'` (default), `'none'`, `'inversedist'`. The scurve curve is its
+  own shape — `1.0` out to `r=1` and `0.6331` at `r=sqrt(2)` — **not** a classic smoothstep
+  with plateau 0.5 (which would predict 0.6274) [V].
+- **Center singularity**: at `r=0` the radial direction is undefined and the force falls back
+  to `direction` **at full strength**, so a point sitting exactly on the center gets ejected
+  along `direction` instead of staying still. The spiral gives 0 there [V].
+- `globforcex/y/z` is multiplied by **`globforcemult` (default 0)** and does **not** go through
+  the falloff. Gravity needs `globforcemult=1` (e.g. `globforcey=-6`) [V].
 - `specpop`: References a POP providing multiple attractor positions (each point becomes an active force source).
+- **`map` page — the "scalar from another POP" mechanism**: `map0op` (a POP), `map0element`
+  (its attribute — the menu turns dynamic and lists custom attrs once `map0op` is set),
+  `map0parm` (`globforce`, `globforcemult`, `windspeed`...), `map0combineop`
+  (`set`/`multiply`/`add`). Measured: `Dist2 = dot(P,P)` from a `mathcombinePOP` mapped onto
+  `globforcemult` with `set` gives `PartForce.z = 2*Dist2` per point exactly. The mapped value
+  is applied **per point**; the `globforcemult` par still reads its static value and the `map`
+  toggle reads 0 while working — neither is an indicator that the map is active [V].
 
 ### 2. Multi-Force Point Specification (`specpop`)
 Instead of duplicating operators, feed a stream of points into `forceradialPOP.par.specpop`:
