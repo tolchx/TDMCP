@@ -101,3 +101,64 @@
 - 2026-10-18T03:06:03+00:00 | gate | — | commit 841bcfe de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-19T03:08:09+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
 - 2026-10-19T03:08:17+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=0 | gate.yaml
+- 2026-10-19T03:08:17+00:00 | gate | — | commit 0d3f84f de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-20T03:12:37+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-20T03:13:38+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-20T03:13:55+00:00 | gate | — | commit sobre 6 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-20T03:13:55+00:00 | gate | — | commit ad6e0d2 de 6 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-20T03:14:34+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-20T03:14:34+00:00 | gate | — | commit 26ff016 de 5 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-21T03:19:20+00:00 | gate | — | commit sobre 6 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-21T03:19:29+00:00 | gate | — | commit sobre 6 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-21T03:19:29+00:00 | gate | — | commit 075f0e9 de 6 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-21T03:19:45+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-21T03:19:45+00:00 | gate | — | commit 1d083d3 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-22T03:06:35+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-22T03:06:49+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-22T03:06:49+00:00 | gate | — | commit 8cd2e0c de 5 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-22T03:07:15+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-22T03:07:15+00:00 | gate | — | commit b64c34d de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-23T03:10:26+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-23T03:10:35+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-23T03:10:35+00:00 | gate | — | commit eda07bc de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-23T03:11:00+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-23T03:11:00+00:00 | gate | — | commit 6b0ce58 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-24T03:03:51+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-24T03:04:00+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-24T03:04:00+00:00 | gate | — | commit 620eb4d de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-25T03:12:57+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-25T03:13:08+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-25T03:13:08+00:00 | gate | — | commit b635eb8 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-25T03:14:04+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-26T03:17:39+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-26T03:17:48+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-26T03:17:48+00:00 | gate | — | commit bf43f2f de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-26T03:18:45+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-26T03:18:45+00:00 | gate | — | commit efe04b3 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-27T03:12:06+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-27T03:12:20+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-27T03:12:20+00:00 | gate | — | commit dc8dc33 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-27T03:13:28+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-27T03:13:28+00:00 | gate | — | commit 6680e02 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-28T03:08:21+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-28T03:08:33+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-28T03:08:33+00:00 | gate | — | commit fec4592 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-28T03:09:18+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-28T03:09:18+00:00 | gate | — | commit 8cb3616 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-29T03:06:45+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-29T03:06:57+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-29T03:06:57+00:00 | gate | — | commit 2559f05 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-29T03:07:29+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-29T03:07:49+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=1 | gate.yaml
+- 2026-10-29T03:07:49+00:00 | gate | — | commit 1238a55 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-29T23:45:56+00:00 | gate | — | commit sobre 8 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-29T23:46:21+00:00 | gate | — | commit sobre 8 archivo(s) | ALLOW | conc=3 | gate.yaml
+- 2026-10-29T23:46:21+00:00 | gate | — | commit 747480e de 8 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-29T23:48:14+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-29T23:48:14+00:00 | gate | — | commit 310412c de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-30T00:11:52+00:00 | gate | — | commit sobre 6 archivo(s) | ALLOW | conc=3 | gate.yaml
+- 2026-10-30T00:11:52+00:00 | gate | — | commit e101da6 de 6 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-30T00:12:38+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=2 | gate.yaml
+- 2026-10-30T00:12:38+00:00 | gate | — | commit a96293a de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-10-30T00:42:58+00:00 | gate | — | commit sobre 8 archivo(s) | ALLOW | conc=8 | gate.yaml
+- 2026-10-30T00:42:58+00:00 | gate | — | commit 22e7d10 de 8 archivo(s) (pathspec, --do-commit) | gate.yaml

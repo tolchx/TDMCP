@@ -161,11 +161,11 @@ The server exposes `execute_code`. Treat reaching it as equivalent to a shell on
 
 ## Fork status — tolchx
 
-This fork integrates the complete **offline knowledge layer** from our previous TouchDesigner MCP alongside the official in-process server (`TDMCP.tox`).
+This fork integrates the complete **offline knowledge layer + high-level composite live tools** (`td-knowledge`) from our previous TouchDesigner MCP (`tolchx/touchdesigner-MCP`, now retired) alongside the official in-process server (`TDMCP.tox` 1.1.55, compatible with TouchDesigner `2025.32460` and earlier).
 
 Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-### Dual-Server Architecture
+### Dual-Server Architecture (67 Tools Total)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -175,50 +175,62 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
                     │ stdio (JSON-RPC)               │ SSE / HTTP (:13316)
                     ▼                                ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│       td-knowledge (Offline MCP)     │  │       TDMCP.tox (Official)   │
-│   • 21 Offline Tools                 │  │   • 26 In-Process Live Tools │
-│   • 6 Live Wrappers                  │  │   • Direct TD Python engine  │
-│   • 1,235 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
-│   • 79 GLSL Shaders + 17 Specs       │  │   • Live undo & frame stats  │
-│   • Runs with TD closed (0% overhead)│  │   • Requires TD running      │
+│     td-knowledge (41 Tools)          │  │     TDMCP.tox (26 Tools)     │
+│   • 22 Offline Tools (0% TD overhead)│  │   • 26 In-Process Live Tools │
+│   • 19 High-Level Live Tools         │  │   • Direct TD Python engine  │
+│   • 1,302 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
+│   • 79 GLSL Shaders + 15 Lessons     │  │   • Undo-per-call & stats    │
+│   • 625-Op Topology + 97-POP Matrix  │  │   • Compatible w/ 2025.32460 │
 └──────────────────────────────────────┘  └──────────────────────────────┘
 ```
 
 ---
 
-### `td-knowledge` Tool Reference (27 Tools)
+### `td-knowledge` Tool Reference (41 Tools: 22 Offline + 19 Live)
 
-The offline MCP server (`knowledge/server.py`) operates via standard I/O and requires no running instance of TouchDesigner:
+The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **19 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
 
 | Category | Tool | Description |
 |---|---|---|
-| **Knowledge Base** | `kb_info` | Metadata, document counts, and SQLite FTS5 index stats (1,235 docs, 38.8 MB). |
-| | `kb_taxonomy` | High-level taxonomy of TouchDesigner families (TOP, CHOP, SOP, POP, MAT, DAT, COMP). |
-| | `kb_search` | Full-text BM25 search across 1,235 curated documents with category filters and snippets. |
-| | `kb_get` | Retrieve the full content of any indexed document by its unique URI. |
-| **Operators & API** | `ops_doc` | Official documentation, parameter overviews, inputs, and common gotchas for any operator. |
-| | `ops_params` | Exhaustive parameter inspection per operator (types, defaults, min/max, menus). |
-| | `python_api` | 10 MB offline AST reference for TouchDesigner Python classes, methods, members, and docstrings. |
-| | `resolve_operator` | Natural language query to matching TouchDesigner operator names with confidence scoring. |
-| **POP System** | `pop_matrix` | Verified capability matrix of all 101 POP families (inputs, outputs, stability, context). |
-| | `pop_knowledge` | Rules, known bugs, caveats, and recommended topologies for the POP system. |
-| **Workflows & Specs**| `workflows` | 43 end-to-end production pipelines (pathtracer, gaussian splatting, audio-reactive, fluid solver, etc.). |
-| | `tutorials` | 28 deep-dive tutorials including step-by-step POP simulations and creative feedback loops. |
-| | `templates` | Parameterized network templates + 17 architectural network specs (boids, SPH fluids, field volumes, DMX). |
-| | `recipes` | Granular multi-operator wiring recipes + 7 Book of Shaders `glslTOP` recipes with pixel checks. |
-| | `master_prompts` | System-level prompt directives for autonomous agent orchestration. |
-| **GLSL & Verification**| `glsl_solutions`| Diagnostic catalog for GLSL errors (`undeclared identifier`, `swizzling`, `SSBO binding`, etc.). |
-| | `glsl_rules` | Static syntax and safety rules for GLSL POP compute shaders and TOP pixel shaders. |
-| | `glsl_analyze` | Static shader analyzer detecting missing `outputattrs`, incorrect types, and Vulkan TDR risks. |
-| | `glsl_curriculum`| Curriculum of 62 verified GLSL POP shaders + repository of 79 shaders (Book of Shaders, filters, vertex). |
-| | `contracts` | 17 live-verified operational contracts C1–C17 (cook lag, render ownership, stopped clock, camera lookat, etc.). |
-| | `discovery` | Bitácora of empirical limits, hardware quirks, community MCP postmortem audit, and performance tuning rules. |
-| **Live Wrappers** | `td_status` | Fast health check and status query to the live `TDMCP.tox` server. |
-| *(Require TD)* | `find_in_ops` | Deep search inside live DAT code, table contents, and operator parameter expressions. |
-| | `auto_layout` | Automatic topological layout engine positioning operators neatly on the canvas. |
-| | `smart_connect` | Intelligent port connector resolving appropriate input/output indices between operators. |
-| | `tdn_export` | Export TouchDesigner network structure into clean, human-readable JSON. |
-| | `tdn_diff` | Structural diffing tool comparing two network graphs for change audits. |
+| **Knowledge Base (Offline)** | `kb_info` | Provenance, document counts, extracted TS modules, and SQLite FTS5 index stats (1,302 docs, 41 MB). |
+| | `kb_taxonomy` | Counts by family (`TOP`, `CHOP`, `SOP`, `POP`, `MAT`, `DAT`, `COMP`), trust tier, and source type. |
+| | `kb_search` | Full-text BM25 search across 1,302 curated documents with family, trust-tier, and source filters. |
+| | `kb_get` | Retrieve the full paginated content of any indexed document by name or slug. |
+| **Operators, Params & API (Offline)** | `ops_doc` | Curated operator docs enriched with **625-operator wiring topology** (`topology.json`) and creation defaults. |
+| | `ops_params` | Documented parameter list per operator (names, labels, types, defaults, pages). |
+| | `validate_pop_pars` | **Multi-family pre-flight parameter validator** (`POP`, `TOP`, `CHOP`, `SOP`, `DAT`, `MAT`, `COMP`) against `pop_matrix` (97 POPs), `ops_doc`, and `python_api`. Detects OP properties passed as pars (`display`, `render`, `bypass`, `lock`), tuple prefixes (`sizex/y/z`), sequence `numBlocks`, and **co-dependency warnings** (`outputresolution='custom'`, `globforcemult`, `timeintegration`, `triangulatequads`). |
+| | `python_api` | 10 MB offline reference for TouchDesigner Python operator classes, methods, members, and docstrings. |
+| | `resolve_operator` | Bilingual (ES/EN) natural-language → canonical operator resolver with architectural concepts, parameter/attribute aliases, and suggested templates. |
+| **POP System (Offline)** | `pop_matrix` | Live-measured capability matrix of **97 POP types** (creatable, input requirements, measured parameters, errors). |
+| | `pop_knowledge` | 15 empirical POP datasets: `patterns`, `wiki_params`, `pop_inventory`, `validation`, `glsl_library`, `glsl_pops_reference`, `glsl_curriculum`, `pop_chains`, `pop_networks`, `pop_parameters`, `real_world_topology`, `pop_rules`, `attribute_rules`, `bridges`, `pop_style`. |
+| **Workflows, Templates & Tutorials (Offline)** | `workflows` | 43 end-to-end production pipelines (`.md`) + **43 JSON workflow graphs** (`workflows/graphs/*.json`). |
+| | `tutorials` | 28 deep-dive tutorials + the complete **`pop_tutorial` suite** (`INDEX`, `TUTORIAL_KNOWLEDGE`, and lessons `01`–`06`). |
+| | `templates` | 35 parameterized network/POP templates (`NETWORK_TEMPLATES`, `POP_NETWORK_TEMPLATES`, `pop-chains`) + 17 architectural specs (`boids`, `SPH`, `field volumes`, `DMX`). |
+| | `recipes` | Multi-operator builder recipes + **30 Book of Shaders `glslTOP` recipes** with shader code and gotchas. |
+| | `master_prompts` | System-level prompt directives for complex simulation, pathtracing, and validation workflows. |
+| **GLSL & Contracts (Offline)** | `glsl_solutions` | Diagnostic catalog of verified fixes for TouchDesigner GLSL compiler errors. |
+| | `glsl_rules` | Live-verified syntax and safety rules for GLSL POP compute shaders and TOP pixel shaders. |
+| | `glsl_analyze` | Static analyzer for **POP** (`R1–R4`, `F1 void main`, `F4 TDNumElements(k)`, multi-input `TDIn_*`), **TOP** (`R1–R4`, `T4 uniform0name`, `T10 sTD2DInputs`), and **Python** (`R6 .numPoints()`, f-string backslashes, bare math). |
+| | `glsl_curriculum` | 15 structured GLSL POP/TOP lessons (`entry='<id>'`, `learning_path=true`) + 79 standalone `.glsl` shaders. |
+| | `contracts` | Live-verified operational contracts **C1–C20** (cook lag, render ownership, stopped clock, `pointspriteMAT`, `rayPOP`, `copyPOP`, `mathcombinePOP`). |
+| | `discovery` | Empirical bitácora across 27 sources (`discovery-log`, `TD_PARAMETER_CHEATSHEET`, `POPs_KNOWLEDGE`, `POPs_CORRECTIONS`, `PERFORMANCE`, `docs_internal`). |
+| **Live Inspection & Layout (Require TD)** | `td_status` | Live health check returning project, build (`runningBuild` + `buildMismatch`), FPS, and **cooking clock diagnosis** (`power`, `timelinePlay`, `realTime`, `cookingVerdict`). |
+| | `find_in_ops` | Single-call deep search across DAT text/tables, parameter expressions, parameter names, comments, and operator names (with `max_nodes`/`max_sec` budget). |
+| | `auto_layout` | Topological layer layout engine (zero wire crossings), with `dry_run` preview. |
+| | `smart_connect` | Intelligent connector selecting the right input index from `topology.json`, KB, and live build docs. |
+| | `td_measure` | Live signal & geometry meter: CHOP channel range (`min`, `max`, `mean`, `is_constant`, `is_normalized_01`, `suggested_scale`/`suggested_offset`), POP/SOP `numPoints`/`numPrims`/`bounds`/attributes, TOP dimensions, or DAT rows/text. |
+| | `td_explore_project` | Single-call container/project X-ray: counts by family/type, child COMPs, GLSL shaders, `customPars`, active errors, and heaviest operators by `cookTime`. |
+| | `td_compare_networks` | Live structural diff between two COMP containers (`only_in_a`, `only_in_b`, `type_mismatches`, non-default `param_diffs`, `connection_diffs`). |
+| | `td_spatial_context` | Active UI context: current Network Editor pane, open container path, `currentChild`, `selectedChildren`, and timeline state. |
+| **Live Builders & Serialization (Require TD)** | `td_glsl_apply` | Atomic GLSL pipeline: static `glsl_analyze` check → creates `textDAT` + `glslPOP`/`glslcopyPOP`/`glslTOP` → auto-expands `attr` (`Create Attributes`) and `vec` (`uniforms` + `vec0type`) sequence blocks → wires inputs → verifies `_info` compilation. |
+| | `td_build_pop_render` | Atomic POP 3D render builder in 1 call: creates `geometryCOMP` (**destroys default `torus1`**), wires `source_pop` (or `spherePOP`) → `convertPOP(topointprims)` → `nullPOP(display=True, render=True)`, plus `cameraCOMP`, `pointspriteMAT`/`constantMAT`/`pbrMAT`, `renderTOP`, and `nullTOP`, runs 4 cook settle passes, and evaluates the rendered frame. |
+| | `td_instantiate_template` | Materializes any template or recipe (`templates` / `recipes`) live in 1 call: creates container + operators, expands sequence `numBlocks`, sets parameters/expressions and deferred references, wires connections, and runs `auto_layout`. |
+| | `tdn_export` / `tdn_diff` | Export a live network to **TDN v1.4 JSON** and diff two `.tdn` files offline. |
+| | `tdxn_export` / `tdxn_build` | Export or build a complete network from **TDXN v2.1 YAML** (`=expr`, `~bind`, DATs, flags) in a single call. |
+| **Live Verification & Profiling (Require TD)** | `td_verify_network` | **Single-call Gauntlet verifier**: runs 4 settle cook passes, audits `geometryCOMP` ownership (`torus1` deleted, `display`/`render` flags, `numPoints`/`numPrims > 0`), checks POPs/CHOPs for `NaN`/`Inf`, runs `get_op_errors_deep` and `eval_render_frame`, and returns `PASS`/`FAIL` with `actionable_fixes`. |
+| | `td_profile_network` | **Live CPU/GPU profiler & anti-pattern detector**: measures CPU `cookTime`, `gpuCookTime`, and memory per node, computes % of frame budget (`16.67ms` at 60fps), and flags `PERFORMANCE.md` anti-patterns (`copyPOP` >50k pts without instancing, CPU SOPs inside POP `geometryCOMP`, >4K TOPs, heavy `poptoCHOP`/`toptoCHOP` readbacks). |
+| | `eval_render_frame` | Evaluates TOP or image visual quality (`PASS`/`FAIL` for black, flat, or transparent frames with luminance/contrast metrics). |
+| | `get_op_errors_deep` | Recursive error, warning, and docked GLSL `_info` compiler error scanner (with `max_nodes`/`max_sec` budget). |
 
 ---
 
@@ -241,7 +253,7 @@ Add both servers to your agent configuration to enable full offline knowledge an
 # Add official live server (when TouchDesigner is running)
 claude mcp add touchdesigner -- http://127.0.0.1:13316/mcp
 
-# Add offline knowledge server (always available)
+# Add offline + high-level live knowledge server
 claude mcp add td-knowledge -- python "C:/Users/Tolch/Documents/AI_Code/TDMCP/tolchx-TDMCP/knowledge/server.py"
 ```
 
@@ -275,17 +287,26 @@ In your workspace or user MCP configuration:
 
 ---
 
-### Building and Testing the Knowledge Base
+### Building, Archiving, and Testing the Knowledge Base
+
+`knowledge/build_assets.py` supports **standalone mode** (re-indexing existing `knowledge/kb/` even after the legacy repo is deleted) as well as portable `.zip` export/import:
 
 ```bash
-# Rebuild assets and SQLite index from local knowledge sources
-python knowledge/build_assets.py --repo "C:/Users/Tolch/Documents/AI_Code/Touchdesigner_MCP/Main"
+# 1. Re-index in standalone mode (or pass --repo if syncing from legacy checkout)
+python knowledge/build_assets.py
 
-# Run internal tool self-tests (verifies all 21 offline tools)
+# 2. Export / import a portable ZIP backup of knowledge/kb/
+python knowledge/build_assets.py --export-archive td-knowledge-kb.zip
+python knowledge/build_assets.py --import-archive td-knowledge-kb.zip
+
+# 3. Run internal tool self-tests (verifies all 22 offline tools)
 python knowledge/server.py --selftest
 
-# Run JSON-RPC protocol test suite (verifies JSON-RPC 2.0 framing and responses)
+# 4. Run JSON-RPC protocol test suite (verifies all 41 tools via stdio JSON-RPC 2.0)
 python knowledge/test_protocol.py
+
+# 5. Run end-to-end live test suite against TouchDesigner (21 stages)
+python knowledge/test_live.py
 ```
 
 ### Pruebas POP en vivo (35 builds)
@@ -309,6 +330,11 @@ Exit 0 = todos verdes; exit 2 = entorno (TD/MCP caído), no rojo. Cada build dej
 reporte numérico y un PNG del render. La batería cierra con un audit de layout:
 `td_layout.py` separa los nodos por profundidad de conexiones y falla si dos se solapan
 (hoy: **114 redes, 0 pares**).
+
+Para comprobar que ese layout **persiste en el `.toe`**, hay un test opt-in que guarda,
+recarga el proyecto y compara la huella de las 631 posiciones: `python
+tools/gauntlet/persist_layout.py` (o `run_regression.py --persist-layout`). Corta el MCP
+unos segundos mientras TD recarga, así que no forma parte de la batería normal.
 
 El tramo del **2026-10-29** cerró tres tipos del ítem 5d y la deuda #1 del ítem 10:
 

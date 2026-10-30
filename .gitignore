@@ -3,6 +3,8 @@ site/
 .cache/
 local/
 .freebuff/
+.tdmcp/
+**/.tdmcp/
 
 # Loop engineering — estado generado (no versionar)
 .freebuff_tasks/

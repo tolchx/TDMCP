@@ -26,7 +26,16 @@ python tools/gauntlet/run_regression.py --baseline tools/gauntlet/results/<run-b
 python tools/gauntlet/run_regression.py --quick        # solo F1+F2 (~15 s)
 python tools/gauntlet/run_regression.py --skip-ab      # sin F4
 python tools/gauntlet/run_regression.py --pin-version 1.1.55   # exigir versión concreta
+
+# P1 opt-in: guarda el .toe, lo recarga y compara la huella de posiciones.
+# Corta el MCP unos segundos (project.load reinicia el componente); por eso NO
+# corre en la suite normal.
+python tools/gauntlet/persist_layout.py
+python tools/gauntlet/run_regression.py --persist-layout
 ```
+
+`persist_layout.py` también acepta `--slot <ruta.toe>` para recargar un archivo
+concreto. Sin `--slot` usa el `.toe` recién escrito por `project.save()`.
 
 ## Veredicto
 
@@ -54,6 +63,7 @@ tools nuevas/quitadas, cambios de versión/build y fases que cambiaron de veredi
 | `td_chain.py` | **el programa que se inyecta en TD** por `execute_code`: `settle()`, `px()` y `render_is_ours()`, con `ROOT` fijado por `chain_source()`. Es código importable, así que se prueba sin TD con un `op`/`px` de mentira |
 | `td_probe.py` | los helpers del **host**: `chain_source(root)` (serializa `td_chain.py` con `ROOT` fijo), `set_and_verify()` (escribir-y-releer, contrato C4), `stats_of()` / `png_stats()` / `grid_cells()` (PIL) y `selftest_render_ownership()` (contra TD: prueba que la guardia puede **FALLAR**). `python td_probe.py` corre los chequeos locales |
 | `td_layout.py` | layout determinista de las redes de prueba: separa los hijos por **profundidad de conexiones**, cuenta el `par.pop` de los `poptoCHOP` y audita solapamientos. `python td_layout.py` reacomoda todas las `/pop_*` (incluidos COMP anidados) y sale 1 si queda un par encimado; la batería lo corre como último paso. |
+| `persist_layout.py` | **P1 opt-in**: `project.save()` + `project.load()` y exige la misma huella de posiciones, mismas redes/nodos y 0 solapamientos. Registra la caída/reconexión del MCP como evidencia de la recarga. Corta el MCP unos segundos; sólo corre con `--persist-layout`. |
 | `check_single_home.py` | hace ejecutable la regla del único dueño: exit 1 si un consumidor redefine `settle` / `px` / `render_is_ours` en vez de importarlos de `td_probe`. Los builds y `verify_visual` importan de acá: no copies versiones paralelas. Lo corre el gate, junto con `td_probe.py`, como paso de `scripts/loop_gate.py::run_tests` |
 | `results/<run_id>/` | logs por fase (`.jsonl`), summaries, PNGs, reportes |
 

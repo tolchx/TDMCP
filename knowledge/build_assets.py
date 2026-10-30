@@ -57,6 +57,7 @@ FILES = [
     ("docs/discord-twozero/transcript.md",                  "rules/COMMUNITY_FEEDBACK_LOG.md"),
     ("docs/PERFORMANCE.md",                                  "rules/PERFORMANCE.md"),
     ("docs/pathtracer-glsl.md",                              "workflows/pathtracer-glsl.md"),
+    ("docs/glsl_pops_reference.json",                        "pops/glsl_pops_reference.json"),
 ]
 DIRS = [
     ("mcp/data/ops/operators", "ops/operators"),
@@ -68,6 +69,7 @@ DIRS = [
     ("glsl_files",             "shaders"),
     ("glsl_pop_projects/shaders", "shaders"),
     ("toe/templates",          "templates/specs"),
+    ("mcp/data/docs",          "docs_internal"),
 ]
 
 NODE_DUMP = r"""
@@ -85,6 +87,10 @@ const j = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
   };
   await dyn('semantic', 'semantic.js', ['TYPE_SYNONYMS', 'FAMILY_HINTS']);
   await dyn('templates', 'networkTemplates.js', ['NETWORK_TEMPLATES', 'listTemplateNames', 'listAllTags']);
+  await dyn('pops_validate', 'popsValidate.js', ['POP_NETWORK_TEMPLATES']);
+  await dyn('pop_validation', 'tools/popValidation.js', ['POP_RULES', 'INVALID_CROSS_FAMILY', 'VALID_BRIDGES', 'ATTRIBUTE_RULES']);
+  await dyn('topology_data', 'topologyData.js', ['MULTI_INPUT_PATTERNS']);
+  await dyn('catalog', 'catalogManager.js', ['FAMILY_MAP', 'PARAMETER_STYLE_MAP', 'POP_PARAMETER_STYLE', 'CREATION_DEFAULTS']);
   // las recetas viven en un const NO exportado: se extraen llamando la funcion exportada
   try {
     const r = await import('file://' + R + '/mcp/dist/builderRecipes.js');
@@ -99,6 +105,60 @@ const j = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
   console.log('dump ok ->', out);
 })();
 """
+
+CURATED_CONCEPTS = [
+    {"concept": "feedback loop", "canonical": "particlesupdatepop / feedbackPOP", "aliases": ["feedback", "feedback loop", "update loop", "solver loop", "loop de particulas"], "note": "En sistemas POP de partículas se apunta al nullPOP final del solver."},
+    {"concept": "field weight", "canonical": "Weight", "aliases": ["weight", "peso del campo", "peso", "influencia del campo", "falloff", "field weight", "field influence", "dist"], "note": "Field POP calcula Weight (0..1) y Dist."},
+    {"concept": "particle force", "canonical": "PartForce", "aliases": ["force", "particle force", "fuerza", "turbulencia"]},
+    {"concept": "particle velocity", "canonical": "PartVel", "aliases": ["velocity", "velocidad", "speed"]},
+    {"concept": "particle life", "canonical": "PartLife / lifeexpect", "aliases": ["life", "lifespan", "vida", "edad", "age"]},
+    {"concept": "point size", "canonical": "pointsize / pointscale", "aliases": ["point scale", "point size", "size", "tamaño", "escala de punto"], "note": "En pointspriteMAT el parámetro real es pointsize (Contrato C2)."},
+    {"concept": "rotation vector", "canonical": "Rot", "aliases": ["rotation", "rot", "direccion", "direction", "orientacion", "orientation"]},
+    {"concept": "point color", "canonical": "Color", "aliases": ["color", "cd", "colour"], "note": "En POPs el atributo built-in de color es Color (float4), no Cd (Contrato C11)."},
+    {"concept": "curl noise", "canonical": "CurlNoise", "aliases": ["curl noise", "curl", "divergence-free", "fluido", "fluid", "turbulencia"], "note": "Ruido libre de divergencia para fluidos en noisePOP o glslPOP."},
+    {"concept": "boids / flocking", "canonical": "Boids", "aliases": ["boids", "flocking", "separation", "alignment", "cohesion", "bandada"], "note": "Algoritmo de flocking: separation + alignment + cohesion (neighborPOP + glslPOP)."},
+    {"concept": "SPH fluid", "canonical": "SPH", "aliases": ["sph", "smoothed particle hydrodynamics", "hidrodinámica"], "note": "Simulación de fluidos SPH vía GLSL POP compute."},
+    {"concept": "instancing", "canonical": "Instancing", "aliases": ["instancing", "instance", "instancia", "copias", "copy sop", "geometry comp", "copy pop"], "note": "Instanciado en GPU con geometryCOMP o copyPOP (input 0=template, input 1=target points)."},
+    {"concept": "audio reactive", "canonical": "AudioReactive", "aliases": ["audio reactive", "audio reactivo", "sound reactive", "music reactive", "sonido"], "note": "Audio Device In / Audio File In CHOP -> Audio Spectrum / Analyze CHOP -> Math CHOP -> CHOP to POP / expr."},
+    {"concept": "dmx lighting", "canonical": "DMX", "aliases": ["dmx", "lighting", "iluminación", "art-net", "artnet", "sacn", "sACN", "dmx fixture"], "note": "Control DMX mediante dmxoutCHOP / dmxfixturePOP."},
+    {"concept": "trail / motion blur", "canonical": "Trail", "aliases": ["trail", "trails", "motion blur", "estela", "rastro", "persistencia", "trail pop"]},
+    {"concept": "cache / playback", "canonical": "Cache", "aliases": ["cache", "caching", "playback", "reproducción", "buffer", "cache pop", "cache select pop"]},
+    {"concept": "neighbor detection", "canonical": "Neighbor", "aliases": ["neighbor", "neighbour", "vecino", "proximity", "cerca", "interaction", "neighbor pop"], "note": "Detección de vecinos con neighborPOP / proximityPOP."},
+    {"concept": "particle lifecycle", "canonical": "ParticleLifecycle", "aliases": ["particle lifecycle", "lifecycle", "normalized age", "normalizedage", "life curve", "lookup curve"], "note": "Edad normalizada (PartAge/PartLife) + curvePOP + lookuptablePOP."},
+    {"concept": "pre-roll particles", "canonical": "PreRoll", "aliases": ["pre-roll", "preroll", "pre roll", "initial simulation", "simulación inicial", "steady state"], "note": "Atención Contrato C10: initializepulse/preroll en particlePOP pueden enfermar el buffer en loops de feedback."},
+    {"concept": "lookup texture", "canonical": "LookupTexture", "aliases": ["lookup texture", "lookup texture pop", "uv sampling", "muestreo uv", "texture lookup", "color from texture"], "note": "lookuptexturePOP muestrea color desde un TOP hacia atributos POP."},
+    {"concept": "pop render pipeline", "canonical": "PopRenderPipeline", "aliases": ["render pop", "dibujar puntos", "renderizar particulas", "point cloud render", "pointsprite"], "note": "Contrato C2: convertPOP(convert='topointprims') -> nullPOP -> geometryCOMP (borrar torus1!) + cameraCOMP + renderTOP + pointspriteMAT."},
+]
+
+CURATED_PARAM_ALIASES = [
+    {"requested": "life", "canonical": "lifeexpect / PartLife", "note": "Expectativa de vida en particlePOP."},
+    {"requested": "size", "canonical": "pointsize (pointspriteMAT) / pointscale", "note": "En pointspriteMAT usar pointsize (Contrato C2)."},
+    {"requested": "feedback target", "canonical": "particlesupdatepop / targetop", "note": "Apunta al nullPOP al final del loop de simulación."},
+    {"requested": "radius", "canonical": "radx / rady / radz", "note": "En spherePOP / tubePOP / fieldPOP es tupla radx, rady, radz."},
+    {"requested": "res", "canonical": "outputresolution + resolutionw / resolutionh", "note": "En TOPs fijar outputresolution='custom' antes de resolutionw/h."},
+    {"requested": "birth rate", "canonical": "birthrate", "note": "Tasa de emisión por segundo en particlePOP."},
+    {"requested": "drag", "canonical": "drag", "note": "Amortiguación en particlePOP / forcePOP."},
+    {"requested": "amplitude", "canonical": "amp", "note": "En noiseTOP y noisePOP el parámetro real es 'amp', no 'amplitude'."},
+    {"requested": "frequency", "canonical": "period / freq", "note": "En noiseTOP/noisePOP se controla con 'period' (inverso de frecuencia)."},
+    {"requested": "translate", "canonical": "tx / ty / tz", "note": "Traslación 3D en transformPOP, geometryCOMP y cameraCOMP."},
+    {"requested": "rotate", "canonical": "rx / ry / rz", "note": "Rotación 3D en grados."},
+    {"requested": "scale", "canonical": "sx / sy / sz", "note": "Escala 3D por eje."},
+]
+
+CURATED_ATTR_ALIASES = [
+    {"requested": "p", "canonical": "P", "note": "Posición 3D (vec3)."},
+    {"requested": "n", "canonical": "N", "note": "Normal 3D (vec3)."},
+    {"requested": "cd", "canonical": "Color", "note": "En POPs de TD el atributo estándar de color es Color (vec4), no Cd (Contrato C11)."},
+    {"requested": "color", "canonical": "Color", "note": "Color RGBA por punto (vec4): crear con attrNname='custom', attrNcustomname='Color', attrNnumcomps=4."},
+    {"requested": "scale", "canonical": "pointscale / PScale", "note": "Escala por punto."},
+    {"requested": "vel", "canonical": "PartVel / v", "note": "Velocidad en particlePOP es PartVel (vec3)."},
+    {"requested": "uv", "canonical": "Tex / uv", "note": "Coordenadas de textura en POPs suelen ser Tex (vec3/vec2)."},
+    {"requested": "age", "canonical": "PartAge", "note": "Edad actual de la partícula en particlePOP."},
+    {"requested": "life", "canonical": "PartLife", "note": "Vida máxima de la partícula en particlePOP."},
+    {"requested": "weight", "canonical": "Weight", "note": "Peso de influencia (float 0..1) generado por fieldPOP."},
+    {"requested": "dist", "canonical": "Dist", "note": "Distancia al centro generada por fieldPOP."},
+    {"requested": "force", "canonical": "PartForce", "note": "Fuerza acumulada en particlePOP."},
+]
 
 
 def sha256(path: str) -> str:
@@ -133,6 +193,30 @@ def sanitize_legacy_knowledge(kb_dir: str):
         syn["pointgeneratorPOP"] = ["point generator", "point gen", "point generator pop", "generate points", "ray points"]
         syn["convertPOP"] = ["convert pop", "topointprims", "point primitives", "points to primitives"]
         syn["pointspriteMAT"] = ["point sprite", "pointsprite", "pointsprite mat", "sprite mat", "particle sprite material"]
+
+        sem = d.setdefault("semantic", {})
+        sem["CONCEPTS"] = CURATED_CONCEPTS
+        sem["PARAMETER_ALIASES"] = CURATED_PARAM_ALIASES
+        sem["ATTRIBUTE_ALIASES"] = CURATED_ATTR_ALIASES
+
+        pv = d.get("pop_validation", {})
+        if isinstance(pv, dict):
+            vb = pv.get("VALID_BRIDGES")
+            if isinstance(vb, dict):
+                vb["POP→SOP"] = "poptoSOP or geometryCOMP"
+                vb["SOP→POP"] = "soptoPOP"
+                vb["POP→TOP"] = "poptoTOP (data texture) or geometryCOMP + cameraCOMP + renderTOP + pointspriteMAT (Contract C2)"
+                vb["TOP→POP"] = "toptoPOP or lookuptexturePOP"
+                vb["POP→CHOP"] = "poptoCHOP"
+                vb["CHOP→POP"] = "choptoPOP"
+                vb["POP→DAT"] = "poptoDAT"
+                vb["DAT→POP"] = "dattoPOP"
+
+        td_data = d.get("topology_data", {})
+        if isinstance(td_data, dict):
+            mip = td_data.get("MULTI_INPUT_PATTERNS")
+            if isinstance(mip, dict) and "colorPOP" in mip:
+                mip.pop("colorPOP", None)
 
         recipes = d.get("recipes", {}).get("listRecipes", [])
         for r in recipes:
@@ -369,7 +453,7 @@ def index_markdown_assets(kb_dir: str):
     cur = con.cursor()
 
     # Limpieza previa de tipos custom para garantizar idempotencia
-    custom_types = ("workflow", "tutorial", "glsl-solution", "empirical", "rules", "master-prompt", "glsl-shader", "template-spec", "recipe", "glsl-recipe")
+    custom_types = ("workflow", "tutorial", "glsl-solution", "empirical", "rules", "master-prompt", "glsl-shader", "template-spec", "recipe", "glsl-recipe", "skill")
     placeholders = ",".join("?" for _ in custom_types)
     cur.execute(f"DELETE FROM docs WHERE sourceType IN ({placeholders})", custom_types)
 
@@ -566,6 +650,34 @@ def index_markdown_assets(kb_dir: str):
         except Exception as e:
             print("  error indexando glsl_top_recipes:", e)
 
+    # 8. Skills Hermes (SKILL.md + reference.md + examples.md + glsladvancedPOP.md)
+    skills_root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills-hermes")
+    if os.path.isdir(skills_root):
+        for sk in sorted(os.listdir(skills_root)):
+            sk_dir = os.path.join(skills_root, sk)
+            if not os.path.isdir(sk_dir):
+                continue
+            for fn in sorted(os.listdir(sk_dir)):
+                if not fn.endswith(".md"):
+                    continue
+                p = os.path.join(sk_dir, fn)
+                with open(p, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+                stem = fn[:-3]
+                doc_name = sk if stem == "SKILL" else f"{sk}/{stem}"
+                fam = "GENERAL"
+                for fk in ("pop", "top", "chop", "sop", "dat", "mat", "comp", "glsl"):
+                    if f"-{fk}" in sk.lower() or fk in stem.lower():
+                        fam = fk.upper()
+                        break
+                summary = content[:280].replace("\n", " ").strip()
+                cur.execute(
+                    "INSERT INTO docs(name, family, pageTitle, pageSlug, url, summary, trustTier, sourceType, body) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (doc_name, fam, f"Skill: {doc_name}", f"skill-{doc_name.replace('/', '-')}",
+                     f"skill://{sk}/{fn}", summary, "live-verified", "skill", content)
+                )
+
     con.commit()
     total_docs = cur.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
     by_type = cur.execute("SELECT sourceType, COUNT(*) FROM docs GROUP BY sourceType").fetchall()
@@ -577,61 +689,86 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default=DEFAULT_REPO)
     ap.add_argument("--dest", default=DEFAULT_DEST)
+    ap.add_argument("--export-archive", help="Empaqueta kb/ en un archivo .zip portable (para backup o migración sin repo viejo)")
+    ap.add_argument("--import-archive", help="Restaura kb/ desde un archivo .zip portable")
     a = ap.parse_args()
     kb = os.path.join(a.dest, "kb")
     os.makedirs(kb, exist_ok=True)
-    manifest = {"repo": a.repo, "kb": kb, "files": [], "ts_extract": None}
 
-    print(f"[build_assets] Extrayendo conocimiento desde: {a.repo}")
-    print(f"[build_assets] Destino kb/: {kb}\n")
+    if a.import_archive:
+        import zipfile
+        if not os.path.exists(a.import_archive):
+            print(f"[build_assets] ERROR: no existe el archivo {a.import_archive}")
+            return 1
+        print(f"[build_assets] Restaurando kb/ desde {a.import_archive} -> {kb}")
+        with zipfile.ZipFile(a.import_archive, "r") as zf:
+            zf.extractall(kb)
+        print("[build_assets] Restauración completada.")
 
-    for src_rel, dst_rel in FILES:
-        src = os.path.join(a.repo, src_rel.replace("/", os.sep))
-        if not os.path.exists(src):
-            print(f"  FALTA {src_rel}")
-            continue
-        dst = os.path.join(kb, dst_rel.replace("/", os.sep))
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy2(src, dst)
-        manifest["files"].append({"path": dst_rel, "bytes": os.path.getsize(dst), "sha256_16": sha256(dst)})
-        print(f"  {os.path.getsize(dst)/1024:9.1f} KB  {dst_rel}")
+    repo_exists = bool(a.repo and os.path.isdir(a.repo))
+    manifest_p = os.path.join(kb, "MANIFEST.json")
+    manifest = {"repo": a.repo if repo_exists else "standalone (local kb/)", "kb": kb, "files": [], "ts_extract": None}
 
-    for src_rel, dst_rel in DIRS:
-        src = os.path.join(a.repo, src_rel.replace("/", os.sep))
-        dst = os.path.join(kb, dst_rel.replace("/", os.sep))
-        if not os.path.isdir(src):
-            print(f"  FALTA dir {src_rel}")
-            continue
-        os.makedirs(dst, exist_ok=True)
-        shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.log", "__pycache__"))
-        n = sum(len(f) for _, _, f in os.walk(dst))
-        size = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(dst) for f in fs)
-        manifest["files"].append({"path": dst_rel + "/", "files": n, "bytes": size})
-        print(f"  {size/1024:9.1f} KB  {dst_rel}/  ({n} archivos)")
+    if repo_exists:
+        print(f"[build_assets] Extrayendo conocimiento desde: {a.repo}")
+        print(f"[build_assets] Destino kb/: {kb}\n")
 
-    # dump de los datos TS via node
-    ext = os.path.join(kb, "ts-extract")
-    os.makedirs(ext, exist_ok=True)
-    script = os.path.join(tempfile.gettempdir(), "td_kb_node_dump.cjs")
-    with open(script, "w", encoding="utf-8") as f:
-        f.write(NODE_DUMP)
-    out = os.path.join(ext, "ts-data.json")
-    try:
-        p = subprocess.run(["node", script, out, a.repo], capture_output=True, text=True, timeout=180)
-        print("  node:", (p.stdout or p.stderr).strip()[:200])
-        if os.path.exists(out):
-            d = json.load(open(out, encoding="utf-8"))
-            if d.get("glsl_top_recipes") and isinstance(d["glsl_top_recipes"], list):
-                rec_dir = os.path.join(kb, "recipes")
-                os.makedirs(rec_dir, exist_ok=True)
-                with open(os.path.join(rec_dir, "glsl_top_recipes.json"), "w", encoding="utf-8") as rf:
-                    json.dump(d["glsl_top_recipes"], rf, indent=2, ensure_ascii=False)
-            shape = {k: (len(v) if isinstance(v, (dict, list)) else v) for k, v in d.items()}
-            manifest["ts_extract"] = {"path": "ts-extract/ts-data.json", "bytes": os.path.getsize(out),
-                                      "extracted": shape}
-            print("  ts-data.json:", json.dumps(shape, ensure_ascii=False)[:300])
-    except Exception as e:
-        print("  node dump FALLO:", e)
+        for src_rel, dst_rel in FILES:
+            src = os.path.join(a.repo, src_rel.replace("/", os.sep))
+            if not os.path.exists(src):
+                print(f"  FALTA {src_rel}")
+                continue
+            dst = os.path.join(kb, dst_rel.replace("/", os.sep))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            manifest["files"].append({"path": dst_rel, "bytes": os.path.getsize(dst), "sha256_16": sha256(dst)})
+            print(f"  {os.path.getsize(dst)/1024:9.1f} KB  {dst_rel}")
+
+        for src_rel, dst_rel in DIRS:
+            src = os.path.join(a.repo, src_rel.replace("/", os.sep))
+            dst = os.path.join(kb, dst_rel.replace("/", os.sep))
+            if not os.path.isdir(src):
+                print(f"  FALTA dir {src_rel}")
+                continue
+            os.makedirs(dst, exist_ok=True)
+            shutil.copytree(src, dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.log", "__pycache__"))
+            n = sum(len(f) for _, _, f in os.walk(dst))
+            size = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(dst) for f in fs)
+            manifest["files"].append({"path": dst_rel + "/", "files": n, "bytes": size})
+            print(f"  {size/1024:9.1f} KB  {dst_rel}/  ({n} archivos)")
+
+        # dump de los datos TS via node
+        ext = os.path.join(kb, "ts-extract")
+        os.makedirs(ext, exist_ok=True)
+        script = os.path.join(tempfile.gettempdir(), "td_kb_node_dump.cjs")
+        with open(script, "w", encoding="utf-8") as f:
+            f.write(NODE_DUMP)
+        out = os.path.join(ext, "ts-data.json")
+        try:
+            p = subprocess.run(["node", script, out, a.repo], capture_output=True, text=True, timeout=180)
+            print("  node:", (p.stdout or p.stderr).strip()[:200])
+            if os.path.exists(out):
+                d = json.load(open(out, encoding="utf-8"))
+                if d.get("glsl_top_recipes") and isinstance(d["glsl_top_recipes"], list):
+                    rec_dir = os.path.join(kb, "recipes")
+                    os.makedirs(rec_dir, exist_ok=True)
+                    with open(os.path.join(rec_dir, "glsl_top_recipes.json"), "w", encoding="utf-8") as rf:
+                        json.dump(d["glsl_top_recipes"], rf, indent=2, ensure_ascii=False)
+                shape = {k: (len(v) if isinstance(v, (dict, list)) else v) for k, v in d.items()}
+                manifest["ts_extract"] = {"path": "ts-extract/ts-data.json", "bytes": os.path.getsize(out),
+                                          "extracted": shape}
+                print("  ts-data.json:", json.dumps(shape, ensure_ascii=False)[:300])
+        except Exception as e:
+            print("  node dump FALLO:", e)
+    else:
+        print(f"[build_assets] Modo autónomo (sin repo externo '{a.repo}'): operando sobre {kb}")
+        if os.path.exists(manifest_p):
+            try:
+                old_man = json.load(open(manifest_p, encoding="utf-8"))
+                manifest["files"] = old_man.get("files", [])
+                manifest["ts_extract"] = old_man.get("ts_extract")
+            except Exception:
+                pass
 
     # Sanitización de operadores legacy o alucinados
     print("\n[build_assets] Sanitizando y alineando con TD 2025+...")
@@ -639,6 +776,17 @@ def main() -> int:
         sanitize_legacy_knowledge(kb)
     except Exception as e:
         print("  Sanitizing warning:", e)
+
+    # Actualizar shape de ts_extract después de sanitizar
+    out_ts = os.path.join(kb, "ts-extract", "ts-data.json")
+    if os.path.exists(out_ts):
+        try:
+            d = json.load(open(out_ts, encoding="utf-8"))
+            shape = {k: (len(v) if isinstance(v, (dict, list)) else v) for k, v in d.items()}
+            manifest["ts_extract"] = {"path": "ts-extract/ts-data.json", "bytes": os.path.getsize(out_ts),
+                                      "extracted": shape}
+        except Exception:
+            pass
 
     # Ingesta en SQLite FTS5 de workflows, tutoriales, soluciones GLSL y auditorías
     print("\n[build_assets] Indexando documentos markdown y reglas en SQLite FTS5...")
@@ -649,9 +797,22 @@ def main() -> int:
 
     total = sum(f.get("bytes", 0) for f in manifest["files"])
     manifest["total_bytes"] = total
-    with open(os.path.join(kb, "MANIFEST.json"), "w", encoding="utf-8") as f:
+    with open(manifest_p, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=1, ensure_ascii=False)
     print(f"\nTOTAL kb/: {total/1024/1024:.1f} MB -> {kb}")
+
+    if a.export_archive:
+        import zipfile
+        print(f"[build_assets] Exportando archivo portable -> {a.export_archive}")
+        with zipfile.ZipFile(a.export_archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for r_dir, _, files in os.walk(kb):
+                for fn in files:
+                    if fn.endswith(("-shm", "-wal")):
+                        continue
+                    full_p = os.path.join(r_dir, fn)
+                    rel_p = os.path.relpath(full_p, kb)
+                    zf.write(full_p, rel_p)
+        print(f"[build_assets] Archivo creado ({os.path.getsize(a.export_archive)/1024/1024:.1f} MB).")
     return 0
 
 

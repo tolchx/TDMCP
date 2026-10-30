@@ -67,6 +67,11 @@ calls = [
     {"jsonrpc": "2.0", "id": 16, "method": "tools/call", "params": {"name": "python_api", "arguments": {"class_name": "noiseTOP"}}},
     {"jsonrpc": "2.0", "id": 17, "method": "tools/call", "params": {"name": "discovery", "arguments": {"query": "cook lag"}}},
     {"jsonrpc": "2.0", "id": 18, "method": "tools/call", "params": {"name": "master_prompts", "arguments": {"action": "list"}}},
+    {"jsonrpc": "2.0", "id": 19, "method": "tools/call", "params": {"name": "validate_pop_pars", "arguments": {"op_type": "noisePOP", "params": "seed, amp, amplitude, size"}}},
+    {"jsonrpc": "2.0", "id": 20, "method": "tools/call", "params": {"name": "ops_doc", "arguments": {"op_type": "compositeTOP"}}},
+    {"jsonrpc": "2.0", "id": 21, "method": "tools/call", "params": {"name": "glsl_curriculum", "arguments": {"learning_path": True}}},
+    {"jsonrpc": "2.0", "id": 22, "method": "tools/call", "params": {"name": "pop_knowledge", "arguments": {"kind": "pop_rules", "query": "Color"}}},
+    {"jsonrpc": "2.0", "id": 23, "method": "tools/call", "params": {"name": "validate_pop_pars", "arguments": {"op_type": "renderTOP", "params": "resolutionw, camera, display"}}},
 ]
 res, err = run(calls)
 print("stderr:", err.strip()[:200])
@@ -83,7 +88,10 @@ labels = {3: "kb_info", 4: "kb_search", 5: "pop_matrix(particlePOP)", 6: "resolv
           8: "glsl_analyze TOP", 9: "recipes list", 10: "kb_get particlePOP",
           11: "contracts list", 12: "contracts cook_lag",
           13: "workflows (pathtracer)", 14: "tutorials (feedback)", 15: "glsl_solutions (undeclared)",
-          16: "python_api (noiseTOP)", 17: "discovery (cook lag)", 18: "master_prompts list"}
+          16: "python_api (noiseTOP)", 17: "discovery (cook lag)", 18: "master_prompts list",
+          19: "validate_pop_pars (noisePOP)", 20: "ops_doc (compositeTOP + topology)",
+          21: "glsl_curriculum (learning_path)", 22: "pop_knowledge (pop_rules)",
+          23: "validate_pop_pars multi-family (renderTOP + OP prop + co-dependency)"}
 for r in res[2:]:
     mid = r["id"]
     print("=" * 78); print(f"### [{mid}] {labels.get(mid)}  isError={r['result'].get('isError')}")

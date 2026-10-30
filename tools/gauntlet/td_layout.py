@@ -11,6 +11,7 @@ mathcombine y `layout_pop.py` para auditar todas las redes `/pop_*`.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -116,6 +117,82 @@ else:
 total = sum(len(r.get('overlaps') or []) for r in results)
 print('<<JSON>>' + json.dumps(dict(parents=results, total=total)))
 '''
+
+
+SNAPSHOT_SRC = r'''
+import json
+
+
+def _rows_of(parent):
+    return [dict(name=ch.name, x=float(ch.nodeX), y=float(ch.nodeY),
+                 w=float(ch.nodeWidth), h=float(ch.nodeHeight)) for ch in parent.children]
+
+
+def _overlaps(rows):
+    out = []
+    for i in range(len(rows)):
+        a = rows[i]
+        for j in range(i + 1, len(rows)):
+            b = rows[j]
+            if (a['x'] < b['x'] + b['w'] and a['x'] + a['w'] > b['x'] and
+                    a['y'] < b['y'] + b['h'] and a['y'] + a['h'] > b['y']):
+                out.append([a['name'], b['name']])
+    return out
+
+
+def _walk(parent, seen):
+    if parent.path in seen:
+        return []
+    seen.add(parent.path)
+    rows = _rows_of(parent)
+    out = [dict(parent=parent.path, rows=rows, overlaps=_overlaps(rows))]
+    for ch in parent.children:
+        if getattr(ch, 'isCOMP', False):
+            out += _walk(ch, seen)
+    return out
+
+
+results = []
+if ROOTS:
+    for p in ROOTS:
+        try:
+            results += _walk(op(p), set())
+        except Exception as e:
+            results.append(dict(parent=p, rows=[], overlaps=[], error=repr(e)))
+else:
+    for o in op('/').children:
+        if o.type == 'base' and o.name.startswith(PREFIX):
+            results += _walk(o, set())
+
+total = sum(len(r.get('overlaps') or []) for r in results)
+print('<<JSON>>' + json.dumps(dict(parents=results, total=total)))
+'''
+
+
+def snapshot(g: Gauntlet, roots: list[str] | None = None, prefix: str = "pop_") -> tuple[bool, dict]:
+    """Lee posiciones sin mover nada. Es la foto que usa el test de persistencia.
+
+    No reutiliza `tidy()`: si el test reacomodara la red antes de comparar,
+    enmascararía justamente lo que tiene que detectar (que el guardado no tomó).
+    """
+    code = ("ROOTS = %s\nPREFIX = %r\n%s" %
+            (json.dumps(roots) if roots else "None", prefix, SNAPSHOT_SRC))
+    ok, data = g.exec_code(code)
+    if not ok:
+        return False, data or {}
+    return True, data
+
+
+def fingerprint(data: dict) -> tuple[str, int]:
+    """SHA-256 estable de (red, nodo, x, y), redondeado a 2 decimales."""
+    flat = []
+    for p in data.get("parents") or []:
+        for r in p.get("rows") or []:
+            flat.append([p.get("parent"), r.get("name"),
+                         round(float(r.get("x", 0)), 2), round(float(r.get("y", 0)), 2)])
+    flat.sort()
+    blob = json.dumps(flat, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest(), len(flat)
 
 
 def tidy(g: Gauntlet, roots: list[str] | None = None, prefix: str = "pop_") -> tuple[bool, dict]:

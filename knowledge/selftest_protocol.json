@@ -11,10 +11,10 @@
    },
    "serverInfo": {
     "name": "td-knowledge",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "title": "td-knowledge — capa de conocimiento offline de TouchDesigner"
    },
-   "instructions": "td-knowledge: capa de conocimiento OFFLINE de TouchDesigner (no necesita TD abierto). Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix para saber si un POP necesita input, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze. Las tools td_status, find_in_ops, auto_layout, smart_connect y tdn_export hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (19 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
   }
  },
  {
@@ -141,7 +141,7 @@
     },
     {
      "name": "ops_doc",
-     "description": "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples/parameters.",
+     "description": "Doc curado de un operador (cualquier familia) enriquecido con topología de cableado (topology.json) y creation_defaults: summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples/parameters/topology.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -184,14 +184,38 @@
      }
     },
     {
+     "name": "validate_pop_pars",
+     "description": "Valida pre-flight una lista de nombres de parámetros para CUALQUIER familia de operador (POP, TOP, CHOP, SOP, DAT, MAT, COMP) contra pop_matrix (97 POPs), ops_doc y python_api. Detecta parámetros inexistentes, propiedades OP pasadas como par (display, render, bypass, lock), prefijos de tupla (sizex/y/z), bloques de secuencia (numBlocks) y advertencias de co-dependencia (outputresolution='custom', globforcemult, timeintegration, triangulatequads).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "op_type": {
+        "type": "string",
+        "description": "string (requerido, ej. 'noisePOP', 'renderTOP', 'pointspriteMAT')"
+       },
+       "params": {
+        "type": "string",
+        "description": "string (nombres separados por coma o espacio; vacío = lista todos)"
+       }
+      },
+      "required": [
+       "op_type"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": false
+     }
+    },
+    {
      "name": "pop_knowledge",
-     "description": "Datos POP no-oficiales: 'patterns' (mapas de red reales), 'wiki_params', 'pop_inventory', 'validation', 'glsl_library'.",
+     "description": "Datos POP y topología empírica: 'patterns', 'wiki_params', 'pop_inventory', 'validation', 'glsl_library', 'glsl_pops_reference', 'glsl_curriculum', 'pop_chains', 'pop_networks', 'pop_parameters', 'real_world_topology', 'pop_rules', 'attribute_rules', 'bridges', 'pop_style'.",
      "inputSchema": {
       "type": "object",
       "properties": {
        "kind": {
         "type": "string",
-        "description": "patterns|wiki_params|pop_inventory|validation|glsl_library (requerido)"
+        "description": "patterns|wiki_params|pop_inventory|validation|glsl_library|glsl_pops_reference|glsl_curriculum|pop_chains|pop_networks|pop_parameters|real_world_topology|pop_rules|attribute_rules|bridges|pop_style (requerido)"
        },
        "query": {
         "type": "string",
@@ -209,7 +233,7 @@
     },
     {
      "name": "resolve_operator",
-     "description": "Traduce lenguaje natural (ES/EN, con o sin tildes) a tipo de operador canónico: 'cámara web' -> videodeviceinTOP, 'ruido' -> noise*. Si no hay sinónimo directo cae a búsqueda en los docs de operadores.",
+     "description": "Traduce lenguaje natural (ES/EN, con o sin tildes) a tipo de operador canónico + conceptos arquitectónicos, alias de parámetros/atributos y plantillas sugeridas.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -233,7 +257,7 @@
     },
     {
      "name": "templates",
-     "description": "Plantillas de red (wiring, parámetros y builder Python) + specs arquitectónicas (boids, SPH, field volumes, DMX…): action=list|get.",
+     "description": "Plantillas de red (NETWORK_TEMPLATES + POP_NETWORK_TEMPLATES + pop-chains) y specs arquitectónicas (boids, SPH, field volumes, DMX…): action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -289,7 +313,7 @@
     },
     {
      "name": "workflows",
-     "description": "Workflows de producción completos (alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer…): action=list|get.",
+     "description": "Workflows de producción completos (.md) + grafos JSON (workflows/graphs/*.json: alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer…): action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -319,7 +343,7 @@
     },
     {
      "name": "tutorials",
-     "description": "Tutoriales paso a paso de TouchDesigner avanzado (audio-reactivo, boids, god rays, fluid solver, instancing) + suite 'pop_tutorial': action=list|get.",
+     "description": "Tutoriales paso a paso de TouchDesigner avanzado + suite completa 'pop_tutorial' (INDEX, TUTORIAL_KNOWLEDGE y lecciones 01..06): action=list|get.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -401,13 +425,21 @@
     },
     {
      "name": "discovery",
-     "description": "Bitácora empírica de TouchDesigner: quirks de parámetros, límites medidos, cook lag y lecciones de hardware.",
+     "description": "Bitácora empírica y cheatsheets de TouchDesigner (discovery-log, pop-parameter-mapping, TD_PARAMETER_CHEATSHEET, POPs_KNOWLEDGE, POPs_CORRECTIONS, PERFORMANCE, etc.). list_sources=true lista los documentos.",
      "inputSchema": {
       "type": "object",
       "properties": {
        "query": {
         "type": "string",
         "description": "string"
+       },
+       "source": {
+        "type": "string",
+        "description": "string"
+       },
+       "list_sources": {
+        "type": "boolean",
+        "description": "boolean"
        },
        "limit": {
         "type": "integer",
@@ -471,7 +503,7 @@
     },
     {
      "name": "glsl_analyze",
-     "description": "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4 (incluye +=, swizzles y comentarios), TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes / outputattrs.",
+     "description": "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1-R4/F1/F4/multi-input, TOP R1-R4/T4/T10, Python R6/f-string/math. Devuelve errores con el fix y los parámetros exactos de Create Attributes / outputattrs.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -495,7 +527,7 @@
     },
     {
      "name": "glsl_curriculum",
-     "description": "Ejemplos GLSL: corpus POP verificado + shaders sueltos (Book of Shaders, filtros, vertex). query busca en ambos; shader='<nombre>' devuelve el código; list_shaders=true = índice.",
+     "description": "Currículum estructurado GLSL POP (glsl_curriculum.json) + librería de ejemplos + shaders sueltos. entry='<id>' devuelve una lección con shader y params; learning_path=true devuelve la progresión por prerrequisitos.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -503,11 +535,19 @@
         "type": "string",
         "description": "string"
        },
+       "entry": {
+        "type": "string",
+        "description": "string (id o título del curriculum)"
+       },
        "shader": {
         "type": "string",
         "description": "string"
        },
        "list_shaders": {
+        "type": "boolean",
+        "description": "boolean"
+       },
+       "learning_path": {
         "type": "boolean",
         "description": "boolean"
        }
@@ -551,7 +591,7 @@
     },
     {
      "name": "td_status",
-     "description": "¿Está TouchDesigner vivo? Devuelve proyecto, build, fps y versión del server oficial. Usalo primero si dudás de la conexión.",
+     "description": "¿Está TouchDesigner vivo? Devuelve proyecto, build, fps, estado de cooking (power/timeline/realTime) y versión del server oficial. Usalo primero si dudás de la conexión.",
      "inputSchema": {
       "type": "object",
       "properties": {},
@@ -564,7 +604,7 @@
     },
     {
      "name": "find_in_ops",
-     "description": "Busca un texto en TODO un subárbol: contenido de DATs, expresiones de parámetros, nombres de par, comentarios y nombres de operador. Una sola llamada (corre dentro de TD). No existía en el MCP oficial.",
+     "description": "Busca un texto en TODO un subárbol: contenido de DATs, expresiones de parámetros, nombres de par, comentarios y nombres de operador. Una sola llamada (corre dentro de TD con budget max_nodes/max_sec).",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -595,6 +635,14 @@
        "limit": {
         "type": "integer",
         "description": "int (default 40)"
+       },
+       "max_nodes": {
+        "type": "integer",
+        "description": "int (default 2500)"
+       },
+       "max_sec": {
+        "type": "string",
+        "description": "float (default 8.0)"
        }
       },
       "required": [
@@ -648,7 +696,7 @@
     },
     {
      "name": "smart_connect",
-     "description": "Conecta dos operadores eligiendo el índice de input según la familia que espera el destino (lo lee de la KB). Acepta input_index para forzarlo.",
+     "description": "Conecta dos operadores eligiendo el índice de input según la familia que espera el destino (lo lee de topology.json y la KB). Acepta input_index para forzarlo.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -824,7 +872,7 @@
     },
     {
      "name": "get_op_errors_deep",
-     "description": "Diagnóstico profundo de un COMP y sus hijos: detecta errores de cocinado, advertencias y trazas de compilación GLSL en DATs _info.",
+     "description": "Diagnóstico profundo de un COMP y sus hijos: detecta errores de cocinado, advertencias y trazas de compilación GLSL en DATs _info (con budget max_nodes/max_sec).",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -835,6 +883,309 @@
        "recurse": {
         "type": "boolean",
         "description": "bool (default true)"
+       },
+       "max_nodes": {
+        "type": "integer",
+        "description": "int (default 2500)"
+       },
+       "max_sec": {
+        "type": "string",
+        "description": "float (default 8.0)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_measure",
+     "description": "Mide en vivo un operador: rango real de canales CHOP (min, max, media, si es constante/normalizado y scale/offset sugeridos), geometría POP/SOP (numPoints, numPrims, bounds, atributos), resolución TOP o filas/texto DAT.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string",
+        "description": "string (requerido: ruta del operador)"
+       },
+       "channel": {
+        "type": "string",
+        "description": "string (opcional, nombre de canal CHOP)"
+       },
+       "target_min": {
+        "type": "string",
+        "description": "string (opcional, float default 0.0)"
+       },
+       "target_max": {
+        "type": "string",
+        "description": "string (opcional, float default 1.0)"
+       }
+      },
+      "required": [
+       "path"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_glsl_apply",
+     "description": "Pipeline GLSL atómico en vivo: valida estáticamente el código (POP/TOP), crea el textDAT + glslPOP/glslcopyPOP/glslTOP, auto-configura Create Attributes / outputattrs / outputaccess / uniforms, conecta inputs y verifica la compilación.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "name": {
+        "type": "string",
+        "description": "string (requerido: nombre del nodo GLSL)"
+       },
+       "code": {
+        "type": "string",
+        "description": "string (requerido: código GLSL)"
+       },
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "family": {
+        "type": "string",
+        "description": "pop|top|copy (default pop)"
+       },
+       "source_path": {
+        "type": "string",
+        "description": "string (opcional: input 0)"
+       },
+       "extra_inputs": {
+        "type": "string",
+        "description": "string (opcional: inputs 1,2… separados por coma)"
+       },
+       "write_attrs": {
+        "type": "string",
+        "description": "string (opcional: ej. 'Color:4, PartVel:3')"
+       },
+       "uniforms": {
+        "type": "string",
+        "description": "string (opcional: JSON dict de uniforms)"
+       },
+       "resolution": {
+        "type": "string",
+        "description": "string (opcional para TOP: ej. '1280x720')"
+       },
+       "skip_validation": {
+        "type": "boolean",
+        "description": "bool (default false)"
+       }
+      },
+      "required": [
+       "name",
+       "code"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_explore_project",
+     "description": "Radiografía rápida de un contenedor o proyecto en vivo: conteos por familia y tipo, contenedores hijos, shaders GLSL, customPars, errores activos y top operadores por cookTime.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "root_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "max_depth": {
+        "type": "integer",
+        "description": "int (default 3)"
+       },
+       "max_nodes": {
+        "type": "integer",
+        "description": "int (default 2500)"
+       },
+       "max_sec": {
+        "type": "string",
+        "description": "float (default 8.0)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_compare_networks",
+     "description": "Compara en vivo dos contenedores COMP (path_a vs path_b): operadores únicos de cada lado, diferencias de parámetros no-default y diferencias de cableado.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "path_a": {
+        "type": "string",
+        "description": "string (requerido)"
+       },
+       "path_b": {
+        "type": "string",
+        "description": "string (requerido)"
+       }
+      },
+      "required": [
+       "path_a",
+       "path_b"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_spatial_context",
+     "description": "Contexto espacial de la UI de TouchDesigner: pane activo, ruta abierta en el editor, operador actual (currentChild), operadores seleccionados y estado del timeline.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_build_pop_render",
+     "description": "Construye en 1 llamada el pipeline completo de renderizado POP (geometryCOMP sin torus1 + source/spherePOP + convertPOP topointprims + nullPOP display/render + cameraCOMP + pointsprite/constant/pbr MAT + renderTOP + nullTOP), fuerza 4 pasadas de cook y evalúa el frame.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default pop_scene)"
+       },
+       "source_pop": {
+        "type": "string",
+        "description": "string (opcional: ruta de POP existente a renderizar)"
+       },
+       "primitive_mode": {
+        "type": "string",
+        "description": "points|native (default points)"
+       },
+       "material": {
+        "type": "string",
+        "description": "pointsprite|constant|pbr (default pointsprite)"
+       },
+       "resolution": {
+        "type": "string",
+        "description": "string (default 1280x720)"
+       },
+       "point_size": {
+        "type": "string",
+        "description": "float (default 4.0)"
+       },
+       "camera_tz": {
+        "type": "string",
+        "description": "float (default 5.0)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_instantiate_template",
+     "description": "Instancia en vivo cualquier template de red (network_templates.json) o receta (recipes) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia, aplica parámetros/expresiones, cablea y ordena el layout.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "template_name": {
+        "type": "string",
+        "description": "string (requerido: ej. 'particle_gpu_basic', 'feedback_loop_top', 'basic_3d_render')"
+       },
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "container_name": {
+        "type": "string",
+        "description": "string (opcional: crea un baseCOMP contenedor)"
+       },
+       "clear_first": {
+        "type": "boolean",
+        "description": "bool (default false)"
+       }
+      },
+      "required": [
+       "template_name"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_verify_network",
+     "description": "Verificación integral en 1 llamada (Gauntlet vivo): fuerza 4 pasadas de cook (settle), audita ownership de geometryCOMPs (torus1 borrado, display/render activos, numPoints/numPrims > 0), detecta NaN/Inf en POPs/CHOPs, corre get_op_errors_deep y eval_render_frame, y devuelve veredicto PASS/FAIL con actionable_fixes.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "container_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "render_top": {
+        "type": "string",
+        "description": "string (opcional: ruta del TOP a evaluar visualmente)"
+       },
+       "check_temporal": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_profile_network",
+     "description": "Profiler de rendimiento y cuellos de botella en vivo: mide cookTime CPU, gpuCookTime y memoria por nodo, calcula el % del presupuesto de frame (ej. 16.67ms a 60fps) y detecta anti-patrones de rendimiento (copyPOP masivo sin instancing, SOPs en pipeline POP, TOPs >4K, readbacks GPU->CPU).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "root_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "max_depth": {
+        "type": "integer",
+        "description": "int (default 4)"
+       },
+       "top_n": {
+        "type": "integer",
+        "description": "int (default 15)"
+       },
+       "fps_target": {
+        "type": "string",
+        "description": "float (default 60.0)"
+       },
+       "force_cook": {
+        "type": "boolean",
+        "description": "bool (default false)"
        }
       },
       "required": []
@@ -854,7 +1205,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"kb_dir\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\TDMCP\\\\tolchx-TDMCP\\\\knowledge\\\\kb\",\n \"kb_total_bytes\": 41008565,\n \"kb_origen\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n \"assets\": [\n  \"knowledge_brain.db\",\n  \"pop_matrix.json\",\n  \"topology.json\",\n  \"real-world-topology.json\",\n  \"webtoe-pop-specs.json\",\n  \"webtoe-top-specs.json\",\n  \"ops/index.json\",\n  \"pops/glsl_curriculum.json\",\n  \"templates/builtin-templates.json\",\n  \"templates/pop-chains.json\",\n  \"templates/pop_networks.json\",\n  \"reference/python-api-classes.json\",\n  \"reference/pop-parameters.json\",\n  \"references/discovery-log.md\",\n  \"references/pop-parameter-mapping.md\",\n  \"rules/GLSL_ERROR_SOLUTIONS.md\",\n  \"rules/GLSL_POP_RULES.md\",\n  \"rules/GLSL_TOP_RULES.md\",\n  \"rules/glsl_pop_shader_guide.md\",\n  \"rules/GLSL_POP_SUITE_GUIDE.md\",\n  \"rules/GLSL_POP_TEST_COVERAGE.md\",\n  \"rules/GLSL_TEST_COVERAGE_SUMMARY.md\",\n  \"rules/POPs_KNOWLEDGE.md\",\n  \"rules/POPs_CORRECTIONS.md\",\n  \"rules/POPs_VALIDATION.md\",\n  \"rules/TD_PARAMETER_CHEATSHEET.md\",\n  \"rules/BRIDGE_CONTRACT.md\",\n  \"rules/2026-09-28_TDMCP_oficial_vs_propio.md\",\n  \"rules/API_CONTRACT_AUDIT.md\",\n  \"rules/TOE_REPLICATION.md\",\n  \"rules/MCP_REAL_CASES.md\",\n  \"rules/ANALISIS_COMMUNITY_MCP.md\",\n  \"rules/COMMUNITY_FEEDBACK_LOG.md\",\n  \"rules/PERFORMANCE.md\",\n  \"workflows/pathtracer-glsl.md\",\n  \"ops/operators/\",\n  \"pops/\",\n  \"workflows/\",\n  \"tutorials/\",\n  \"tutorials/pop_tutorial/\",\n  \"prompts/master/\",\n  \"shaders/\",\n  \"shaders/\",\n  \"templates/specs/\"\n ],\n \"ts_extract\": {\n  \"generated_at\": \"2026-10-09T07:49:42.230Z\",\n  \"source\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n  \"semantic\": 2,\n  \"templates\": 1,\n  \"recipes\": 3,\n  \"glsl_top_recipes\": 7\n },\n \"docs\": {\n  \"docs_total\": 1251,\n  \"por_familia\": {\n   \"POP\": 614,\n   \"TOP\": 185,\n   \"CHOP\": 174,\n   \"SOP\": 115,\n   \"DAT\": 75,\n   \"GENERAL\": 54,\n   \"GLSL\": 27,\n   \"MAT\": 4,\n   \"PROMPT\": 3\n  },\n  \"por_trust_tier\": {\n   \"official\": 507,\n   \"empirical\": 386,\n   \"live-verified\": 194,\n   \"community\": 145,\n   \"curated\": 17,\n   \"community-audit\": 2\n  },\n  \"por_source_type\": {\n   \"ops\": 507,\n   \"pop-pattern\": 280,\n   \"pops\": 102,\n   \"pop-live\": 97,\n   \"glsl-shader\": 79,\n   \"pop-glsl\": 62,\n   \"workflow\": 44,\n   \"tutorial\": 43,\n   \"template-spec\": 17,\n   \"empirical\": 9,\n   \"glsl-recipe\": 7,\n   \"master-prompt\": 3,\n   \"glsl-solution\": 1\n  }\n },\n \"pop_matrix\": {\n  \"generado\": \"2026-09-17T00:51:34\",\n  \"build_medido\": \"TouchDesigner 2025.31760\",\n  \"tipos\": 97,\n  \"creados_ok\": 96,\n  \"creados_fail\": 1,\n  \"ok_con_input\": 89,\n  \"params_medidos\": 2987\n }\n}"
+     "text": "{\n \"kb_dir\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\TDMCP\\\\tolchx-TDMCP\\\\knowledge\\\\kb\",\n \"kb_total_bytes\": 41035933,\n \"kb_origen\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n \"assets\": [\n  \"knowledge_brain.db\",\n  \"pop_matrix.json\",\n  \"topology.json\",\n  \"real-world-topology.json\",\n  \"webtoe-pop-specs.json\",\n  \"webtoe-top-specs.json\",\n  \"ops/index.json\",\n  \"pops/glsl_curriculum.json\",\n  \"templates/builtin-templates.json\",\n  \"templates/pop-chains.json\",\n  \"templates/pop_networks.json\",\n  \"reference/python-api-classes.json\",\n  \"reference/pop-parameters.json\",\n  \"references/discovery-log.md\",\n  \"references/pop-parameter-mapping.md\",\n  \"rules/GLSL_ERROR_SOLUTIONS.md\",\n  \"rules/GLSL_POP_RULES.md\",\n  \"rules/GLSL_TOP_RULES.md\",\n  \"rules/glsl_pop_shader_guide.md\",\n  \"rules/GLSL_POP_SUITE_GUIDE.md\",\n  \"rules/GLSL_POP_TEST_COVERAGE.md\",\n  \"rules/GLSL_TEST_COVERAGE_SUMMARY.md\",\n  \"rules/POPs_KNOWLEDGE.md\",\n  \"rules/POPs_CORRECTIONS.md\",\n  \"rules/POPs_VALIDATION.md\",\n  \"rules/TD_PARAMETER_CHEATSHEET.md\",\n  \"rules/BRIDGE_CONTRACT.md\",\n  \"rules/2026-09-28_TDMCP_oficial_vs_propio.md\",\n  \"rules/API_CONTRACT_AUDIT.md\",\n  \"rules/TOE_REPLICATION.md\",\n  \"rules/MCP_REAL_CASES.md\",\n  \"rules/ANALISIS_COMMUNITY_MCP.md\",\n  \"rules/COMMUNITY_FEEDBACK_LOG.md\",\n  \"rules/PERFORMANCE.md\",\n  \"workflows/pathtracer-glsl.md\",\n  \"pops/glsl_pops_reference.json\",\n  \"ops/operators/\",\n  \"pops/\",\n  \"workflows/\",\n  \"tutorials/\",\n  \"tutorials/pop_tutorial/\",\n  \"prompts/master/\",\n  \"shaders/\",\n  \"shaders/\",\n  \"templates/specs/\",\n  \"docs_internal/\"\n ],\n \"ts_extract\": {\n  \"generated_at\": \"2026-10-30T01:19:09.087Z\",\n  \"source\": \"C:\\\\Users\\\\Tolch\\\\Documents\\\\AI_Code\\\\Touchdesigner_MCP\\\\Main\",\n  \"semantic\": 5,\n  \"templates\": 1,\n  \"pops_validate\": 1,\n  \"pop_validation\": 4,\n  \"topology_data\": 1,\n  \"catalog\": 4,\n  \"recipes\": 3,\n  \"glsl_top_recipes\": 7\n },\n \"docs\": {\n  \"docs_total\": 1302,\n  \"por_familia\": {\n   \"POP\": 633,\n   \"TOP\": 187,\n   \"CHOP\": 177,\n   \"SOP\": 116,\n   \"DAT\": 76,\n   \"GENERAL\": 72,\n   \"GLSL\": 32,\n   \"MAT\": 5,\n   \"PROMPT\": 3,\n   \"COMP\": 1\n  },\n  \"por_trust_tier\": {\n   \"official\": 507,\n   \"empirical\": 386,\n   \"live-verified\": 245,\n   \"community\": 145,\n   \"curated\": 17,\n   \"community-audit\": 2\n  },\n  \"por_source_type\": {\n   \"ops\": 507,\n   \"pop-pattern\": 280,\n   \"pops\": 102,\n   \"pop-live\": 97,\n   \"glsl-shader\": 79,\n   \"pop-glsl\": 62,\n   \"skill\": 51,\n   \"workflow\": 44,\n   \"tutorial\": 43,\n   \"template-spec\": 17,\n   \"empirical\": 9,\n   \"glsl-recipe\": 7,\n   \"master-prompt\": 3,\n   \"glsl-solution\": 1\n  }\n },\n \"pop_matrix\": {\n  \"generado\": \"2026-09-17T00:51:34\",\n  \"build_medido\": \"TouchDesigner 2025.31760\",\n  \"tipos\": 97,\n  \"creados_ok\": 96,\n  \"creados_fail\": 1,\n  \"ok_con_input\": 89,\n  \"params_medidos\": 2987\n }\n}"
     }
    ],
    "isError": false
@@ -958,7 +1309,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"archivo\": \"contracts\\\\VERIFIED_CONTRACTS.md\",\n \"secciones\": [\n  \"C1 — Medición: siempre asentar antes de leer\",\n  \"C10 — Simulación de partículas: el loop de feedback es obligatorio (medido en `/pop_sim_trails`, 2026-09-29 noche)\",\n  \"C11 — GlslPOP para COLOREAR (medido en `/pop_color_trails`, 2026-09-29 noche)\",\n  \"C12 — Instancing: fuente de datos y guardias (medido en `/pop_trails_floor`, 2026-09-30)\",\n  \"C13 — poptoTOP → glslTOP: la nube como textura de datos (2026-09-30, `/pop_sim_trails`)\",\n  \"C14 — Campo de estelas sin glsl (medido en `/pop_field_trails`, 2026-09-30, 16/16)\",\n  \"C15 — Cuatro POPs de estructura, medidos en vivo (2026-09-30, batería reg-20260930-094856, 14/14)\",\n  \"C16 — Seis POPs de topología y patrones, medidos en vivo (2026-09-30, batería reg-20260930-131003, 20/20)\",\n  \"C17 — Seis POPs de población y superficies, medidos en vivo (2026-10-02, batería reg-20261002-022418, 26/26)\",\n  \"C18 — Arquitectura POP oficial extraída de OP Snippets (2026-10-05)\",\n  \"C19 — rayPOP y copyPOP medidos en vivo (2026-10-29, batería reg-20261029-2040, 34/34)\",\n  \"C2 — POPs y render\",\n  \"C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2105, 35/35)\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"C8 — Trails, cámara y renderTOP (medido en `/pop_streams`, 2026-09-29)\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\"\n ],\n \"contratos\": [\n  \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n  \"`render_cache_vs_data` — el render no siempre re-sube geometría POP\",\n  \"`clock_stopped` — el reloj maestro puede estar parado\",\n  \"`png_use_pil` — verificá imágenes con PIL, no con un decoder casero\",\n  \"`points_need_pointprims` — lo que dibuja son las PRIMITIVAS, no los puntos\",\n  \"`autotorus_masks_render` — el auto-torus hace pasar por bueno un render roto\",\n  \"`render_flag_on_terminal` — las flags van en el nodo terminal del chain\",\n  \"`pop_render_network` — receta mínima que dibuja (verificada)\",\n  \"`pointsprite_pars` — el look de partículas\",\n  \"`python_pop_api` — POPs vs SOPs en Python\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"`trail_moves_points` — trailPOP acumula desplazamiento: el enjambre SALE del anillo\",\n  \"`cam_follows_data` — la cámara se centra en el centroide de P medido, no en el origen\",\n  \"`renderTOP_geometry_is_a_list` — crear OTRO geometryCOMP lo AGREGA a `ren.par.geometry`\",\n  \"`noisesize_writeonly` — `noisePOP.noisesize` no cambia aunque lo escribas [V*]\",\n  \"`POP_wiring_inputs_declarados` — wiring falla si el destino declara 0 inputs [V]\",\n  \"`trailPOP_pars` — la receta oficial inventa pars del trailPOP; `length` es TIEMPO [V]\",\n  \"`poptoTOP_no_renderiza` — poptoTOP es conversión de DATOS, no un renderizador [V]\",\n  \"`instancing_pop_crosscomp` — la fuente POP directa NO cruza COMPs [V]\",\n  \"`instancecolormode_menu` — el menú real no es 'op' (doc) [V]\",\n  \"Guardias para escenas MULTI-geometry [V]\",\n  \"Addendum (2026-09-30): orientar instancias según PartVel (flechas) [V]\",\n  \"`pixeldat_no_computedat` — el pixel shader del glslTOP va en `pixeldat` [V]\",\n  \"`glsltop_pixel_main` — el pixel shader exige `out fragColor` + `TDOutputSwizzle` [V]\",\n  \"`poptotop_textura_cruda` — la textura trae valores CRUDOS; el rango va por uniform [V]\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\",\n  \"`particle_feedback_loop` — sin `targetpop` cerrado, la integración se descarta\",\n  \"`particle_initialize_enferma` — `initializepulse` + `preroll` hinchan el buffer del loop\",\n  \"`popto_chop_part_channels` — los canales `Part*` engañan a un filtro por prefijo\",\n  \"`sphere_pop_radz` — la esfera se achica por `radz` (execute_code); `cols`/`rows` no aplican\",\n  \"(abierto) `steppulse` no integra el estado\",\n  \"`glsl_compute_canonical_main` — el main se escribe COMPLETO: `id` y guardia incluidos\",\n  \"`glsl_input_attrs_por_helper` — los atributos de ENTRADA no son buffers: se leen con `TDIn_*`\",\n  \"`color_es_atributo` — el color de render es `Color` float4 y se CREA con attr0name='color'\",\n  \"Gradables del color [V] (canales `Color_0/1/2` del poptoCHOP, lista EXACTA)\",\n  \"`attributePOP_no_mapea` — attributePOP crea constantes; NO copia atributo→atributo [V]\",\n  \"`rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V] (CERRADO, proyecto 8)\",\n  \"`noise_gradient_attr` — el noisePOP expone el campo vectorial por punto [V]\",\n  \"`td_slow_operation` — TD rechaza llamadas mientras se recupera [V]\",\n  \"`poptochop_sprinkle_soltero` — sprinklePOP sin input alimenta a poptoCHOP [V]\",\n  \"`poptochop_doble_cook` — la primera lectura tras cambiar de POP puede venir rancia [V]\",\n  \"`grouppop_debugcolor` — debugcolor convierte la membresía de grupo en dato medible [V]\",\n  \"`transformpop_group_sin_poblacion_no_filtra` — grupo vacío o inexistente mueve TODO [V]\",\n  \"`transformpop_mapeo_exacto` — T/R/S es una matriz, punto a punto, con pivot real [V]\",\n  \"`quantizepop_inplace` — scope de salida vacío NO es no-op: cuantiza el mismo atributo [V]\",\n  \"`limitpop_loop_ventana` — 'loop' NO envuelve en [min,max]: shift por una ventana [V]\",\n  \"`neighborpop_arrays_y_avg` — la vecindad por distancia y el promedio opt-in [V]\",\n  \"`connectivitypop_tabla_prims` — reconecta sin tocar puntos; el cerrojo sólo entra por firstdim [V]\",\n  \"`pop_help_no_existe` — casing sensible en tipos POP: `mathmixPOP` y `lookupattributePOP` [V]\",\n  \"`facetpop_unique_prims_intactas` — unique des-duplica puntos y NUNCA toca primitivas [V]\",\n  \"`subdividepop_escalado_exacto` — iterations es scaling de topología determinístico [V]\",\n  \"`triangulatepop_toggle_necesario` — sin `triangulatequads=on` NO triangula nada [V]\",\n  \"`extrudepop_jaula_siempre` — la jaula existe incluso con distance=0 [V]\",\n  \"`patternpop_genera_por_indice` — ramp/sin exactos; el random no depende de numpoints [V]\",\n  \"`randompop_set_scope_noop` — el 'set' de randomPOP contradice el default in-place de la familia [V]\",\n  \"`camara_lookat_canonica` — apuntar la cámara con rx/ry a mano NO apunta; el mecanismo canónico es lookat + traslación [V]\",\n  \"`grouppop_poblacion_inmutable` — thin etiqueta, no elimina; el multiset de puntos es invariable [V]\",\n  \"`grouppop_bound_sin_efecto_api` — CERRADO (2026-10-05): bound excluye con `bound0enabled=ON` [V]\",\n  \"`proximity_conteos_exactos` — el grafo es distancia pura y los conteos son reproducibles [V]\",\n  \"`revolve_topologia_exacta` — el barrido conserva el radio del perfil: 2·divs pts / divs quads [V]\",\n  \"`tubepop_cono_y_caps` — radx/rady son los radios de los EXTREMOS (cono) y endcaps suma cols-2 [V]\",\n  \"`topologypop_specpop` — la topología de B se aplica sobre los puntos de A (ref vivo, copy no congela) [V]\",\n  \"`lookuptexturepop_override_y_texels` — sin override el attr no aparece; el muestreo es exacto por texel con interpolate off [V]\",\n  \"`pop_data_model_hierarchy` — Clases de atributos y metadata de dimensión [V]\",\n  \"`mathmix_mathcombine_uniforms` — Mezclado matemático y uniformes sin overhead [V]\",\n  \"`particle_trail_lifecyle` — Identidad persistente en sistemas de partículas [V]\",\n  \"`field_pop_parameter_override` — Inyección paramétrica de campos por punto [V]\",\n  \"`ray_pop_intersection_attrs` — Detección de colisiones y atributos de rayo [V]\",\n  \"`normalpop_tangents_vertex_class` — Tangentes se generan en la clase Vertex como 'T' [V]\",\n  \"`attributeconvert_interclass_migration` — Migración exacta entre clases de atributos [V]\",\n  \"`td_python_fstring_backslash` — el intérprete de TD (Py <= 3.11) no admite backslash dentro de una expresion f-string [V]\",\n  \"`jev_juzga_alcance_del_commit` — el juez LLM hereda el alcance del `git status` del repo [V]\",\n  \"`triage_ve_la_evidencia_vigente` — la evidencia del gauntlet vive en `results/<run_id>/` y usa `ok`, no `all_ok` [V]\",\n  \"`triage_corrida_en_vivo_suite_completa` — la señal EN VIVO del triage corría `--quick`, así que un rojo de F3+ era invisible [V]\",\n  \"`raypop_reescribe_P_y_N` — el rayo mueve P al impacto y pisa N, con o sin toggles [V]\",\n  \"`raypop_sentinelas_de_miss` — los miss usan centinelas, no valores \\\"razonables\\\" [V]\",\n  \"`raypop_limit_lift_negate` — límites y signos que no son los obvios [V]\",\n  \"`raypop_hw_y_bounces` — HW tracing sólo da el primer hit; los rebotes exigen N [V]\",\n  \"`copypop_formula_y_plantilla` — copias = fuente x template x ncy [V]\",\n  \"`rate_limiter_cascada` — un cooldown del MCP contamina el build siguiente [V]\",\n  \"`mathcombine_raypop_gating` — `gt` produce el 0/1 y `mix` lo usa como selector [V]\",\n  \"`mathcombine_encadenado_y_atributos` — bloques encadenados y auto-atributos [V]\",\n  \"`mathcombine_segunda_entrada_sin_prefijo` — `in1_<attr>` no es el nombre [V]\",\n  \"`mathcombine_limites` — qué NO se midió [V]\"\n ],\n \"total\": 88\n}"
+     "text": "{\n \"archivo\": \"contracts\\\\VERIFIED_CONTRACTS.md\",\n \"secciones\": [\n  \"C1 — Medición: siempre asentar antes de leer\",\n  \"C10 — Simulación de partículas: el loop de feedback es obligatorio (medido en `/pop_sim_trails`, 2026-09-29 noche)\",\n  \"C11 — GlslPOP para COLOREAR (medido en `/pop_color_trails`, 2026-09-29 noche)\",\n  \"C12 — Instancing: fuente de datos y guardias (medido en `/pop_trails_floor`, 2026-09-30)\",\n  \"C13 — poptoTOP → glslTOP: la nube como textura de datos (2026-09-30, `/pop_sim_trails`)\",\n  \"C14 — Campo de estelas sin glsl (medido en `/pop_field_trails`, 2026-09-30, 16/16)\",\n  \"C15 — Cuatro POPs de estructura, medidos en vivo (2026-09-30, batería reg-20260930-094856, 14/14)\",\n  \"C16 — Seis POPs de topología y patrones, medidos en vivo (2026-09-30, batería reg-20260930-131003, 20/20)\",\n  \"C17 — Seis POPs de población y superficies, medidos en vivo (2026-10-02, batería reg-20261002-022418, 26/26)\",\n  \"C18 — Arquitectura POP oficial extraída de OP Snippets (2026-10-05)\",\n  \"C19 — rayPOP y copyPOP medidos en vivo (2026-10-29, batería reg-20261029-2040, 34/34)\",\n  \"C2 — POPs y render\",\n  \"C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2135, 35/35)\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"C8 — Trails, cámara y renderTOP (medido en `/pop_streams`, 2026-09-29)\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\"\n ],\n \"contratos\": [\n  \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n  \"`render_cache_vs_data` — el render no siempre re-sube geometría POP\",\n  \"`clock_stopped` — el reloj maestro puede estar parado\",\n  \"`png_use_pil` — verificá imágenes con PIL, no con un decoder casero\",\n  \"`points_need_pointprims` — lo que dibuja son las PRIMITIVAS, no los puntos\",\n  \"`autotorus_masks_render` — el auto-torus hace pasar por bueno un render roto\",\n  \"`render_flag_on_terminal` — las flags van en el nodo terminal del chain\",\n  \"`pop_render_network` — receta mínima que dibuja (verificada)\",\n  \"`pointsprite_pars` — el look de partículas\",\n  \"`python_pop_api` — POPs vs SOPs en Python\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"`trail_moves_points` — trailPOP acumula desplazamiento: el enjambre SALE del anillo\",\n  \"`cam_follows_data` — la cámara se centra en el centroide de P medido, no en el origen\",\n  \"`renderTOP_geometry_is_a_list` — crear OTRO geometryCOMP lo AGREGA a `ren.par.geometry`\",\n  \"`noisesize_writeonly` — `noisePOP.noisesize` no cambia aunque lo escribas [V*]\",\n  \"`POP_wiring_inputs_declarados` — wiring falla si el destino declara 0 inputs [V]\",\n  \"`trailPOP_pars` — la receta oficial inventa pars del trailPOP; `length` es TIEMPO [V]\",\n  \"`poptoTOP_no_renderiza` — poptoTOP es conversión de DATOS, no un renderizador [V]\",\n  \"`instancing_pop_crosscomp` — la fuente POP directa NO cruza COMPs [V]\",\n  \"`instancecolormode_menu` — el menú real no es 'op' (doc) [V]\",\n  \"Guardias para escenas MULTI-geometry [V]\",\n  \"Addendum (2026-09-30): orientar instancias según PartVel (flechas) [V]\",\n  \"`pixeldat_no_computedat` — el pixel shader del glslTOP va en `pixeldat` [V]\",\n  \"`glsltop_pixel_main` — el pixel shader exige `out fragColor` + `TDOutputSwizzle` [V]\",\n  \"`poptotop_textura_cruda` — la textura trae valores CRUDOS; el rango va por uniform [V]\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\",\n  \"`particle_feedback_loop` — sin `targetpop` cerrado, la integración se descarta\",\n  \"`particle_initialize_enferma` — `initializepulse` + `preroll` hinchan el buffer del loop\",\n  \"`popto_chop_part_channels` — los canales `Part*` engañan a un filtro por prefijo\",\n  \"`sphere_pop_radz` — la esfera se achica por `radz` (execute_code); `cols`/`rows` no aplican\",\n  \"(abierto) `steppulse` no integra el estado\",\n  \"`glsl_compute_canonical_main` — el main se escribe COMPLETO: `id` y guardia incluidos\",\n  \"`glsl_input_attrs_por_helper` — los atributos de ENTRADA no son buffers: se leen con `TDIn_*`\",\n  \"`color_es_atributo` — el color de render es `Color` float4 y se CREA con attr0name='color'\",\n  \"Gradables del color [V] (canales `Color_0/1/2` del poptoCHOP, lista EXACTA)\",\n  \"`attributePOP_no_mapea` — attributePOP crea constantes; NO copia atributo→atributo [V]\",\n  \"`rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V] (CERRADO, proyecto 8)\",\n  \"`noise_gradient_attr` — el noisePOP expone el campo vectorial por punto [V]\",\n  \"`td_slow_operation` — TD rechaza llamadas mientras se recupera [V]\",\n  \"`poptochop_sprinkle_soltero` — sprinklePOP sin input alimenta a poptoCHOP [V]\",\n  \"`poptochop_doble_cook` — la primera lectura tras cambiar de POP puede venir rancia [V]\",\n  \"`grouppop_debugcolor` — debugcolor convierte la membresía de grupo en dato medible [V]\",\n  \"`transformpop_group_sin_poblacion_no_filtra` — grupo vacío o inexistente mueve TODO [V]\",\n  \"`transformpop_mapeo_exacto` — T/R/S es una matriz, punto a punto, con pivot real [V]\",\n  \"`quantizepop_inplace` — scope de salida vacío NO es no-op: cuantiza el mismo atributo [V]\",\n  \"`limitpop_loop_ventana` — 'loop' NO envuelve en [min,max]: shift por una ventana [V]\",\n  \"`neighborpop_arrays_y_avg` — la vecindad por distancia y el promedio opt-in [V]\",\n  \"`connectivitypop_tabla_prims` — reconecta sin tocar puntos; el cerrojo sólo entra por firstdim [V]\",\n  \"`pop_help_no_existe` — casing sensible en tipos POP: `mathmixPOP` y `lookupattributePOP` [V]\",\n  \"`facetpop_unique_prims_intactas` — unique des-duplica puntos y NUNCA toca primitivas [V]\",\n  \"`subdividepop_escalado_exacto` — iterations es scaling de topología determinístico [V]\",\n  \"`triangulatepop_toggle_necesario` — sin `triangulatequads=on` NO triangula nada [V]\",\n  \"`extrudepop_jaula_siempre` — la jaula existe incluso con distance=0 [V]\",\n  \"`patternpop_genera_por_indice` — ramp/sin exactos; el random no depende de numpoints [V]\",\n  \"`randompop_set_scope_noop` — el 'set' de randomPOP contradice el default in-place de la familia [V]\",\n  \"`camara_lookat_canonica` — apuntar la cámara con rx/ry a mano NO apunta; el mecanismo canónico es lookat + traslación [V]\",\n  \"`grouppop_poblacion_inmutable` — thin etiqueta, no elimina; el multiset de puntos es invariable [V]\",\n  \"`grouppop_bound_sin_efecto_api` — CERRADO (2026-10-05): bound excluye con `bound0enabled=ON` [V]\",\n  \"`proximity_conteos_exactos` — el grafo es distancia pura y los conteos son reproducibles [V]\",\n  \"`revolve_topologia_exacta` — el barrido conserva el radio del perfil: 2·divs pts / divs quads [V]\",\n  \"`tubepop_cono_y_caps` — radx/rady son los radios de los EXTREMOS (cono) y endcaps suma cols-2 [V]\",\n  \"`topologypop_specpop` — la topología de B se aplica sobre los puntos de A (ref vivo, copy no congela) [V]\",\n  \"`lookuptexturepop_override_y_texels` — sin override el attr no aparece; el muestreo es exacto por texel con interpolate off [V]\",\n  \"`pop_data_model_hierarchy` — Clases de atributos y metadata de dimensión [V]\",\n  \"`mathmix_mathcombine_uniforms` — Mezclado matemático y uniformes sin overhead [V]\",\n  \"`particle_trail_lifecyle` — Identidad persistente en sistemas de partículas [V]\",\n  \"`field_pop_parameter_override` — Inyección paramétrica de campos por punto [V]\",\n  \"`ray_pop_intersection_attrs` — Detección de colisiones y atributos de rayo [V]\",\n  \"`normalpop_tangents_vertex_class` — Tangentes se generan en la clase Vertex como 'T' [V]\",\n  \"`attributeconvert_interclass_migration` — Migración exacta entre clases de atributos [V]\",\n  \"`td_python_fstring_backslash` — el intérprete de TD (Py <= 3.11) no admite backslash dentro de una expresion f-string [V]\",\n  \"`jev_juzga_alcance_del_commit` — el juez LLM hereda el alcance del `git status` del repo [V]\",\n  \"`triage_ve_la_evidencia_vigente` — la evidencia del gauntlet vive en `results/<run_id>/` y usa `ok`, no `all_ok` [V]\",\n  \"`triage_corrida_en_vivo_suite_completa` — la señal EN VIVO del triage corría `--quick`, así que un rojo de F3+ era invisible [V]\",\n  \"`raypop_reescribe_P_y_N` — el rayo mueve P al impacto y pisa N, con o sin toggles [V]\",\n  \"`raypop_sentinelas_de_miss` — los miss usan centinelas, no valores \\\"razonables\\\" [V]\",\n  \"`raypop_limit_lift_negate` — límites y signos que no son los obvios [V]\",\n  \"`raypop_hw_y_bounces` — HW tracing sólo da el primer hit; los rebotes exigen N [V]\",\n  \"`copypop_formula_y_plantilla` — copias = fuente x template x ncy [V]\",\n  \"`rate_limiter_cascada` — un cooldown del MCP contamina el build siguiente [V]\",\n  \"`mathcombine_raypop_gating` — `gt` produce el 0/1 y `mix` lo usa como selector [V]\",\n  \"`mathcombine_encadenado_y_atributos` — bloques encadenados y auto-atributos [V]\",\n  \"`mathcombine_segunda_entrada_sin_prefijo` — `in1_<attr>` no es el nombre [V]\",\n  \"`mathcombine_layout_sin_solapamiento` — la red de prueba no deja nodos encimados [V]\",\n  \"`mathcombine_limites` — qué NO se midió [V]\"\n ],\n \"total\": 89\n}"
     }
    ],
    "isError": false
@@ -984,7 +1335,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"count\": 3,\n \"workflows\": [\n  {\n   \"name\": \"nebrarray-pathtracer\",\n   \"title\": \"Neighbor Array Pathtracer\",\n   \"summary\": \"Pipeline GPU completo: simulación de partículas con búsqueda de vecinos, GLSL compute para lógica custom, y rendering con materials de línea. Basado en el patrón `nebrarraypathtracer`.\",\n   \"file\": \"nebrarray-pathtracer.md\"\n  },\n  {\n   \"name\": \"pathtracer-glsl\",\n   \"title\": \"Pathtracer GLSL — Documentación Completa\",\n   \"summary\": \"> Documentación generada automáticamente desde el proyecto TD en `192.168.100.115:44444`\",\n   \"file\": \"pathtracer-glsl.md\"\n  },\n  {\n   \"name\": \"pathtracer-setup\",\n   \"title\": \"Setup de Pathtracer con Multi-Material\",\n   \"summary\": \"Workflow para configurar y extender un pathtracer GLSL con múltiples materiales en TouchDesigner.\",\n   \"file\": \"pathtracer-setup.md\"\n  }\n ],\n \"total_available\": 44\n}"
+     "text": "{\n \"count\": 3,\n \"workflows\": [\n  {\n   \"name\": \"nebrarray-pathtracer\",\n   \"title\": \"Neighbor Array Pathtracer\",\n   \"summary\": \"Pipeline GPU completo: simulación de partículas con búsqueda de vecinos, GLSL compute para lógica custom, y rendering con materials de línea. Basado en el patrón `nebrarraypathtracer`.\",\n   \"file\": \"nebrarray-pathtracer.md\"\n  },\n  {\n   \"name\": \"pathtracer-glsl\",\n   \"title\": \"Pathtracer GLSL — Documentación Completa\",\n   \"summary\": \"> Documentación generada automáticamente desde el proyecto TD en `192.168.100.115:44444`\",\n   \"file\": \"pathtracer-glsl.md\"\n  },\n  {\n   \"name\": \"pathtracer-setup\",\n   \"title\": \"Setup de Pathtracer con Multi-Material\",\n   \"summary\": \"Workflow para configurar y extender un pathtracer GLSL con múltiples materiales en TouchDesigner.\",\n   \"file\": \"pathtracer-setup.md\"\n  }\n ],\n \"total_available\": 44,\n \"graphs\": []\n}"
     }
    ],
    "isError": false
@@ -997,7 +1348,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"count\": 5,\n \"tutorials\": [\n  {\n   \"name\": \"feedback-creative\",\n   \"title\": \"Feedback Creativo Avanzado\",\n   \"summary\": \"Técnicas profesionales de feedback visual usando Feedback TOP, Delay COMP, transformaciones recursivas y shaders GLSL para crear bucles infinitos y orgánicos.\",\n   \"file\": \"feedback-creative.md\"\n  },\n  {\n   \"name\": \"feedback-loop\",\n   \"title\": \"Feedback Psicodélico\",\n   \"summary\": \"Los loops de feedback crean patrones hipnóticos y psicodélicos al realimentar la salida de un TOP a su propia entrada. Es una de las técnicas más características del TouchDesigner.\",\n   \"file\": \"feedback-loop.md\"\n  },\n  {\n   \"name\": \"particles-experto-feedback-sim\",\n   \"title\": \"Sistema de partículas POP con feedback loop, colisiones simples y control de presupuesto de rendimiento\",\n   \"summary\": \"Construir en `/project1` un sistema POP encapsulado en un `baseCOMP` llamado `pop_particles_sys` que cubra source, simulación, fuerzas, constraints y output con feedback loop correcto.\",\n   \"file\": \"particles-experto-feedback-sim.md\"\n  },\n  {\n   \"name\": \"spring-feedback-glsl\",\n   \"title\": \"Simulación de Resortes con GLSL y Feedback\",\n   \"summary\": \"Implementa un sistema masa-resorte completo en GPU usando GLSL Compute POPs con feedback loop para simulación incremental de física. Basado en el patrón SpringFeedbackPOP.\",\n   \"file\": \"spring-feedback-glsl.md\"\n  },\n  {\n   \"name\": \"tutorial-particle-pop-architecture\",\n   \"title\": \"Particle POP Feedback Architecture & Lifespan Pipeline\",\n   \"summary\": \"**Autor:** Jack Delora (Interactive & Immersive HQ)\",\n   \"file\": \"tutorial-particle-pop-architecture.md\"\n  }\n ],\n \"total_available\": 43,\n \"pop_tutorial_suite\": true,\n \"total\": 43\n}"
+     "text": "{\n \"count\": 5,\n \"tutorials\": [\n  {\n   \"name\": \"feedback-creative\",\n   \"title\": \"Feedback Creativo Avanzado\",\n   \"summary\": \"Técnicas profesionales de feedback visual usando Feedback TOP, Delay COMP, transformaciones recursivas y shaders GLSL para crear bucles infinitos y orgánicos.\",\n   \"file\": \"feedback-creative.md\"\n  },\n  {\n   \"name\": \"feedback-loop\",\n   \"title\": \"Feedback Psicodélico\",\n   \"summary\": \"Los loops de feedback crean patrones hipnóticos y psicodélicos al realimentar la salida de un TOP a su propia entrada. Es una de las técnicas más características del TouchDesigner.\",\n   \"file\": \"feedback-loop.md\"\n  },\n  {\n   \"name\": \"particles-experto-feedback-sim\",\n   \"title\": \"Sistema de partículas POP con feedback loop, colisiones simples y control de presupuesto de rendimiento\",\n   \"summary\": \"Construir en `/project1` un sistema POP encapsulado en un `baseCOMP` llamado `pop_particles_sys` que cubra source, simulación, fuerzas, constraints y output con feedback loop correcto.\",\n   \"file\": \"particles-experto-feedback-sim.md\"\n  },\n  {\n   \"name\": \"spring-feedback-glsl\",\n   \"title\": \"Simulación de Resortes con GLSL y Feedback\",\n   \"summary\": \"Implementa un sistema masa-resorte completo en GPU usando GLSL Compute POPs con feedback loop para simulación incremental de física. Basado en el patrón SpringFeedbackPOP.\",\n   \"file\": \"spring-feedback-glsl.md\"\n  },\n  {\n   \"name\": \"tutorial-particle-pop-architecture\",\n   \"title\": \"Particle POP Feedback Architecture & Lifespan Pipeline\",\n   \"summary\": \"**Autor:** Jack Delora (Interactive & Immersive HQ)\",\n   \"file\": \"tutorial-particle-pop-architecture.md\"\n  }\n ],\n \"total_available\": 43,\n \"pop_tutorial_suite\": true,\n \"pop_tutorial_files\": [\n  \"01_DBgDf0OF3q0\",\n  \"02_czmRqr515nw\",\n  \"03_k0KLIh1fp4M\",\n  \"04_Fbgye7-j-Wg\",\n  \"05_7modeAP8dZk\",\n  \"06_s4_xHUEfWlI\",\n  \"INDEX\",\n  \"TUTORIAL_KNOWLEDGE\",\n  \"evidence_interference_points\",\n  \"evidence_numeric\",\n  \"evidence_phyllotaxis_points\"\n ],\n \"total\": 43\n}"
     }
    ],
    "isError": false
@@ -1036,7 +1387,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"query\": \"cook lag\",\n \"count\": 1,\n \"findings\": [\n  {\n   \"source\": \"verified-contracts\",\n   \"title\": \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n   \"content\": \"### `cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\\n**Síntoma:** editás el shader o un uniform y \\\"no pasa nada\\\"; medís de nuevo y aparece el valor\\n*anterior*. Conclusión falsa típica: \\\"el uniform no está conectado\\\".\\n\\n**Evidencia [V]:** shader editado a `P[id] = pos * 2.0` → el poptoCHOP seguía mostrando `P_0.max\\n= 1.0257`; al *restaurar* el DAT, el cook siguiente mostró `2.0513` (exactamente 2×).\\n\\n**Regla:** tras tocar DAT/parámetros/uniforms, cocinar en cadena varias veces y **releer**:\\n\\n```python\\ndef settle(n=4):\\n    for _ in range(n):\\n        op('/X/geo').cook(force=True)\\n        op('/X/geo/glsl').cook(force=True)\\n        op('/X/geo/null_out').cook(force=True)\\n        op('/X/ren').cook(force=True)\\n        time.sleep(0.04)\\n```\"\n  }\n ],\n \"nota\": \"Descubrimientos empíricos, notas de hardware, contratos y quirks de parámetros en TouchDesigner.\"\n}"
+     "text": "{\n \"query\": \"cook lag\",\n \"count\": 5,\n \"sources_scanned\": 27,\n \"findings\": [\n  {\n   \"source\": \"verified-contracts\",\n   \"title\": \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n   \"content\": \"### `cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\\n**Síntoma:** editás el shader o un uniform y \\\"no pasa nada\\\"; medís de nuevo y aparece el valor\\n*anterior*. Conclusión falsa típica: \\\"el uniform no está conectado\\\".\\n\\n**Evidencia [V]:** shader editado a `P[id] = pos * 2.0` → el poptoCHOP seguía mostrando `P_0.max\\n= 1.0257`; al *restaurar* el DAT, el cook siguiente mostró `2.0513` (exactamente 2×).\\n\\n**Regla:** tras tocar DAT/parámetros/uniforms, cocinar en cadena varias veces y **releer**:\\n\\n```python\\ndef settle(n=4):\\n    for _ in range(n):\\n        op('/X/geo').cook(force=True)\\n        op('/X/geo/glsl').cook(force=True)\\n        op('/X/geo/null_out').cook(force=True)\\n        op('/X/ren').cook(force=True)\\n        time.sleep(0.04)\\n```\"\n  },\n  {\n   \"source\": \"analisis_community_mcp\",\n   \"title\": \"11. Plan propuesto\",\n   \"content\": \"## 11. Plan propuesto\\n\\n**P0 — antes de mostrar el sistema a un tercero**\\n1. `td_healthchain`: una llamada, veredicto único, incluye estado de cooking (§1, §7).\\n2. Reintento transparente + cooldown en la primera llamada de cada turno; log del cliente en archivo (§1, §6).\\n3. Scope + presupuesto + timeout + error accionable en las 10 herramientas de exploración; test de regresión con red grande (§3).\\n4. Auditoría de instalación: verificar que instalar/desinstalar no toca nada fuera del proyecto (§5).\\n\\n**P1**\\n5. `td_measure` / muestreo previo al dimensionamiento de escalares (§4).\\n6. `td_report_bug` con ZIP de evidencia + envelope de error con contexto y flag `benign` (§6).\\n7. Estado enriquecido (`cooking` / `paused` / `minimized`) expuesto en `td_get_info` y `td_get_perf` (§7).\\n8. Revisión de recetas GLSL/POP destiladas: subir el conteo de `GOTCHA` verificados (§8).\\n\\n**P2**\\n9. `td_get_info` con versiones completas + `td_check_updates`; quickstart de una pantalla con el comando de verificación (§8).\\n10. Endurecer `w2t_server_async.py` contra inyección (§10).\\n\\n---\"\n  },\n  {\n   \"source\": \"api_contract_audit\",\n   \"title\": \"5bis. Auditoría de fallbacks silenciosos (endpoints de lectura, 2026-09-22)\",\n   \"content\": \"## 5bis. Auditoría de fallbacks silenciosos (endpoints de lectura, 2026-09-22)\\n\\nMisma clase de falla que el `/connections` del ítem 38 (HTTP 200 con datos\\nplausibles pero falsos): capas/truncamientos/semánticas que **no se declaran**\\nen la respuesta. Cada hallazgo fue CONFIRMADO EN VIVO contra TD 2025.31760 con\\nsondas reproducibles (sandboxes `_audit_*`, destruidos al final).\\n\\n| # | Endpoint | Hallazgo (verificado en vivo) | Severidad | Evidencia |\\n|---|----------|-------------------------------|-----------|-----------|\\n| A1 | `GET /verify` | **FIXED 2026-09-22**: el scan cubre TODOS los nodos (el cap 200 es solo de serialización de las listas `errors`/`warnings`); `error_count`/`warning_count` son el conteo FULL y las claves aditivas `errors_truncated`/`warnings_truncated` declaran el recorte. Verificado en vivo: 211 ops con error en #205 → `error_count=1, healthy=false, errors_truncated=false`. (Antes: cap silencioso `nodes[:200]`, `healthy=true` con error real en #205.) | **ALTA — RESUELTO** | Sonda `_fix_vcap`: operators_scanned=211, error_count=1, healthy=False, error paths=['n205'] |\\n| A2 | `GET /verify` | `healthy` y `error_count` dependen de si el error YA se materializó: los `errors()` solo existen después de un cook fallido. En la red limpia de 4 ops del probe A2, un `moviefileinTOP` con path inválido no aparecía en `/verify` hasta que algo lo cocinara. Sin cook previo → `healthy=true` plausible y falso. | MEDIA | Sandbox `_audit_hc`: `direct errors() = {\\\"n0\\\":\\\"\\\",\\\"n1\\\":\\\"\\\",\\\"n2\\\":\\\"\\\",\\\"zbad\\\":\\\"\\\"}` antes de cocinar |\\n| A3 | `GET /healthcheck` | **FIXED 2026-09-22**: el check es NO-MUTANTE por default (lee `errors()`/`warnings()` sin cocinar). `?force_cook=1` opt-in restaura el cook; la respuesta declara `forceCook` y cada ítem lleva `cooked` + `pre_existing_errors` (errores vistos ANTES del cook) para distinguir pre-existentes de materializados. Verificado en vivo: 3 nullTOPs limpios → default `ok=true, forceCook=false` y la red sigue limpia después; opt-in `forceCook=true, cooked=true, issueCount=3` (los errores que el cook materializa, ahora declarados). (Antes: `cook(force=True)` incondicional materializaba errores en nodos sanos.) | **ALTA — RESUELTO** (queda el matiz: opt-in sigue materializando, pero lo declara) | Sonda `_fix_hc`: default ok=True issueCount=0 forceCook=False, red limpia después; opt-in ok=False issueCount=3 forceCook=True |\\n| A4 | `POST /document` | **FIXED 2026-09-22**: la recursión es opt-in via `payload[\\\"recursive\\\"]` (default 0 =\\n…[cortado: 5618 chars en total]\"\n  },\n  {\n   \"source\": \"community_feedback_log\",\n   \"title\": \"=== #questions-and-support (236 mensajes) ===\",\n   \"content\": \"=== #questions-and-support (236 mensajes) ===\\n2026-04-09 16:51 | User_D | Hey ! Thanks for your tool ! I install all but Claude Code request a paid version. Is there an alternative?\\n2026-04-09 17:21 | community_mcp | hey! thanks for trying it out. unfortunately no alternative right now, you need a Claude subscription for inference. we're not big enough yet to train and run our own model, but that's where we're heading )\\n2026-04-09 17:22 | User_L | Love it!!!! Will there be a Mac intel support in the future?\\n2026-04-09 17:22 | User_I | Hello! How I can change the internal IP within this plugin?\\n2026-04-09 17:23 | community_mcp (↩ @User_L | Love it!!!! Will there be a Mac intel support in t) | mac intel doesn't have a future\\n2026-04-09 17:24 | User_L | Haha\\n2026-04-09 17:26 | community_mcp (↩ @User_I | Hello! How I can change the internal IP withi) | You could change default port via settings (if you mean port, otherwise I don’t understand question)\\n2026-04-09 17:26 | community_mcp | can you send screenshot or explain more precisely?\\n2026-04-09 17:27 | community_mcp | [solo adjunto/imagen]\\n2026-04-09 17:31 | User_H | I'd love to see a showcase of what can be achieved with this MCP. Are there any tutorial videos for this MCP?\\n2026-04-09 17:35 | community_mcp (↩ @User_H | I'd love to see a showcase of what can be achieve) | we're working on tutorials right now. for now you can check community-docs.local/docs and feed them to Claude. but honestly the easiest way is to just open a patch and ask Claude what it can do, how it can help, etc. it figures things out pretty fast )\\n2026-04-09 17:38 | User_H (↩ @community_mcp | we're working on tutorials right now. for now you) | Ok I’ll love to tryout.thx\\n2026-04-09 17:42 | User_E (↩ @User_D | Hey ! Thanks for your tool ! I install all but Cla) | free week - 3 available. https://claude.ai/referral/3KNBWgoS3Q\\n2026-04-09 17:42 | User_E | just downloaded, thanks for putting this together @community_mcp.\\n2026-04-09 17:42 | User_I (↩ @community_mcp | Haz clic para ver el archivo adjunto) | Thnx! U are awesome\\n2026-04-09 18:09 | User_E | boom. cookin with gas.\\n2026-04-09 18:26 | User_F (↩ @User_E | [BUZZ], | | BUZZ | free week - 3 available. htt) | thanks for the referral!\\n2026-04-09 18:40 | User_J (↩ @User_D | Hey ! Thanks for your tool ! I install all but Cla) | im using cursor free version to run it\\n2026-04-09 18:40 | User_D (↩ @User_J | im using cursor free version to run it) | Oh and it work good ?\\n2026-04-09 19:04 | Use\\n…[cortado: 81822 chars en total]\"\n  },\n  {\n   \"source\": \"mcp_real_cases\",\n   \"title\": \"F3. Custom GLSL attributes are not CPU-readable by default\",\n   \"content\": \"## F3. Custom GLSL attributes are not CPU-readable by default\\n\\n- `op.points('period')` on a glslPOP that CREATES the attribute throws\\n  `This AttribList has not been initialized to access the attribute data on the CPU.`\\n  Reading built-in attributes (`P`) works fine from Python.\\n- Consequence: `/exec`-based numeric verification of GLSL-created attributes is not\\n  straightforward; we verified via bounds()/numPoints() and input-side attributes instead.\\n- **MCP improvement**: `/verify` could expose which attributes are CPU-readable per op, and\\n  `td_glsl_apply` could set whatever cook/readback flag makes custom attrs host-visible\\n  (there may be a convertPOP `cpureadback` mode worth chaining for verification).\"\n  }\n ],\n \"nota\": \"Descubrimientos empíricos, cheatsheets, reglas POP, contratos y notas de rendimiento en TouchDesigner.\"\n}"
     }
    ],
    "isError": false
@@ -1050,6 +1401,71 @@
     {
      "type": "text",
      "text": "{\n \"count\": 3,\n \"prompts\": [\n  \"particles-experto-feedback-sim\",\n  \"pathtracer-system\",\n  \"validate-and-fix\"\n ]\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 19,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"op_type\": \"noisePOP\",\n \"source\": \"pop_matrix (live-verified)\",\n \"ok\": false,\n \"valid\": [\n  \"seed\"\n ],\n \"unknown\": [\n  \"amp\",\n  \"amplitude\",\n  \"size\"\n ],\n \"suggestions\": {\n  \"amp\": {\n   \"tuple_components\": [\n    \"amp0\"\n   ],\n   \"hint\": \"'amp' es el prefijo de un parámetro compuesto; usá ['amp0']\",\n   \"closest_in_op\": [\n    \"amp0\",\n    \"map\"\n   ]\n  },\n  \"amplitude\": {\n   \"closest_in_op\": [\n    \"mode\",\n    \"amp0\"\n   ],\n   \"semantic_alias\": {\n    \"requested\": \"amplitude\",\n    \"canonical\": \"amp\",\n    \"note\": \"En noiseTOP y noisePOP el parámetro real es 'amp', no 'amplitude'.\"\n   }\n  },\n  \"size\": {\n   \"closest_in_op\": [\n    \"parsize\",\n    \"sz\",\n    \"noisesize\",\n    \"seed\",\n    \"positive0\"\n   ],\n   \"semantic_alias\": {\n    \"requested\": \"size\",\n    \"canonical\": \"pointsize (pointspriteMAT) / pointscale\",\n    \"note\": \"En pointspriteMAT usar pointsize (Contrato C2).\"\n   }\n  }\n },\n \"total_measured_params\": 62\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 20,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"family\": \"TOP\",\n \"op_type\": \"compositeTOP\",\n \"page\": \"Composite TOP\",\n \"slug\": \"Composite_TOP\",\n \"url\": \"https://docs.derivative.ca/Composite_TOP\",\n \"summary\": \"[  edit  ]\\nThe Composite  TOP  is a multi-input  TOP  that will perform a composite operation for each input. Select the composite operation using the Operation parameter on the Composite parameter page.\\nNote:  See also the  blendModes component  in the  Palette . Refer also to  OP Snippets .\\nNote:  This  TOP  supports 3D Textures and 2D Texture Arrays.\\ncompositeTOP_Class\\nContents\\n1   Summary\\n2   Parameters - Composite Page\\n3   Parameters - Transform Page\\n4   Parameters - Common Page\\n5   Operator Inputs\\n6   Info CHOP Channels\\n6.1   Common TOP Info Channels\\n6.2   Common Operator Info Channels\",\n \"topology\": {\n  \"inputCount\": -1,\n  \"isMultiInput\": true,\n  \"inputs\": [\n   {\n    \"index\": 0,\n    \"name\": \"input\",\n    \"accepts\": \"TOP\",\n    \"description\": \"Primary input\"\n   },\n   {\n    \"index\": 1,\n    \"name\": \"additional\",\n    \"accepts\": \"TOP\",\n    \"description\": \"Additional inputs supported (multi-input operator)\"\n   }\n  ],\n  \"outputs\": [\n   {\n    \"name\": \"output\",\n    \"type\": \"TOP\"\n   }\n  ],\n  \"connectsTo\": [\n   \"nullTOP\",\n   \"blurTOP\",\n   \"transformTOP\"\n  ],\n  \"warnings\": []\n },\n \"inputs\": \"[\\n {\\n  \\\"index\\\": 0,\\n  \\\"description\\\": \\\"-\\\"\\n }\\n]\",\n \"secciones_disponibles\": [\n  \"pageTitle\",\n  \"pageSlug\",\n  \"tdOpTypeGuess\",\n  \"parameters\",\n  \"attributes\",\n  \"localNotes\",\n  \"useCases\",\n  \"examples\",\n  \"commonCombinations\",\n  \"troubleshooting\",\n  \"topology\"\n ]\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 21,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"count\": 15,\n \"metadata\": {\n  \"counts\": {\n   \"by_familia\": {\n    \"POP\": 7,\n    \"TOP\": 8\n   },\n   \"entries\": 15\n  },\n  \"generated_at\": \"2026-09-17\",\n  \"sources\": [\n   \"glsl_files/ (62 shaders locales verificados, suite 14/14)\",\n   \"docs/glsl_pops_reference.json (evidencia de suite en vivo)\",\n   \"https://thebookofshaders.com/?lan=es (conceptos y matemática, citados por capítulo)\",\n   \"https://tolchx.com/td-edu/ (lecciones y slide decks propios)\"\n  ],\n  \"td_build\": \"TouchDesigner 2025.31760\"\n },\n \"learning_path\": [\n  {\n   \"id\": \"pop-01-wave-displacement\",\n   \"titulo_es\": \"Desplazamiento sinusoidal (POP)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"Mover cada punto con senos dependientes de su posición y el tiempo: el 'hola mundo' del displacement en glslPOP.\",\n   \"prerequisitos\": [\n    \"tdedu-glsl-pop-compute\"\n   ]\n  },\n  {\n   \"id\": \"pop-02-color-hsv\",\n   \"titulo_es\": \"Color por posición: ciclo de matiz (POP)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"Convertir posición en fase de matiz y animarla: colorear geometría sin texturas, con la fórmula HSV->RGB de mat4.\",\n   \"prerequisitos\": [\n    \"pop-01-wave-displacement\"\n   ]\n  },\n  {\n   \"id\": \"pop-03-noise-displacement\",\n   \"titulo_es\": \"Ruido simplex y fBm en geometría (POP)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"El mismo fBm del TOP aplicado a P: nubes volumétricas de puntos. TDSimplexNoise ya está disponible en TD; el loop de octavas es igual.\",\n   \"prerequisitos\": [\n    \"pop-01-wave-displacement\",\n    \"top-03-fbm-layers\"\n   ]\n  },\n  {\n   \"id\": \"pop-04-matrices-motion\",\n   \"titulo_es\": \"Matrices en 3D: espiral y vórtice (POP)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"atan() da el ángulo de cada punto; rotarlo según el radio crea vórtices. Es la sección Matrices del libro aplicada a geometría.\",\n   \"prerequisitos\": [\n    \"pop-01-wave-displacement\"\n   ]\n  },\n  {\n   \"id\": \"pop-05-image-ripple\",\n   \"titulo_es\": \"Movimiento: ondas radiales en puntos (POP)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"Anillos que viajan desde el centro desplazando P: el ripple TOP traducido a geometría, útil para impactos y pulsos.\",\n   \"prerequisitos\": [\n    \"pop-01-wave-displacement\",\n    \"top-05-patterns-matrices\"\n   ]\n  },\n  {\n   \"id\": \"tdedu-glsl-pop-compute\",\n   \"titulo_es\": \"GLSL POP: shaders compute (td-edu)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"Slide deck 'GLSL POP Compute Shaders': kernels GPU y manipulación directa de atributos. Es el puente entre los conceptos TOP (píxel) y POP (punto): mismas matemáticas, distinto target.\",\n   \"prerequisitos\": [\n    \"top-01-shapes-sdf\"\n   ]\n  },\n  {\n   \"id\": \"tdedu-gpu-pop-simulations\",\n   \"titulo_es\": \"Simulaciones GPU con POPs (td-edu)\",\n   \"familia\": \"POP\",\n   \"concepto\": \"Deck 'GPU POP Simulations': fluidos, partículas y dinámica de cuerpos corriendo en POPs. Conectar con el feedback TOP para entender el patrón ping-pong en dos familias.\",\n   \"prerequisitos\": [\n    \"tdedu-glsl-pop-compute\",\n    \"top-06-motion-feedback-trails\"\n   ]\n  },\n  {\n   \"id\": \"top-01-shapes-sdf\",\n   \"titulo_es\": \"Formas básicas con SDF (círculo)\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"Una forma es una distancia: mide cuánto falta para el borde y suaviza con smoothstep. El aspect ratio se corrige multiplicando p.x por la proporción (Regla TOP 7) para que el círculo no sea elipse.\",\n   \"prerequisitos\": []\n  },\n  {\n   \"id\": \"top-02-random-noise\",\n   \"titulo_es\": \"Ruido de valor (random + interpolación)\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"Random por celda + interpolación suave = textura orgánica sin repeticiones visibles. Es el ladrillo de casi todo visual procedural.\",\n   \"prerequisitos\": [\n    \"top-01-shapes-sdf\"\n   ]\n  },\n  {\n   \"id\": \"top-03-fbm-layers\",\n   \"titulo_es\": \"fBm: ruido fractal en capas (domain warp)\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"Sumar octavas de ruido (freq ×2, amp ×0.5) simula la autosimilitud de la naturaleza. Desplazar la entrada con otro ruido (domain warp) rompe la simetría y genera nubes creíbles.\",\n   \"prerequisitos\": [\n    \"top-02-random-noise\"\n   ]\n  },\n  {\n   \"id\": \"top-04-patterns-grid\",\n   \"titulo_es\": \"Patrones: grillas y multiplicidad\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"fract() repite el espacio en celdas; dentro de cada celda dibujás lo que quieras. La base de matrices, mosaicos y toda retícula visual.\",\n   \"prerequisitos\": [\n    \"top-01-shapes-sdf\"\n   ]\n  },\n  {\n   \"id\": \"top-05-patterns-matrices\",\n   \"titulo_es\": \"Matrices: ondas radiales y coordenadas\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"La distancia al centro convertida en fase (sin(d*k - t)) produce anillos que viajan: el patrón más leído desde el Book of Shaders.\",\n   \"prerequisitos\": [\n    \"top-01-shapes-sdf\"\n   ]\n  },\n  {\n   \"id\": \"top-06-motion-feedback-trails\",\n   \"titulo_es\": \"Movimiento: estelas con feedback\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"El frame anterior vuelve a entrar como input: mezclarlo con un decaimiento produce estelas. En TD el loop es glslTOP ↔ feedbackTOP. El contenido evoluciona solo con frames reales (Regla TOP 10: el swap del buffer no se compromete con cook(force=True)).\",\n   \"prerequisitos\": [\n    \"top-01-shapes-sdf\"\n   ]\n  },\n  {\n   \"id\": \"top-07-generative-reaction-diffusion\",\n   \"titulo_es\": \"Generativos: reacción-difusión (aprox. 1 pasada)\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"Dos 'químicos' que se difunden y reaccionan generan texturas de organismo. La aproximación de una pasada advecta el frame previo con un laplaciano: en TD realimenta con feedbackTOP y evoluciona en frames reales (Regla TOP 10).\",\n   \"prerequisitos\": [\n    \"top-03-fbm-layers\",\n    \"top-06-motion-feedback-trails\"\n   ]\n  },\n  {\n   \"id\": \"top-08-image-processing\",\n   \"titulo_es\": \"Procesamiento de imagen: convoluciones (Sobel)\",\n   \"familia\": \"TOP\",\n   \"concepto\": \"Leer el vecindario del píxel con uTD2DInfos[0].res.zw como paso y combinar con pesos produce blur, bordes y glow. El corpus ya tiene la cadena completa verificada.\",\n   \"prerequisitos\": [\n    \"top-01-shapes-sdf\"\n   ]\n  }\n ]\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 22,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"kind\": \"pop_rules\",\n \"query\": \"color\",\n \"keys\": [],\n \"content\": {}\n}"
+    }
+   ],
+   "isError": false
+  }
+ },
+ {
+  "jsonrpc": "2.0",
+  "id": 23,
+  "result": {
+   "content": [
+    {
+     "type": "text",
+     "text": "{\n \"op_type\": \"renderTOP\",\n \"source\": \"ops_doc (offline)\",\n \"ok\": false,\n \"valid\": [\n  \"resolutionw\",\n  \"camera\"\n ],\n \"unknown\": [\n  \"display\"\n ],\n \"suggestions\": {\n  \"display\": {\n   \"property_not_par\": true,\n   \"fix\": \"op.display = True  (propiedad booleana del OP, NO existe en op.par — Contrato C2/C14)\"\n  }\n },\n \"total_measured_params\": 143,\n \"codependency_warnings\": [\n  \"TOP Resolution: al fijar 'resolutionw'/'resolutionh' debés incluir 'outputresolution=\\\"custom\\\"' para que surta efecto.\"\n ]\n}"
     }
    ],
    "isError": false

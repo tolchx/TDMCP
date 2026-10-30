@@ -12,8 +12,8 @@ modifications of this software made for use with TouchDesigner.
 
 | Path | What it is |
 |---|---|
-| `knowledge/` | **td-knowledge** — an offline MCP server (Python stdlib, stdio) with **21 offline tools + 6 live wrappers (27 tools total)**: full-text BM25 search across 1,235 documents, 43 production workflows, 28 advanced tutorials, 17 network template specs, 79 GLSL shaders (Book of Shaders, compute POP, filters, vertex), 10 MB TouchDesigner Python API reference, GLSL Error Solutions catalog, empirical discovery log (including community MCP postmortem audit and performance rules), the measured POP capability matrix, operator/parameter docs, natural-language → operator resolution, network templates and builder recipes, live-verified GLSL rules, static analyzer, and live-verified contracts C1–C17. Needs no TouchDesigner running. |
-| `skills-hermes/` | The portable `td-*` skills (**28** of them), adapted for the Hermes Agent skill format (`Use when …` descriptions + a header that maps the tool names to the host's `mcp_<server>_<tool>` convention). Includes `td-glslpop-create`, `td-glslpop-debug`, `td-glslpop-shaders` ported from the previous MCP, plus verified live patches from the TDMCP gauntlet, plus `td-pop-particle-systems` and `td-pop-neighbors-and-rays` distilled from 2026 POP tutorials (not live-verified: see `docs/pop-tutorials-2026-10-07.md`). Original license retained in `LICENSE-TDMCPSkills.md`. |
+| `knowledge/` | **td-knowledge** — an offline + live MCP server (Python stdlib, stdio) with **22 offline tools + 19 live tools (41 tools total)**: full-text BM25 search across 1,302 documents, 43 production workflows (+ 43 JSON workflow graphs), 28 advanced tutorials (+ the complete `pop_tutorial` suite), 17 network template specs, 35 network/POP templates and chains, 79 GLSL shaders + 15 structured `glsl_curriculum` lessons, 10 MB TouchDesigner Python API reference, GLSL Error Solutions catalog, empirical discovery log across 27 markdown sources, the measured POP capability matrix (97 POPs) with multi-family parameter & co-dependency validator (`validate_pop_pars`), operator/parameter docs enriched with 625-operator topology (`topology.json`) and creation defaults, natural-language → operator resolution with architectural concepts and parameter/attribute aliases, live-verified GLSL rules, static analyzer (POP/TOP/Python), live-verified contracts C1–C17, and 19 high-level live tools (`td_status`, `find_in_ops`, `auto_layout`, `smart_connect`, `tdn_export`, `tdn_diff`, `tdxn_export`, `tdxn_build`, `eval_render_frame`, `get_op_errors_deep`, `td_measure`, `td_glsl_apply`, `td_explore_project`, `td_compare_networks`, `td_spatial_context`, `td_build_pop_render`, `td_instantiate_template`, `td_verify_network`, `td_profile_network`). |
+| `skills-hermes/` | The portable `td-*` skills (**28** of them, synced with `TDMCPSkills 1.4.1` companion references/examples), adapted for the Hermes Agent skill format (`Use when …` descriptions + a header that maps the tool names to the host's `mcp_<server>_<tool>` convention). Includes `td-glslpop-create`, `td-glslpop-debug`, `td-glslpop-shaders` ported from the previous MCP, plus verified live patches from the TDMCP gauntlet, plus `td-pop-particle-systems` and `td-pop-neighbors-and-rays` distilled from 2026 POP tutorials (not live-verified: see `docs/pop-tutorials-2026-10-07.md`). Original license retained in `LICENSE-TDMCPSkills.md`. |
 | `knowledge/contracts/` | **`VERIFIED_CONTRACTS.md`** — the live-verified contracts (cook lag, render cache vs POP data, stopped clock, POP→render, `pointspriteMAT`, POP Python API, TDMCP tool contracts, verification checklist), **tracked** in git (unlike `kb/`, which is derived). Served offline by the `contracts` tool of `td-knowledge`. |
 | `tools/gauntlet/` | Build + verification harness: `gauntlet_client.py` (MCP client with per-phase logs), the F1–F6 regression phases, `build_particle_fx.py` (builds and verifies `/particle_swirl`), `build_pop_curlfield.py` (a **second** POP network — `gridPOP` 3D + hand-written curl-noise GLSL — used to cold-run the POP→render recipe, with an A/B experiment `deleteprims` vs `topointprims` and a findings ledger), `verify_visual.py` / `make_preview.py` (PIL PNG metrics + HTML preview; `make_preview.py <run> swirl|curl`), **`td_chain.py`** — the program *injected* into TouchDesigner by `execute_code` (`settle()` / `px()` / `render_is_ours()`, with `ROOT` pinned by `td_probe.chain_source(root)`); importable code, so it is exercised off-TD with a fake `op`. **`td_probe.py`** is the single place to measure on the *host*: `chain_source(root)`, `set_and_verify()` writes-and-rereads, `stats_of`/`png_stats`/`grid_cells` are the PIL metrics, and `selftest_render_ownership()` proves the render-ownership guard can **fail** (it is what caught the auto-torus). **`check_single_home.py`** fails if a consumer re-defines `settle`/`px`/`render_is_ours` instead of importing them. |
 | `docs/community-test-notes-2026-09-28.md` | Test notes from exercising TDMCP 1.1.55 against a live TouchDesigner project: what was verified (structured errors, undo-per-tool-call, security guards, grid captures, DAT file sync) and the three issues filed upstream. |
@@ -23,36 +23,47 @@ modifications of this software made for use with TouchDesigner.
 | `docs/issues-filed/` | Copy of the three bug reports opened on `TouchDesigner/TDMCP` (#1, #2, #3). |
 | `component/` | The **official TDMCP 1.1.55 build** (`TDMCP.tox` + `TDMCP.json`), committed unmodified with its SHA-256 hashes so the binary travels with the fork instead of living only as a release asset. See `component/README.md`. |
 
-## Stage 3 — the bridge is gone
+## Stage 3 — the bridge is gone (100% legacy integration)
 
-The original MCP used its own transport: a Web Server DAT bridge on `127.0.0.1:44444` plus a Node
-MCP server with 107 tools. That transport is **retired**. The official `.tox` provides the live
-side, and `knowledge/` provides the offline KB **plus 6 live wrappers** that speak MCP to the
-official server: `find_in_ops` (search inside DATs and parameter expressions), `auto_layout`
-(topological layering), `smart_connect` (family-aware input index), `tdn_export` / `tdn_diff`
-(git-friendly network diffs) and `td_status`. `healthcheck.py` replaces the old bridge-based
-watchdog (silent when healthy).
-
-Tool split of the 107: **43 offline** kept, **30 mapped** 1:1 onto the official's 26, **20 needed a
-wrapper** (the 4 above were worth building, the official covers the rest), **14 dropped**
-(bridge undo/history, memory, watch, batch).
+The original MCP (`tolchx/touchdesigner-MCP`) used its own transport: a Web Server DAT bridge on
+`127.0.0.1:44444` plus a Node MCP server with 107 tools. That transport and repository are **retired**.
+The official `.tox` provides the low-level live side (`127.0.0.1:13316/mcp`, 26 tools), and
+`knowledge/` provides the complete offline KB (**22 tools**) **plus 19 high-level live tools** that
+speak MCP to the official server:
+- `td_status` (includes `runningBuild`, `buildMismatch`, `power`, `timelinePlay`, `realTime`, `cookingVerdict`)
+- `find_in_ops`, `auto_layout`, `smart_connect`, `tdn_export`, `tdn_diff`
+- `tdxn_export`, `tdxn_build`, `eval_render_frame`, `get_op_errors_deep`
+- `td_measure` (live CHOP signal range/scale/offset calculator, POP/SOP bounds & attributes, TOP/DAT stats)
+- `td_glsl_apply` (end-to-end GLSL POP/TOP validator + textDAT + operator + auto `Create Attributes` / `vec` uniforms + compiler check)
+- `td_explore_project` (single-call container/project audit with family counts, shaders, issues, and top `cookTime` operators)
+- `td_compare_networks` (live diff between two COMP containers)
+- `td_spatial_context` (active Network Editor pane, current/selected operators, and timeline state)
+- `td_build_pop_render` (atomic POP render pipeline builder: `geometryCOMP` without `torus1` + `convertPOP(topointprims)` + `nullPOP(display/render)` + `cameraCOMP` + `MAT` + `renderTOP` + `nullTOP` + 4-pass settle + frame evaluation)
+- `td_instantiate_template` (materializes any network template or recipe in 1 call with sequence `numBlocks` expansion and auto-layout)
+- `td_verify_network` (single-call physical, temporal, error, and visual Gauntlet verifier with `actionable_fixes`)
+- `td_profile_network` (live CPU/GPU cook-time & memory profiler with frame-budget % and `PERFORMANCE.md` anti-pattern detector)
 
 ## Division of labour
 
-* **Live work** → the official `TDMCP.tox` (26 tools, in-process: create/wire/edit, read parameters,
+* **Live primitives** → the official `TDMCP.tox` (26 tools, in-process: create/wire/edit, read parameters,
   sample TOP/CHOP/POP values, capture the viewer, profile cook times, undo-per-call).
-* **Knowledge, validation and planning** → `knowledge/` (works with TouchDesigner closed, so an
-  agent can read the rules and validate code before the project is even open).
+* **Knowledge, validation, planning & composite live workflows** → `knowledge/` (22 offline tools work with
+  TouchDesigner closed; 19 live tools orchestrate multi-step building, verification, profiling, inspection, layout, measurement, and GLSL compilation over `:13316`).
 
 ## Using it
 
 ```bash
-# 1. build the knowledge assets (needs a local knowledge source; kb/ is not tracked)
-python knowledge/build_assets.py --repo /path/to/knowledge/source
+# 1. build or reindex the knowledge assets (standalone mode works even after deleting the old repo)
+python knowledge/build_assets.py
 
-# 2. sanity-check, then register as a stdio MCP server
+# Optional: export/import a portable zip backup of kb/
+python knowledge/build_assets.py --export-archive td-knowledge-kb.zip
+python knowledge/build_assets.py --import-archive td-knowledge-kb.zip
+
+# 2. sanity-check offline & live, then register as a stdio MCP server
 python knowledge/server.py --selftest
 python knowledge/test_protocol.py
+python knowledge/test_live.py
 ```
 
 `kb/` is deliberately **not** in this repository: it is derived data (a SQLite index plus JSON

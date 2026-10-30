@@ -17,6 +17,7 @@ mensajes JSON-RPC delimitados por salto de línea.
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import re
@@ -25,7 +26,7 @@ import sys
 import traceback
 
 SERVER_NAME = "td-knowledge"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 PROTOCOL = "2025-06-18"
 
 def _default_kb() -> str:
@@ -342,6 +343,22 @@ def _load_op(op_key: str):
     return load_json(os.path.relpath(p, KB_DIR)), None
 
 
+def _topology_info(op_key: str, td_guess: str | None = None) -> dict | None:
+    if not os.path.exists(kb("topology.json")):
+        return None
+    topo = (load_json("topology.json") or {}).get("operators") or {}
+    for cand in (op_key, td_guess or ""):
+        if not cand:
+            continue
+        if cand in topo:
+            return topo[cand]
+        nc = norm(cand)
+        for k, v in topo.items():
+            if norm(k) == nc:
+                return v
+    return None
+
+
 def t_ops_doc(a: dict) -> dict:
     key = str(a.get("op_type") or a.get("slug") or "").strip()
     if not key:
@@ -351,9 +368,18 @@ def t_ops_doc(a: dict) -> dict:
         close = [s for s in all_ops if norm(key) in norm(s)][:10]
         return {"error": f"sin doc para '{key}'", "quizas": close or all_ops[:10]}
     sec = str(a.get("section") or "").strip()
-    base = {"family": doc.get("family"), "page": doc.get("pageTitle"), "slug": doc.get("pageSlug"),
-            "url": doc.get("url"), "summary": clip(doc.get("summary"), 900)}
+    td_guess = doc.get("tdOpTypeGuess")
+    topo = _topology_info(key, td_guess)
+    cdefs = (ts("catalog", "CREATION_DEFAULTS") or {}).get(td_guess or key)
+    base = {"family": doc.get("family"), "op_type": td_guess, "page": doc.get("pageTitle"),
+            "slug": doc.get("pageSlug"), "url": doc.get("url"), "summary": clip(doc.get("summary"), 900)}
+    if topo:
+        base["topology"] = {k: topo.get(k) for k in ("inputCount", "isMultiInput", "inputs", "outputs", "connectsTo", "warnings") if topo.get(k) is not None}
+    if cdefs:
+        base["creation_defaults"] = cdefs
     if sec:
+        if sec.lower() == "topology" and topo:
+            return {**base, "section": "topology", "content": topo}
         real = next((k for k in doc if k.lower() == sec.lower()), None)
         if real is not None:
             return {**base, "section": real, "content": clip(json.dumps(doc[real], ensure_ascii=False, indent=1), 8000)}
@@ -361,7 +387,7 @@ def t_ops_doc(a: dict) -> dict:
     for k in ("inputs", "useCases", "commonCombinations", "troubleshooting", "localNotes", "examples"):
         if doc.get(k):
             base[k] = clip(json.dumps(doc[k], ensure_ascii=False, indent=1), 1500)
-    base["secciones_disponibles"] = [k for k in doc if k not in base]
+    base["secciones_disponibles"] = [k for k in doc if k not in base] + (["topology"] if topo else [])
     return base
 
 
@@ -385,22 +411,47 @@ def t_ops_params(a: dict) -> dict:
 
 def t_pop_knowledge(a: dict) -> dict:
     kind = str(a.get("kind") or "").strip().lower()
-    files = {"patterns": "pops/patterns.json", "wiki_params": "pops/wiki_params.json",
-             "pop_inventory": "pops/pop_inventory.json", "validation": "pops/validation.json",
-             "glsl_library": "pops/glsl_library.json"}
+    files = {
+        "patterns": "pops/patterns.json",
+        "wiki_params": "pops/wiki_params.json",
+        "pop_inventory": "pops/pop_inventory.json",
+        "validation": "pops/validation.json",
+        "glsl_library": "pops/glsl_library.json",
+        "glsl_pops_reference": "pops/glsl_pops_reference.json",
+        "glsl_curriculum": "pops/glsl_curriculum.json",
+        "pop_chains": "templates/pop-chains.json",
+        "pop_networks": "templates/pop_networks.json",
+        "pop_parameters": "reference/pop-parameters.json",
+        "real_world_topology": "real-world-topology.json",
+    }
+    ts_kinds = {
+        "pop_rules": ("pop_validation", "POP_RULES"),
+        "attribute_rules": ("pop_validation", "ATTRIBUTE_RULES"),
+        "bridges": ("pop_validation", "VALID_BRIDGES"),
+        "pop_style": ("catalog", "POP_PARAMETER_STYLE"),
+    }
+    avail = [k for k, v in files.items() if os.path.exists(kb(v))] + list(ts_kinds.keys())
     if not kind:
-        return {"error": "falta 'kind'", "kinds_disponibles": list(files)}
-    if kind not in files or not os.path.exists(kb(files[kind])):
-        return {"error": f"kind inválido '{kind}'", "kinds_disponibles": [k for k, v in files.items() if os.path.exists(kb(v))]}
-    d = load_json(files[kind])
+        return {"error": "falta 'kind'", "kinds_disponibles": avail}
+    if kind in ts_kinds:
+        d = ts(*ts_kinds[kind])
+    elif kind in files and os.path.exists(kb(files[kind])):
+        d = load_json(files[kind])
+    else:
+        return {"error": f"kind inválido '{kind}'", "kinds_disponibles": avail}
     q = str(a.get("query") or "").strip().lower()
-    if q and isinstance(d, dict):
-        hit = {}
-        for k, v in d.items():
-            if q in k.lower() or q in json.dumps(v, ensure_ascii=False).lower():
-                hit[k] = clip(json.dumps(v, ensure_ascii=False, indent=1), 3000)
-        return {"kind": kind, "query": q, "keys": list(hit), "content": hit}
-    return {"kind": kind, "keys": list(d.keys()) if isinstance(d, dict) else f"lista({len(d)})",
+    if q:
+        if isinstance(d, dict):
+            hit = {}
+            for k, v in d.items():
+                if q in k.lower() or q in json.dumps(v, ensure_ascii=False).lower():
+                    hit[k] = clip(json.dumps(v, ensure_ascii=False, indent=1), 3000)
+            return {"kind": kind, "query": q, "keys": list(hit), "content": hit}
+        if isinstance(d, list):
+            hit_list = [it for it in d if q in json.dumps(it, ensure_ascii=False).lower()]
+            return {"kind": kind, "query": q, "count": len(hit_list),
+                    "content": clip(json.dumps(hit_list, ensure_ascii=False, indent=1), 9000)}
+    return {"kind": kind, "keys": list(d.keys()) if isinstance(d, dict) else f"lista({len(d) if isinstance(d, list) else 1})",
             "content": clip(json.dumps(d, ensure_ascii=False, indent=1), 9000)}
 
 
@@ -495,6 +546,24 @@ def t_resolve_operator(a: dict) -> dict:
                 hits.append(w)
         if s:
             scores.append((s, op_type, hits[:6]))
+
+    # Conceptos curados (CONCEPTS: lista de {concept, canonical, aliases, note} o dict)
+    concepts_raw = ts("semantic", "CONCEPTS") or []
+    matched_concepts = []
+    if isinstance(concepts_raw, dict):
+        concept_iter = [{"concept": k, **v} for k, v in concepts_raw.items() if isinstance(v, dict)]
+    else:
+        concept_iter = [c for c in concepts_raw if isinstance(c, dict)]
+    for cinfo in concept_iter:
+        cname = str(cinfo.get("concept") or "")
+        ckws = [cname, *(cinfo.get("aliases") or cinfo.get("keywords") or [])]
+        if any(re.search(rf"(?<![a-z0-9]){re.escape(_deaccent(str(kw).lower()))}(?![a-z0-9])", hay) for kw in ckws if kw):
+            matched_concepts.append(cinfo)
+            existing_ops = {op for _, op, _ in scores}
+            for pop_op in cinfo.get("primaryOperators") or []:
+                if pop_op not in existing_ops:
+                    scores.append((65, pop_op, [f"concept:{cname}"]))
+
     scores.sort(key=lambda x: (-x[0], x[1]))
     cands = [{"type": t, "score": s, "coincidencias": m} for s, t, m in scores[:limit]]
     origen = "sinonimos"
@@ -520,10 +589,49 @@ def t_resolve_operator(a: dict) -> dict:
         m = re.search(r"(TOP|CHOP|SOP|DAT|COMP|POP|MAT)$", str(c["type"]))
         if m and m.group(1) not in fam:
             fam.append(m.group(1))
+
+    # Parameter aliases & Attribute aliases (lista de {requested, canonical, note} o dict)
+    param_aliases = []
+    pa_raw = ts("semantic", "PARAMETER_ALIASES") or []
+    pa_iter = [{"requested": k, **(v if isinstance(v, dict) else {"canonical": v})} for k, v in pa_raw.items()] if isinstance(pa_raw, dict) else [x for x in pa_raw if isinstance(x, dict)]
+    for item in pa_iter:
+        pkl = _deaccent(str(item.get("requested") or "").lower())
+        if pkl and re.search(rf"(?<![a-z0-9]){re.escape(pkl)}(?![a-z0-9])", hay):
+            param_aliases.append(item)
+
+    attr_aliases = []
+    aa_raw = ts("semantic", "ATTRIBUTE_ALIASES") or []
+    aa_iter = [{"requested": k, **(v if isinstance(v, dict) else {"canonical": v})} for k, v in aa_raw.items()] if isinstance(aa_raw, dict) else [x for x in aa_raw if isinstance(x, dict)]
+    for item in aa_iter:
+        akl = _deaccent(str(item.get("requested") or "").lower())
+        if akl and re.search(rf"(?<![a-z0-9]){re.escape(akl)}(?![a-z0-9])", hay):
+            attr_aliases.append(item)
+
+    # Templates sugeridos
+    sug_templates = []
+    all_tpls = (ts("templates", "NETWORK_TEMPLATES") or []) + (ts("pops_validate", "POP_NETWORK_TEMPLATES") or [])
+    seen_tpls = set()
+    for tpl in all_tpls:
+        tname = tpl.get("name")
+        if not tname or tname in seen_tpls:
+            continue
+        ttags = {str(x).lower() for x in (tpl.get("tags") or [])} | set(re.findall(r"[a-z0-9]+", tname.lower()))
+        if words & ttags:
+            seen_tpls.add(tname)
+            sug_templates.append(tname)
+
     out = {"texto": raw, "familia_sugerida": fam[:4], "candidatos": cands, "origen": origen,
            "tipos_indexados": len(syn)}
     if trad:
         out["traduccion"] = trad
+    if matched_concepts:
+        out["conceptos"] = matched_concepts[:4]
+    if param_aliases:
+        out["alias_parametros"] = param_aliases
+    if attr_aliases:
+        out["alias_atributos"] = attr_aliases
+    if sug_templates:
+        out["templates_sugeridos"] = sug_templates[:5]
     return out
 
 
@@ -538,8 +646,27 @@ def _bad_action(action: str):
     return None
 
 
+def _all_network_templates() -> list[dict]:
+    tl = list(ts("templates", "NETWORK_TEMPLATES") or [])
+    seen = {t.get("name") for t in tl if isinstance(t, dict)}
+    for extra in (ts("pops_validate", "POP_NETWORK_TEMPLATES") or []):
+        if isinstance(extra, dict) and extra.get("name") and extra["name"] not in seen:
+            seen.add(extra["name"])
+            tl.append(extra)
+    if os.path.exists(kb("templates", "pop-chains.json")):
+        try:
+            chains = (load_json("templates/pop-chains.json") or {}).get("templates") or []
+            for ch in chains:
+                if isinstance(ch, dict) and ch.get("name") and ch["name"] not in seen:
+                    seen.add(ch["name"])
+                    tl.append(ch)
+        except Exception:
+            pass
+    return tl
+
+
 def t_templates(a: dict) -> dict:
-    tl = ts("templates", "NETWORK_TEMPLATES") or []
+    tl = _all_network_templates()
     action = str(a.get("action") or "list").strip().lower()
     if _bad_action(action):
         return _bad_action(action)
@@ -548,7 +675,7 @@ def t_templates(a: dict) -> dict:
     if action == "list":
         q = str(a.get("query") or "").lower()
         items = [{"name": t["name"], "type": "network_template", "description": clip(t.get("description"), 200), "tags": t.get("tags"),
-                  "complexity": t.get("complexity"), "operadores": len(t.get("operators") or [])} for t in tl
+                  "complexity": t.get("complexity"), "operadores": len(t.get("operators") or t.get("chain") or [])} for t in tl
                  if not q or q in json.dumps(t, ensure_ascii=False).lower()]
         specs = []
         for sf in spec_files:
@@ -704,8 +831,13 @@ def t_contracts(a: dict) -> dict:
             "nota": "Contratos verificados contra TD vivo 2025.32460 + TDMCP 1.1.55."}
 
 
-# --- analyzer: puerto fiel de las reglas verificadas (POP R1-R4, TOP R1-R2, Python R6)
-COMPONENTS = {"cd": 4, "n": 3, "uv": 2, "p": 3, "v": 3, "alpha": 1, "mass": 1, "masa": 1}
+# --- analyzer: puerto fiel de las reglas verificadas (POP R1-R4, F1, F4, multi-input; TOP R1-R2, T4, T10; Python R6, f-string, math)
+COMPONENTS = {
+    "cd": 4, "color": 4, "n": 3, "uv": 2, "tex": 3, "p": 3, "v": 3,
+    "partvel": 3, "partforce": 3, "rot": 3,
+    "alpha": 1, "mass": 1, "masa": 1, "partage": 1, "partlife": 1,
+    "weight": 1, "dist": 1, "pscale": 1, "pointscale": 1,
+}
 BUILTIN_WRITE_OK = {"p"}  # P ya existe si hay TDIn_P; igual conviene no leerla (R1)
 # Menus reales de attr0name en TD 2025.32460: 'custom' lowercase (verificado en vivo
 # 2026-09-28; el valor con mayuscula es rechazado por set_parameters).
@@ -760,6 +892,22 @@ def t_glsl_analyze(a: dict) -> dict:
         for m in re.finditer(r"\.(numPoints|numPrims|bounds|points)\b(?!\s*\()", code):
             errors.append({"regla": "POP R6", "mensaje": f".{m.group(1)} es MÉTODO en la clase POP, no propiedad",
                            "fix": f".{m.group(1)}()", "pos": m.start()})
+        # f-string con backslash dentro de {...} (falla en Python <= 3.11)
+        for m in re.finditer(r'\bf(["\'])(.*?)\1', code):
+            for expr in re.findall(r"\{([^}]*)\}", m.group(2)):
+                if "\\" in expr:
+                    errors.append({"regla": "PY F-STRING",
+                                   "mensaje": "f-string con backslash (\\) dentro de {...} da SyntaxError en Python <= 3.11 (TouchDesigner)",
+                                   "fix": "extraé la expresión con backslash a una variable antes del f-string"})
+                    break
+        # Funciones matemáticas sueltas sin prefijo math. o np.
+        if not re.search(r"from\s+math\s+import", code):
+            for m in re.finditer(r"(?<![.\w])\b(sin|cos|tan|asin|acos|atan|atan2|sqrt|exp|log|log10|floor|ceil|radians|degrees)\s*\(", code):
+                warns.append({"regla": "PY MATH", "mensaje": f"'{m.group(1)}()' sin prefijo math. o np.",
+                              "fix": f"import math; math.{m.group(1)}(...)"})
+        if re.search(r"\.ops\s*\(", code):
+            warns.append({"regla": "PY API", "mensaje": ".ops() no es estándar para buscar hijos en un COMP",
+                          "fix": "usá comp.findChildren() o op('...')"})
         return {"family": "python", "ok": not errors, "errores": errors, "warnings": warns, "notas": notes}
 
     writes, reads = _writes_and_reads(code)
@@ -774,19 +922,30 @@ def t_glsl_analyze(a: dict) -> dict:
         if re.search(r"\b(TDIndex|TDIn_P|TDNumElements)\b", code):
             warns.append({"regla": "TOP R4", "mensaje": "idiomas de GLSL POP en un shader TOP (las reglas NO trasladan)",
                           "fix": "revisar R4 de GLSL_TOP_RULES.md"})
+        if re.search(r"\buniform\d+name\b", raw):
+            errors.append({"regla": "TOP T4", "mensaje": "glslTOP NO tiene parámetros uniform0name..uniform9name",
+                           "fix": "usá vec0name..vec9name + vec0valuex/y/z/w"})
         mo = re.search(r"\bout\s+vec4\s+(\w+)", code)
         if mo and not re.search(rf"\b{mo.group(1)}\s*(?:\.\s*\w+)?\s*=(?!=)", code):
             warns.append({"regla": "TOP R1", "mensaje": f"la salida '{mo.group(1)}' se declara pero nunca se asigna",
                           "fix": f"{mo.group(1)} = TDOutputSwizzle(...);"})
         if re.search(r"\bTDOutputSwizzle\b", code):
             notes.append("TDOutputSwizzle detectado: es el idiom correcto para el canal de salida.")
+        if re.search(r"\bsTD2DInputs\b", code):
+            notes.append("TOP T10: sTD2DInputs lee las texturas conectadas al glslTOP. Si armás un loop con feedbackTOP, necesita timeline corriendo para acumular.")
         return {"family": "top", "ok": not errors, "errores": errors, "warnings": warns, "notas": notes}
 
     # ---- POP
     out_attrs = sorted(writes)
+    if not re.search(r"\bvoid\s+main\s*\(\s*\)", code):
+        errors.append({"regla": "POP F1", "mensaje": "falta void main() en el compute shader POP",
+                       "fix": "void main() { const uint id = TDIndex(); if (id >= TDNumElements()) return; ... }"})
     if "TDIndex" not in code:
         errors.append({"regla": "POP R2", "mensaje": "no usa TDIndex() para iterar los puntos",
                        "fix": "const uint id = TDIndex();"})
+    if re.search(r"\bTDNumElements\s*\(\s*[^)\s]+\s*\)", code):
+        errors.append({"regla": "POP F4", "mensaje": "TDNumElements() NO recibe argumentos; pasarle un índice no compila",
+                       "fix": "usá TDNumElements() sin argumentos, o TDInputNumPoints(k) para consultar el input k"})
     if not re.search(r">=\s*TDNumElements\s*\(\s*\)|TDNumElements\s*\(\s*\)\s*<=|<\s*TDNumElements\s*\(\s*\)", code):
         errors.append({"regla": "POP R2", "mensaje": "falta la guarda de rango",
                        "fix": "if (id >= TDNumElements()) return;"})
@@ -798,6 +957,11 @@ def t_glsl_analyze(a: dict) -> dict:
     if "P" in writes and "TDIn_P" not in code:
         warns.append({"regla": "POP R1", "mensaje": "escribe P sin leer la entrada (TDIn_P): verificá el origen de los valores",
                       "fix": "P[id] = TDIn_P(0, id) * ...;"})
+    extra_inputs = sorted({int(m.group(1)) for m in re.finditer(r"\bTDIn_\w+\s*\(\s*(\d+)\s*,", code) if int(m.group(1)) > 0})
+    if extra_inputs:
+        notes.append({"regla": "POP MULTI-INPUT",
+                      "mensaje": f"el shader lee TDIn_*(k, ...) de inputs secundarios {extra_inputs}; asegurate de cablear esos inputs en el glslPOP",
+                      "inputs_requeridos": [0, *extra_inputs]})
     create = [x for x in out_attrs if x.lower() not in BUILTIN_WRITE_OK]
     if create:
         notes.append({"regla": "POP R3", "mensaje": "los atributos que se escriben y no vienen en la entrada hay que crearlos "
@@ -818,40 +982,246 @@ def t_glsl_analyze(a: dict) -> dict:
             "errores": errors, "warnings": warns, "notas": notes}
 
 
+_OP_PROPS = {
+    "display": "op.display = True  (propiedad booleana del OP, NO existe en op.par — Contrato C2/C14)",
+    "render": "op.render = True  (propiedad booleana del OP, NO existe en op.par — Contrato C2/C14)",
+    "bypass": "op.bypass = True  (propiedad booleana del OP, NO existe en op.par)",
+    "lock": "op.lock = True  (propiedad booleana del OP, NO existe en op.par)",
+    "viewer": "op.viewer = True  (propiedad booleana del OP, NO existe en op.par)",
+    "expose": "op.expose = True  (propiedad booleana del OP, NO existe en op.par)",
+    "allowcooking": "op.allowCooking = True  (propiedad booleana del COMP, NO existe en op.par)",
+    "nodex": "op.nodeX = 200  (coordenada X en el editor de red, propiedad del OP)",
+    "nodey": "op.nodeY = 100  (coordenada Y en el editor de red, propiedad del OP)",
+    "color": "op.color = (r, g, b)  (color del nodo en la red; si buscabas el atributo POP Color usá attr0customname='Color')",
+    "comment": "op.comment = 'texto'  (comentario del nodo, propiedad del OP)",
+}
+
+
+def t_validate_pop_pars(a: dict) -> dict:
+    """Valida nombres de parámetros contra la matriz POP (97 POPs), ops_doc (507 ops) y python_api (todas las familias), detectando propiedades OP y co-dependencias."""
+    op_type = str(a.get("op_type") or a.get("type") or "").strip()
+    if not op_type:
+        return {"error": "falta 'op_type' (ej. 'noisePOP', 'particlePOP', 'renderTOP', 'pointspriteMAT')"}
+    raw_pars = a.get("params") or a.get("parameters") or ""
+    if isinstance(raw_pars, dict):
+        want_pars = [str(k).strip() for k in raw_pars.keys() if str(k).strip()]
+    elif isinstance(raw_pars, list):
+        want_pars = [str(x).strip() for x in raw_pars if str(x).strip()]
+    else:
+        s = str(raw_pars).strip()
+        if s.startswith(("[", "{")):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, dict):
+                    want_pars = [str(k).strip() for k in parsed.keys() if str(k).strip()]
+                elif isinstance(parsed, list):
+                    want_pars = [str(x).strip() for x in parsed if str(x).strip()]
+                else:
+                    want_pars = [p for p in re.split(r"[\s,;]+", s) if p]
+            except Exception:
+                want_pars = [p for p in re.split(r"[\s,;]+", s) if p]
+        else:
+            want_pars = [p for p in re.split(r"[\s,;]+", s) if p]
+
+    pm = load_json("pop_matrix.json")
+    pop_rec = None
+    for r in pm.get("results", []):
+        rt = str(r.get("type", ""))
+        if rt.lower() in (op_type.lower(), op_type.lower() + "pop"):
+            pop_rec = r
+            break
+
+    real_params: dict[str, dict] = {}
+    canonical = op_type
+    source = "pop_matrix (live-verified)"
+    if pop_rec:
+        canonical = pop_rec["type"]
+        for p in pop_rec.get("params") or []:
+            if isinstance(p, dict) and p.get("name"):
+                real_params[p["name"]] = p
+            elif isinstance(p, str):
+                real_params[p] = {"name": p}
+    else:
+        doc, all_ops = _load_op(op_type)
+        if doc is not None:
+            canonical = doc.get("tdOpTypeGuess") or op_type
+            source = "ops_doc (offline)"
+            for p in doc.get("parameters") or []:
+                if isinstance(p, dict) and p.get("name"):
+                    real_params[p["name"]] = p
+        if not real_params and os.path.exists(kb("reference", "python-api-classes.json")):
+            _, flat_py = _get_py_api()
+            py_cls = flat_py.get(op_type.lower())
+            if py_cls:
+                canonical = py_cls.get("name") or canonical
+                source = "python_api (offline)"
+                for p in py_cls.get("parameters") or []:
+                    if isinstance(p, dict) and p.get("name"):
+                        real_params[p["name"]] = p
+        if doc is None and not real_params:
+            tipos = [str(x.get("type", "")) for x in pm.get("results", [])]
+            close = [x for x in tipos if norm(op_type) in norm(x)][:10]
+            return {"error": f"operador '{op_type}' no encontrado en pop_matrix, ops_doc ni python_api", "quizas": close}
+
+    if not want_pars:
+        return {
+            "op_type": canonical,
+            "source": source,
+            "total_params": len(real_params),
+            "param_names": sorted(real_params.keys())[:250],
+            "nota": "Pasá params='seed, amp, period' para validar nombres específicos y co-dependencias contra el operador.",
+        }
+
+    valid, unknown, suggestions, codep_warnings = [], [], {}, []
+    all_names = sorted(real_params.keys())
+    pa_raw = ts("semantic", "PARAMETER_ALIASES") or []
+    aliases = {str(x.get("requested") or "").lower(): x for x in pa_raw if isinstance(x, dict)} if isinstance(pa_raw, list) else pa_raw
+    want_set = {w.lower() for w in want_pars}
+    can_low = canonical.lower()
+
+    for wp in want_pars:
+        wpl = wp.lower()
+        if wpl in _OP_PROPS:
+            unknown.append(wp)
+            suggestions[wp] = {"property_not_par": True, "fix": _OP_PROPS[wpl]}
+            continue
+        if wp in real_params:
+            valid.append(wp)
+            continue
+        # Soportar expansión de componentes numéricos/vectoriales cuando el doc guarda el nombre base
+        base_m = re.match(r"^([a-z0-9_]+?)(?:[xyzwrgb]|[0-3])$", wpl)
+        if base_m and base_m.group(1) in real_params:
+            valid.append(wp)
+            continue
+        tuple_exp = [n for n in all_names if n in (f"{wp}x", f"{wp}y", f"{wp}z", f"{wp}w", f"{wp}r", f"{wp}g", f"{wp}b", f"{wp}0", f"{wp}1", f"{wp}2", f"{wp}3", f"{wp}u", f"{wp}v")]
+        unknown.append(wp)
+        sug: dict = {}
+        if tuple_exp:
+            sug["tuple_components"] = tuple_exp
+            sug["hint"] = f"'{wp}' es el prefijo de un parámetro compuesto; usá {tuple_exp}"
+        if can_low == "rectanglepop" and wpl in ("sizex", "sizey", "sizez", "size"):
+            sug["operator_trap"] = "En rectanglePOP el tamaño es 'sizeu' y 'sizev' (NO sizex/sizey — Contrato C15)"
+        elif can_low == "pointspritemat" and wpl in ("attensizenear", "pscale", "size", "pointscale"):
+            sug["operator_trap"] = "En pointspriteMAT el parámetro real de escala de punto es 'pointsize' (Contrato C2)"
+        elif can_low == "spherepop" and wpl in ("radius", "columns"):
+            sug["operator_trap"] = "En spherePOP los parámetros reales son 'radx/rady/radz' y 'cols/rows' (Contrato C10)"
+        close = difflib.get_close_matches(wpl, all_names, n=5, cutoff=0.45)
+        substr = [n for n in all_names if wpl in n.lower() or n.lower() in wpl][:5]
+        cands = list(dict.fromkeys([*close, *substr]))
+        if cands:
+            sug["closest_in_op"] = cands[:6]
+        if wpl in aliases:
+            sug["semantic_alias"] = aliases[wpl]
+        suggestions[wp] = sug
+
+    # Co-dependency & Contract checks
+    if can_low.endswith("top") and ({"resolutionw", "resolutionh"} & want_set) and "outputresolution" not in want_set:
+        codep_warnings.append("TOP Resolution: al fijar 'resolutionw'/'resolutionh' debés incluir 'outputresolution=\"custom\"' para que surta efecto.")
+    if can_low == "forceradialpop" and ({"globforcex", "globforcey", "globforcez"} & want_set) and "globforcemult" not in want_set:
+        codep_warnings.append("forceradialPOP: 'globforcemult' viene en 0 por defecto; fijá 'globforcemult=1' o 'globforce*' no tendrá efecto.")
+    if can_low == "windpop" and ({"windspeedx", "windspeedy", "windspeedz"} & want_set) and "windspeedmult" not in want_set:
+        codep_warnings.append("windPOP: recordá verificar que 'windspeedmult' sea distinto de 0 al configurar 'windspeed*'.")
+    if can_low == "particlepop" and "timeintegration" not in want_set:
+        codep_warnings.append("particlePOP (Contrato C10): requiere 'timeintegration=1' (ON) y un loop de feedback (particlesupdatepop) para moverse.")
+    if can_low == "triangulatepop" and "triangulatequads" not in want_set:
+        codep_warnings.append("triangulatePOP (Contrato C18): no triangula quads a menos que actives 'triangulatequads=1'.")
+    if can_low == "neighborpop" and "nebroutput" in want_set and "nebrptattrs" not in want_set:
+        codep_warnings.append("neighborPOP (Contrato C17): con 'nebroutput=\"avg\"' debés fijar también 'nebrptattrs=\"P\"' (viene vacío por defecto).")
+    if any(re.match(r"^(attr|vec|comb|mix)[1-9]", w) for w in want_set):
+        codep_warnings.append("Secuencias TD (Contrato C2/C20): antes de setear bloques índice >= 1 (attr1*, vec1*, comb1*), expandí la secuencia con node.par.<seq>.numBlocks = N.")
+
+    out_res = {
+        "op_type": canonical,
+        "source": source,
+        "ok": len(unknown) == 0,
+        "valid": valid,
+        "unknown": unknown,
+        "suggestions": suggestions,
+        "total_measured_params": len(real_params),
+    }
+    if codep_warnings:
+        out_res["codependency_warnings"] = codep_warnings
+    return out_res
+
+
 def t_glsl_curriculum(a: dict) -> dict:
     sh_dir = kb("shaders")
     shaders = sorted(f for f in os.listdir(sh_dir) if f.endswith((".glsl", ".txt"))) if os.path.isdir(sh_dir) else []
+    curr_path = kb("pops", "glsl_curriculum.json")
+    curr_data = load_json("pops/glsl_curriculum.json") if os.path.exists(curr_path) else {}
+    curr_entries = curr_data.get("entries") or []
+
+    # 1. Consulta puntual de una entrada del curriculum por id o nombre
+    entry_q = str(a.get("entry") or a.get("id") or "").strip()
+    if entry_q:
+        eids = [str(e.get("id", "")) for e in curr_entries]
+        best_id, otros_id = pick(eids, entry_q)
+        if best_id is None:
+            titles = [str(e.get("titulo_es", "")) for e in curr_entries]
+            best_t, otros_id = pick(titles, entry_q)
+            if best_t is not None:
+                entry = next(e for e in curr_entries if e.get("titulo_es") == best_t)
+                return {"entry": entry, "otras_coincidencias": otros_id}
+            return {"error": f"entrada '{entry_q}' no encontrada en glsl_curriculum", "ids_disponibles": eids[:25]}
+        entry = next(e for e in curr_entries if e.get("id") == best_id)
+        return {"entry": entry, "otras_coincidencias": otros_id}
+
+    # 2. Ruta de aprendizaje ordenada por prerrequisitos
+    if arg_bool(a.get("learning_path")):
+        path_items = [
+            {"id": e.get("id"), "titulo_es": e.get("titulo_es"), "familia": e.get("familia"),
+             "concepto": e.get("concepto"), "prerequisitos": e.get("prerequisitos")}
+            for e in curr_entries
+        ]
+        return {"count": len(path_items), "metadata": curr_data.get("metadata"), "learning_path": path_items}
+
+    # 3. Shader suelto por archivo
     sh_name = str(a.get("shader") or "").strip()
     if sh_name:
         best, otros = pick(shaders, sh_name)
         if best is None:
             return {"error": f"shader '{sh_name}' no encontrado", "ejemplos": shaders[:12],
-                    "hint": "list_shaders=true para el índice completo"}
+                    "hint": "list_shaders=true para el índice completo, o entry='<id>' para el curriculum"}
         return {"shader": best, "otras_coincidencias": otros, "content": _read_text(os.path.join(sh_dir, best))}
     if arg_bool(a.get("list_shaders")):
-        return {"count": len(shaders), "shaders": shaders}
+        return {"count": len(shaders), "shaders": shaders,
+                "curriculum_count": len(curr_entries),
+                "curriculum_ids": [e.get("id") for e in curr_entries]}
+
     q = str(a.get("query") or "").strip().lower()
     out: dict = {}
-    if q:  # también busca en los shaders sueltos (antes sólo en glsl_library.json)
+    if q:
         hits = []
         for fn in shaders:
             txt = _read_text(os.path.join(sh_dir, fn))
             if q in fn.lower() or q in txt.lower():
                 hits.append(fn)
         out["shaders"] = hits[:20]
+        curr_hits = [
+            {"id": e.get("id"), "titulo_es": e.get("titulo_es"), "familia": e.get("familia"),
+             "concepto": e.get("concepto"), "efectos_visuales": e.get("efectos_visuales")}
+            for e in curr_entries if q in json.dumps(e, ensure_ascii=False).lower()
+        ]
+        out["curriculum_entries"] = curr_hits[:15]
+    else:
+        out["curriculum_summary"] = {
+            "total_entries": len(curr_entries),
+            "sample_ids": [e.get("id") for e in curr_entries[:15]],
+            "hint": "Usá entry='<id>' para ver el shader y parámetros completos, o learning_path=true para el recorrido pedagógico.",
+        }
     p = kb("pops", "glsl_library.json")
     if not os.path.exists(p):
         if q:
             return {"query": q, **out}
-        return {"error": "falta pops/glsl_library.json"}
+        return {"error": "falta pops/glsl_library.json", **out}
     d = load_json("pops/glsl_library.json")
     if isinstance(d, dict):
         if q:
             sel = {k: v for k, v in d.items() if q in json.dumps(v, ensure_ascii=False).lower()}
             return {"query": q, "keys": list(sel)[:12], **out,
                     "content": clip(json.dumps(sel, ensure_ascii=False, indent=1), 8000),
-                    "hint": "shader='<nombre>' devuelve el código completo de un shader"}
-        return {"keys": list(d.keys())[:30], "content": clip(json.dumps(d, ensure_ascii=False, indent=1), 8000)}
+                    "hint": "shader='<nombre>' o entry='<id>' devuelve el código completo"}
+        return {"keys": list(d.keys())[:30], **out, "content": clip(json.dumps(d, ensure_ascii=False, indent=1), 8000)}
     return {"content": clip(json.dumps(d, ensure_ascii=False, indent=1), 8000), **out}
 
 
@@ -908,25 +1278,59 @@ def _md_collection(a: dict, folder: str, label: str, aliases: dict | None = None
         return {"error": "falta 'name' para action=get", "ejemplos": stems[:8]}
     maxc = arg_int(a, "max_chars", 15000, 500, 60000)
     for alias, rel in (aliases or {}).items():
-        if name.lower() == alias and os.path.exists(kb(folder, rel)):
+        if name.lower() == alias.lower() and os.path.exists(kb(folder, rel)):
             return {"name": alias, "file": rel, "content": clip(_read_text(kb(folder, rel)), maxc)}
     best, otros = pick(stems, name)
     if best is None:
+        all_cands = stems + list((aliases or {}).keys())
+        best_al, otros_al = pick(list((aliases or {}).keys()), name)
+        if best_al is not None and os.path.exists(kb(folder, aliases[best_al])):
+            rel = aliases[best_al]
+            return {"name": best_al, "file": rel, "otras_coincidencias": otros_al,
+                    "content": clip(_read_text(kb(folder, rel)), maxc)}
         return {"error": f"{label[:-1]} '{name}' no encontrado",
-                "quizas": [s for s in stems if any(t in s.lower() for t in re.findall(r"\w{3,}", name.lower()))][:8]}
+                "quizas": [s for s in all_cands if any(t in s.lower() for t in re.findall(r"\w{3,}", name.lower()))][:10]}
     return {"name": best, "file": best + ".md", "otras_coincidencias": otros,
             "content": clip(_read_text(os.path.join(d, best + ".md")), maxc)}
 
 
 def t_workflows(a: dict) -> dict:
-    return _md_collection(a, "workflows", "workflows")
+    graphs_dir = kb("workflows", "graphs")
+    graph_files = [f for f in sorted(os.listdir(graphs_dir)) if f.endswith(".json")] if os.path.isdir(graphs_dir) else []
+    graph_stems = [f[:-5] for f in graph_files]
+    action = str(a.get("action") or "list").strip().lower()
+    out = _md_collection(a, "workflows", "workflows")
+    if action == "list" and "error" not in out:
+        q = str(a.get("query") or "").strip().lower()
+        out["graphs"] = [g for g in graph_stems if not q or q in g.lower()]
+        return out
+    if action == "get":
+        name = str(a.get("name") or "").strip()
+        if "error" not in out:
+            if out.get("name") in graph_stems:
+                out["graph_available"] = f"graphs/{out['name']}.json"
+            return out
+        # Si no era un .md o pidió explícitamente el grafo JSON
+        clean_name = re.sub(r"\.json$", "", re.sub(r"^graphs/", "", name))
+        best_g, otros_g = pick(graph_stems, clean_name)
+        if best_g is not None:
+            return {"name": best_g, "type": "workflow_graph", "file": f"graphs/{best_g}.json",
+                    "otras_coincidencias": otros_g, "graph": load_json(f"workflows/graphs/{best_g}.json")}
+    return out
 
 
 def t_tutorials(a: dict) -> dict:
     alias = {k: os.path.join("pop_tutorial", "INDEX.md") for k in ("pop_tutorial", "pop_index", "pop-tutorial")}
+    pt_dir = kb("tutorials", "pop_tutorial")
+    pt_files = sorted(os.listdir(pt_dir)) if os.path.isdir(pt_dir) else []
+    for fn in pt_files:
+        stem = os.path.splitext(fn)[0]
+        alias[stem.lower()] = os.path.join("pop_tutorial", fn)
+        alias[fn.lower()] = os.path.join("pop_tutorial", fn)
     out = _md_collection(a, "tutorials", "tutorials", alias)
     if str(a.get("action") or "list").strip().lower() == "list" and "error" not in out:
         out["pop_tutorial_suite"] = os.path.exists(kb("tutorials", "pop_tutorial", "INDEX.md"))
+        out["pop_tutorial_files"] = [os.path.splitext(f)[0] for f in pt_files]
         out["total"] = out.get("total_available")  # clave histórica
     return out
 
@@ -1028,17 +1432,40 @@ def t_python_api(a: dict) -> dict:
             "nota": "Consultá con class_name='noiseTOP' o search='curl'"}
 
 
-def t_discovery(a: dict) -> dict:
+def _discovery_targets() -> list[tuple[str, str]]:
     targets = [
         ("references/discovery-log.md", "discovery-log"),
         ("references/pop-parameter-mapping.md", "pop-parameter-mapping"),
         ("rules/2026-09-28_TDMCP_oficial_vs_propio.md", "tdmcp-oficial-vs-propio"),
         ("contracts/VERIFIED_CONTRACTS.md", "verified-contracts"),
     ]
+    seen_rel = {r for r, _ in targets}
+    skip = {"GLSL_POP_RULES.md", "GLSL_TOP_RULES.md", "GLSL_ERROR_SOLUTIONS.md"}
+    for sub in ("references", "rules", "docs_internal"):
+        d = kb(sub)
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            if not fn.endswith(".md") or fn in skip:
+                continue
+            rel = f"{sub}/{fn}"
+            if rel not in seen_rel:
+                seen_rel.add(rel)
+                targets.append((rel, os.path.splitext(fn)[0].lower()))
+    return targets
+
+
+def t_discovery(a: dict) -> dict:
+    targets = _discovery_targets()
+    if arg_bool(a.get("list_sources")):
+        return {"count": len(targets), "sources": [{"source": tag, "file": rel} for rel, tag in targets]}
     q = (a.get("query") or a.get("topic") or "").strip().lower()
+    src_filter = str(a.get("source") or "").strip().lower()
     terms = [t for t in re.findall(r"[\w]+", q) if len(t) > 1]
     items = []
     for rel, tag in targets:
+        if src_filter and src_filter not in tag.lower() and src_filter not in rel.lower():
+            continue
         p = kb(rel) if os.path.exists(kb(rel)) else os.path.join(os.path.dirname(os.path.abspath(__file__)), rel)
         if not os.path.exists(p):
             continue
@@ -1053,8 +1480,9 @@ def t_discovery(a: dict) -> dict:
             if not terms or all(t in b_low for t in terms):
                 first_line = b_str.splitlines()[0].strip("# ")
                 items.append({"source": tag, "title": first_line, "content": clip(b_str, 2500)})
-    return {"query": q, "count": len(items), "findings": items[: arg_int(a, "limit", 6, 1, 50)],
-            "nota": "Descubrimientos empíricos, notas de hardware, contratos y quirks de parámetros en TouchDesigner."}
+    return {"query": q, "count": len(items), "sources_scanned": len(targets),
+            "findings": items[: arg_int(a, "limit", 6, 1, 50)],
+            "nota": "Descubrimientos empíricos, cheatsheets, reglas POP, contratos y notas de rendimiento en TouchDesigner."}
 
 
 def t_master_prompts(a: dict) -> dict:
@@ -1083,21 +1511,22 @@ TOOLS = [
     ("kb_search", "Búsqueda full-text (BM25) sobre ~1.2k documentos curados: ops, POPs, patrones, GLSL, workflows, tutoriales. Filtros case-insensitive por familia/trustTier/sourceType (avisa si el valor no existe). NO necesita TouchDesigner.", {"query": "string (requerido)", "family": "POP|TOP|CHOP|SOP|DAT|MAT|GLSL|GENERAL", "trust_tier": "official|live-verified|empirical|community", "source_type": "ops|pops|pop-pattern|pop-live|pop-glsl|workflow|tutorial|glsl-solution|empirical|master-prompt", "limit": "int 1-25 (default 8)"}, t_kb_search),
     ("kb_get", "Devuelve el documento completo (cuerpo paginado) por nombre de operador o slug de página (case-insensitive).", {"name_or_slug": "string (requerido)", "max_chars": "int 400-40000 (default 6000)"}, t_kb_get),
     ("pop_matrix", "Matriz POP medida en vivo (97 tipos): qué se crea, qué cocina, qué acepta input. Sin args = resumen; type='particlePOP' (o 'particle') = registro completo; category='ok_con_input' = miembros.", {"type": "string", "category": "ok_con_input|error_con_input|sin_geometria_con_input|no_creable"}, t_pop_matrix),
-    ("ops_doc", "Doc curado de un operador (cualquier familia): summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples/parameters.", {"op_type": "string (requerido)", "section": "string"}, t_ops_doc),
+    ("ops_doc", "Doc curado de un operador (cualquier familia) enriquecido con topología de cableado (topology.json) y creation_defaults: summary, inputs, useCases, combinaciones, troubleshooting. Secciones: inputs/useCases/commonCombinations/troubleshooting/localNotes/examples/parameters/topology.", {"op_type": "string (requerido)", "section": "string"}, t_ops_doc),
     ("ops_params", "Parámetros documentados de un tipo de operador (offline). Con TD abierto preferí get_help del MCP oficial: lee del build vivo.", {"op_type": "string (requerido)"}, t_ops_params),
-    ("pop_knowledge", "Datos POP no-oficiales: 'patterns' (mapas de red reales), 'wiki_params', 'pop_inventory', 'validation', 'glsl_library'.", {"kind": "patterns|wiki_params|pop_inventory|validation|glsl_library (requerido)", "query": "string"}, t_pop_knowledge),
-    ("resolve_operator", "Traduce lenguaje natural (ES/EN, con o sin tildes) a tipo de operador canónico: 'cámara web' -> videodeviceinTOP, 'ruido' -> noise*. Si no hay sinónimo directo cae a búsqueda en los docs de operadores.", {"text": "string (requerido)", "limit": "int 1-25 (default 6)"}, t_resolve_operator),
-    ("templates", "Plantillas de red (wiring, parámetros y builder Python) + specs arquitectónicas (boids, SPH, field volumes, DMX…): action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string", "max_chars": "int 500-60000"}, t_templates),
+    ("validate_pop_pars", "Valida pre-flight una lista de nombres de parámetros para CUALQUIER familia de operador (POP, TOP, CHOP, SOP, DAT, MAT, COMP) contra pop_matrix (97 POPs), ops_doc y python_api. Detecta parámetros inexistentes, propiedades OP pasadas como par (display, render, bypass, lock), prefijos de tupla (sizex/y/z), bloques de secuencia (numBlocks) y advertencias de co-dependencia (outputresolution='custom', globforcemult, timeintegration, triangulatequads).", {"op_type": "string (requerido, ej. 'noisePOP', 'renderTOP', 'pointspriteMAT')", "params": "string (nombres separados por coma o espacio; vacío = lista todos)"}, t_validate_pop_pars),
+    ("pop_knowledge", "Datos POP y topología empírica: 'patterns', 'wiki_params', 'pop_inventory', 'validation', 'glsl_library', 'glsl_pops_reference', 'glsl_curriculum', 'pop_chains', 'pop_networks', 'pop_parameters', 'real_world_topology', 'pop_rules', 'attribute_rules', 'bridges', 'pop_style'.", {"kind": "patterns|wiki_params|pop_inventory|validation|glsl_library|glsl_pops_reference|glsl_curriculum|pop_chains|pop_networks|pop_parameters|real_world_topology|pop_rules|attribute_rules|bridges|pop_style (requerido)", "query": "string"}, t_pop_knowledge),
+    ("resolve_operator", "Traduce lenguaje natural (ES/EN, con o sin tildes) a tipo de operador canónico + conceptos arquitectónicos, alias de parámetros/atributos y plantillas sugeridas.", {"text": "string (requerido)", "limit": "int 1-25 (default 6)"}, t_resolve_operator),
+    ("templates", "Plantillas de red (NETWORK_TEMPLATES + POP_NETWORK_TEMPLATES + pop-chains) y specs arquitectónicas (boids, SPH, field volumes, DMX…): action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string", "max_chars": "int 500-60000"}, t_templates),
     ("recipes", "Recetas builder verificadas (feedback, partículas POP, GLSL TOP, audio-reactivo, render 3D) + recetas glslTOP (Book of Shaders) con gotchas y código: action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string"}, t_recipes),
-    ("workflows", "Workflows de producción completos (alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer…): action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string", "max_chars": "int 500-60000"}, t_workflows),
-    ("tutorials", "Tutoriales paso a paso de TouchDesigner avanzado (audio-reactivo, boids, god rays, fluid solver, instancing) + suite 'pop_tutorial': action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string", "max_chars": "int 500-60000"}, t_tutorials),
+    ("workflows", "Workflows de producción completos (.md) + grafos JSON (workflows/graphs/*.json: alpha blend, audio viz, feedback trails, fluid solver, gaussian splatting, pathtracer…): action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string", "max_chars": "int 500-60000"}, t_workflows),
+    ("tutorials", "Tutoriales paso a paso de TouchDesigner avanzado + suite completa 'pop_tutorial' (INDEX, TUTORIAL_KNOWLEDGE y lecciones 01..06): action=list|get.", {"action": "list|get", "name": "string (requerido para get)", "query": "string", "max_chars": "int 500-60000"}, t_tutorials),
     ("glsl_solutions", "Catálogo de soluciones y fixes a errores frecuentes del compilador GLSL en TouchDesigner.", {"error_query": "string", "limit": "int 1-50 (default 6)"}, t_glsl_solutions),
     ("python_api", "Referencia offline de la API Python de las clases de operador (TOP/CHOP/SOP/DAT/POP): parámetros, métodos y docstrings sin TD abierto. Nombres ambiguos devuelven candidatos.", {"class_name": "string", "member_or_method": "string", "search": "string", "limit": "int 1-50"}, t_python_api),
-    ("discovery", "Bitácora empírica de TouchDesigner: quirks de parámetros, límites medidos, cook lag y lecciones de hardware.", {"query": "string", "limit": "int 1-50 (default 6)"}, t_discovery),
+    ("discovery", "Bitácora empírica y cheatsheets de TouchDesigner (discovery-log, pop-parameter-mapping, TD_PARAMETER_CHEATSHEET, POPs_KNOWLEDGE, POPs_CORRECTIONS, PERFORMANCE, etc.). list_sources=true lista los documentos.", {"query": "string", "source": "string", "list_sources": "boolean", "limit": "int 1-50 (default 6)"}, t_discovery),
     ("master_prompts", "Directivas maestras para orquestación de sistemas complejos (feedback sim, pathtracing, validación): action=list|get.", {"action": "list|get", "name": "string (requerido para get)"}, t_master_prompts),
     ("glsl_rules", "Reglas GLSL verificadas en vivo, por familia: POP (write-only, TDIndex, Create Attributes, outputaccess…) y TOP. rule='4' o 'R4' = regla exacta.", {"family": "pop|top", "rule": "número ('4', 'R4') o texto del título", "query": "texto en el cuerpo"}, t_glsl_rules),
-    ("glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1/R2/R3/R4 (incluye +=, swizzles y comentarios), TOP R1/R2, Python R6. Devuelve errores con el fix y los parámetros exactos de Create Attributes / outputattrs.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
-    ("glsl_curriculum", "Ejemplos GLSL: corpus POP verificado + shaders sueltos (Book of Shaders, filtros, vertex). query busca en ambos; shader='<nombre>' devuelve el código; list_shaders=true = índice.", {"query": "string", "shader": "string", "list_shaders": "boolean"}, t_glsl_curriculum),
+    ("glsl_analyze", "Análisis ESTÁTICO (sin TD) de un shader o snippet Python contra las reglas verificadas: POP R1-R4/F1/F4/multi-input, TOP R1-R4/T4/T10, Python R6/f-string/math. Devuelve errores con el fix y los parámetros exactos de Create Attributes / outputattrs.", {"code": "string (requerido)", "family": "pop|top|python"}, t_glsl_analyze),
+    ("glsl_curriculum", "Currículum estructurado GLSL POP (glsl_curriculum.json) + librería de ejemplos + shaders sueltos. entry='<id>' devuelve una lección con shader y params; learning_path=true devuelve la progresión por prerrequisitos.", {"query": "string", "entry": "string (id o título del curriculum)", "shader": "string", "list_shaders": "boolean", "learning_path": "boolean"}, t_glsl_curriculum),
     ("contracts", "Contratos verificados EN VIVO contra TD 2025.32460 + TDMCP 1.1.55 (cook lag, render POP, pointspriteMAT, API Python, verificación). list=true = índice; section='C2' (exacta) / 'cook_lag' para filtrar; query= texto libre.", {"query": "string", "section": "string", "list": "boolean", "max_chars": "int 1000-40000"}, t_contracts),
 ]
 OFFLINE_NAMES = [n for n, _d, _s, _f in TOOLS]
@@ -1113,11 +1542,14 @@ TOOL_MAP = {name: (desc, schema, fn) for name, desc, schema, fn in TOOLS}
 
 SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
-    "td-knowledge: capa de conocimiento OFFLINE de TouchDesigner (no necesita TD abierto). "
-    "Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix para saber si un POP "
-    "necesita input, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze. "
-    "Las tools td_status, find_in_ops, auto_layout, smart_connect y tdn_export hablan con el MCP oficial TDMCP "
-    "(127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+    "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (19 tools) para TouchDesigner. "
+    "Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars "
+    "(soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, "
+    "contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. "
+    "Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, "
+    "eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, "
+    "td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network) hablan con "
+    "el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
 )
 
 
@@ -1200,6 +1632,7 @@ SELFTEST_ARGS = {
     "kb_info": {}, "kb_taxonomy": {}, "kb_search": {"query": "noise"},
     "kb_get": {"name_or_slug": "particlePOP", "max_chars": 500}, "pop_matrix": {"type": "particlePOP"},
     "ops_doc": {"op_type": "noiseTOP"}, "ops_params": {"op_type": "noiseTOP"},
+    "validate_pop_pars": {"op_type": "noisePOP", "params": "seed, amp"},
     "pop_knowledge": {"kind": "patterns", "query": "noise"}, "resolve_operator": {"text": "webcam"},
     "templates": {"action": "list"}, "recipes": {"action": "list"}, "workflows": {"action": "list"},
     "tutorials": {"action": "list"}, "glsl_solutions": {"error_query": "undeclared"},

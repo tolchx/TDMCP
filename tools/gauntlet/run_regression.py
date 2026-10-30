@@ -3,15 +3,17 @@
 Uso (correr con TouchDesigner abierto y el .tox activo en 13316):
     python tools/gauntlet/run_regression.py                    # suite completa
     python tools/gauntlet/run_regression.py --skip-ab          # sin F4 (informative)
-    python tools/gauntlet/run_regression.py --quick            # solo F1+F2
+    python tools/gauntlet/run_regression.py --quick            # solo F1+F2 (P1 si se pide)
+    python tools/gauntlet/run_regression.py --persist-layout   # + P1 (guardar y recargar TD)
     python tools/gauntlet/run_regression.py --tag despues      # sufijo del run
     python tools/gauntlet/run_regression.py --baseline tools/gauntlet/results/<run>/regression-report.json
 
 Qué hace:
   1. Pre-chequea que el server MCP esté vivo (si no: exit 2, sin correr nada).
   2. Corre las fases F1..F4 como subprocess con GAUNTLET_RUN_ID compartido
-     (todo cae en results/<run_id>/). F5 (Hermes/KB) queda fuera: verifica el
-     entorno del agente, que no depende de la versión del .tox.
+     (todo cae en results/<run_id>/). Con --persist-layout suma P1 (opt-in):
+     guarda el .toe, lo recarga y compara la huella del layout. F5 (Hermes/KB)
+     queda fuera: verifica el entorno del agente, que no depende del .tox.
   3. Lee el *-summary.json de cada fase y emite veredicto PASS/FAIL
      (F4 es "informativa": sus graders naive fallan BY DESIGN).
   4. Escribe regression-report.json + regression-report.md con el estado del
@@ -127,12 +129,16 @@ def main() -> int:
         pass
     ap = argparse.ArgumentParser(description="Gauntlet TDMCP como regresion de un comando")
     ap.add_argument("--skip-ab", action="store_true", help="salta F4 (A/B naive)")
-    ap.add_argument("--quick", action="store_true", help="solo F1+F2 (smoke + API core)")
+    ap.add_argument("--quick", action="store_true",
+                    help="solo F1+F2 (smoke + API core); P1 si se pide")
     ap.add_argument("--tag", default="", help="sufijo para el run_id")
     ap.add_argument("--pin-version", default=None,
                     help="falla si la version del server no es esta (ej. 1.1.55)")
     ap.add_argument("--baseline", default=None,
                     help="regression-report.json previo: agrega diff de entorno y veredictos")
+    ap.add_argument("--persist-layout", action="store_true",
+                    help="P1 opt-in: guarda el .toe, lo recarga y compara la huella del layout "
+                         "(corta el MCP unos segundos)")
     args = ap.parse_args()
 
     alive, info = server_alive()
@@ -147,9 +153,15 @@ def main() -> int:
     os.makedirs(out_dir, exist_ok=True)
     print(f"Run: {run_id}  ->  results/{run_id}/\n")
 
+    phases = list(PHASES)
+    if args.persist_layout:
+        phases.append(("P1  Persistencia layout", "persist_layout.py",
+                       ["persist-layout"], True))
+
     phases_report, all_ok = {}, True
-    for label, script, summaries, required in PHASES:
-        if args.quick and not script.startswith(("f1_", "f2_")):
+    for label, script, summaries, required in phases:
+        if (args.quick and not script.startswith(("f1_", "f2_"))
+                and script != "persist_layout.py"):
             continue
         if args.skip_ab and script == "f4_ab.py":
             continue
