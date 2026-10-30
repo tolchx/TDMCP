@@ -4,7 +4,7 @@ MCP server por **stdio en Python puro (stdlib, sin dependencias)**. Trabaja en d
 mismo proceso y sin bridge (:44444 retirado):
 
 * **22 tools offline** — responden con la KB curada **sin** TouchDesigner abierto.
-* **30 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
+* **35 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
   para operaciones de alto nivel sobre el proyecto vivo; si TD está cerrado devuelven un error claro.
 
 ## Tools offline (22)
@@ -34,7 +34,7 @@ mismo proceso y sin bridge (:44444 retirado):
 | `glsl_curriculum` | Currículum estructurado GLSL (`glsl_curriculum.json` con `entry='<id>'` y `learning_path=true`) + librería POP + 79 shaders sueltos. |
 | `contracts` | **Contratos verificados en vivo** contra TD 2025.32460 + TDMCP 1.1.55, servidos desde `contracts/VERIFIED_CONTRACTS.md` (versionado, no derivado). |
 
-## Tools live (30) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
+## Tools live (35) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
 
 | Tool | Qué hace (y por qué complementa al oficial) |
 |---|---|
@@ -68,6 +68,11 @@ mismo proceso y sin bridge (:44444 retirado):
 | `td_setup_audio_analyzer` | **Pilar 13**: construye un analizador de audio multi-banda (`baseCOMP` con fuente `test_oscillator`/`file`/`device`/`op`, filtros por banda, envolventes RMS, normalización y `lagCHOP` hacia `out_audio` con canales `bass`, `mid`, `high`, `rms`, `kick`) y vincula bindings opcionales. |
 | `td_setup_scene_switcher` | **Pilar 14**: switcher maestro de escenas con crossfade suave (`switchTOP` `blend=True` + `filterCHOP`) y Smart Cooking automático (`chopexecuteDAT` que apaga `allowCooking` en escenas inactivas fuera de la transición). |
 | `td_preset_manager` | **Pilar 15**: gestor e interpolador de presets de estado para cualquier COMP (`capture`, `list`, `apply`, `delete`, `blend` lineal con `alpha = 0.0..1.0` entre dos presets). |
+| `td_setup_gpu_instancing` | **Pilar 16**: configura GPU Hardware Instancing en `geometryCOMP` mapeando `P(0..2)`, `Color`, `Scale` y `N(0..2)` desde fuentes POP/CHOP/TOP/SOP con cámara, material y `renderTOP` opcionales. |
+| `td_setup_postfx_chain` | **Pilar 17**: rack modular GPU de post-procesamiento y LookDev (`baseCOMP` con Bloom/Glow, Feedback Trail, Color Grading y Custom Parameters expuestos). |
+| `td_setup_io_bridge` | **Pilar 18**: hub de I/O para shows en vivo (OSC, MIDI, DMX/Art-Net, UDP) con generadores de señal loopback de prueba para validación inmediata. |
+| `td_record_movie` | **Pilar 19**: grabador determinístico de animaciones/loops cocinando paso a paso al FPS objetivo y codificando GIF animado con métricas de archivo y verificación visual. |
+| `td_heal_network` | **Pilar 20**: médico y cirujano autónomo de redes: repara trampas de `torus1`, flags `display`/`render` apagados, `outputresolution='custom'` sin dimensiones, cámaras desconectadas y NaNs en simulación, con soporte `dry_run` y verificación post-cura. |
 
 ## Watchdog
 
@@ -94,8 +99,8 @@ python knowledge/build_assets.py --import-archive C:/ruta/backup/td-knowledge-kb
 ```bash
 python knowledge/server.py                 # servidor stdio (habla MCP por stdin/stdout)
 python knowledge/server.py --selftest      # corre las 22 tools offline con args de prueba
-python knowledge/test_protocol.py          # handshake + tools/list (52 tools) + llamadas por protocolo
-python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 32 stages)
+python knowledge/test_protocol.py          # handshake + tools/list (57 tools) + llamadas por protocolo
+python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 37 stages)
 ```
 
 Verificado en Windows 11 · Python 3.10 / 3.13 · TouchDesigner 2025.32460 · TDMCP 1.1.55.

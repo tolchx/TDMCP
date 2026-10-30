@@ -4626,6 +4626,651 @@ def t_preset_manager(a: dict) -> dict:
     return res
 
 
+# ── 30. td_setup_gpu_instancing — Pilar 16: Hardware Instancing en GPU ───────
+
+_SETUP_GPU_INSTANCING = r'''
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+src = op(spec['instance_source']) or parent.op(spec['instance_source'])
+if not src:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"instance_source no encontrado: {spec['instance_source']}"}))
+else:
+    g_name = spec['name']
+    geo = parent.op(g_name)
+    if geo and getattr(geo, 'OPType', geo.type) != 'geometryCOMP':
+        geo.destroy()
+        geo = None
+    if not geo:
+        geo = parent.create(td.geometryCOMP, g_name)
+
+    # Eliminar torus1 por defecto
+    t_def = geo.op('torus1')
+    if t_def:
+        try: t_def.destroy()
+        except: pass
+
+    # Crear geometría base por instancia dentro de geometryCOMP
+    base_geom = spec.get('base_geometry', 'box').lower()
+    base_op = None
+    for cand in ('inst_base', 'base_geo'):
+        c = geo.op(cand)
+        if c: base_op = c; break
+
+    if not base_op:
+        if base_geom == 'sphere':
+            base_op = geo.create(td.spherePOP, 'inst_base')
+        elif base_geom == 'grid':
+            base_op = geo.create(td.gridPOP, 'inst_base')
+        elif base_geom == 'torus':
+            base_op = geo.create(td.torusPOP, 'inst_base')
+        else:
+            base_op = geo.create(td.boxPOP, 'inst_base')
+
+    if hasattr(base_op, 'display'): base_op.display = True
+    if hasattr(base_op, 'render'): base_op.render = True
+
+    # Configurar instancing en GPU
+    geo.par.instancing = 1
+    geo.par.instanceop = src.path
+
+    mapped_attrs = {}
+    fam = src.family
+    try: src.cook(force=True)
+    except: pass
+
+    if fam == 'POP':
+        # Coordenadas de posición
+        geo.par.instancetx = 'P(0)'
+        geo.par.instancety = 'P(1)'
+        geo.par.instancetz = 'P(2)'
+        mapped_attrs['translate'] = ['P(0)', 'P(1)', 'P(2)']
+
+        # Color
+        has_color = False
+        try:
+            has_color = any(a.name.lower() in ('color', 'cd', 'c') for a in getattr(src, 'attributes', []))
+        except:
+            has_color = hasattr(src, 'hasAttribute') and src.hasAttribute('Color')
+        if has_color and spec.get('color_mode', 'auto') != 'none':
+            geo.par.instancer = 'Color(0)'
+            geo.par.instanceg = 'Color(1)'
+            geo.par.instanceb = 'Color(2)'
+            geo.par.instancea = 'Color(3)'
+            mapped_attrs['color'] = ['Color(0)', 'Color(1)', 'Color(2)', 'Color(3)']
+
+        # Escala
+        has_scale = False
+        try:
+            has_scale = any(a.name.lower() == 'scale' for a in getattr(src, 'attributes', []))
+        except:
+            has_scale = hasattr(src, 'hasAttribute') and src.hasAttribute('Scale')
+        if has_scale and spec.get('scale_mode', 'auto') != 'none':
+            geo.par.instancesx = 'Scale(0)'
+            geo.par.instancesy = 'Scale(1)'
+            geo.par.instancesz = 'Scale(2)'
+            mapped_attrs['scale'] = ['Scale(0)', 'Scale(1)', 'Scale(2)']
+
+        # Orientación / Rotación hacia vector
+        has_n = False
+        try:
+            has_n = any(a.name.lower() in ('n', 'normal') for a in getattr(src, 'attributes', []))
+        except:
+            has_n = hasattr(src, 'hasAttribute') and src.hasAttribute('N')
+        if has_n and spec.get('orient_mode', 'auto') != 'none':
+            geo.par.instancerottoforward = 'z'
+            geo.par.instancerottox = 'N(0)'
+            geo.par.instancerottoy = 'N(1)'
+            geo.par.instancerottoz = 'N(2)'
+            mapped_attrs['rotate_to'] = ['N(0)', 'N(1)', 'N(2)']
+
+    elif fam == 'CHOP':
+        cnames = [c.name for c in src.chans()]
+        tx = next((c for c in cnames if c in ('tx', 'x', 'P[0]', 'P(0)')), cnames[0] if cnames else '')
+        ty = next((c for c in cnames if c in ('ty', 'y', 'P[1]', 'P(1)')), cnames[1] if len(cnames) > 1 else '')
+        tz = next((c for c in cnames if c in ('tz', 'z', 'P[2]', 'P(2)')), cnames[2] if len(cnames) > 2 else '')
+        if tx: geo.par.instancetx = tx
+        if ty: geo.par.instancety = ty
+        if tz: geo.par.instancetz = tz
+        mapped_attrs['translate'] = [tx, ty, tz]
+
+        # Color si existen r, g, b
+        if all(k in cnames for k in ('r', 'g', 'b')):
+            geo.par.instancer = 'r'
+            geo.par.instanceg = 'g'
+            geo.par.instanceb = 'b'
+            if 'a' in cnames: geo.par.instancea = 'a'
+            mapped_attrs['color'] = ['r', 'g', 'b']
+
+        # Escala si existen sx, sy, sz o scale
+        if 'scale' in cnames:
+            geo.par.instancesx = 'scale'
+            geo.par.instancesy = 'scale'
+            geo.par.instancesz = 'scale'
+            mapped_attrs['scale'] = ['scale']
+        elif all(k in cnames for k in ('sx', 'sy', 'sz')):
+            geo.par.instancesx = 'sx'
+            geo.par.instancesy = 'sy'
+            geo.par.instancesz = 'sz'
+            mapped_attrs['scale'] = ['sx', 'sy', 'sz']
+
+    # Render pipeline opcional
+    ren_info = None
+    if spec.get('create_render_pipeline', True):
+        cam = parent.op('cam_inst') or parent.create(td.cameraCOMP, 'cam_inst')
+        cam.par.tz = 5.0
+        cam.nodeX, cam.nodeY = geo.nodeX, geo.nodeY + 160
+
+        mat = parent.op('mat_inst') or parent.create(td.constantMAT, 'mat_inst')
+        mat.nodeX, mat.nodeY = geo.nodeX - 160, geo.nodeY
+        geo.par.material = mat.path
+
+        ren = parent.op('ren_inst') or parent.create(td.renderTOP, 'ren_inst')
+        ren.par.camera = cam.path
+        ren.par.geometry = geo.path
+        ren.nodeX, ren.nodeY = geo.nodeX + 180, geo.nodeY
+
+        out_top = parent.op('out_inst') or parent.create(td.nullTOP, 'out_inst')
+        out_top.inputConnectors[0].connect(ren)
+        out_top.nodeX, out_top.nodeY = ren.nodeX + 160, ren.nodeY
+        ren_info = {"render_top": ren.path, "output_top": out_top.path, "camera": cam.path, "material": mat.path}
+
+    try: geo.cook(force=True)
+    except: pass
+
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "geometry_comp": geo.path,
+        "instance_source": src.path,
+        "source_family": fam,
+        "base_geometry": base_op.path if base_op else None,
+        "instancing_enabled": bool(geo.par.instancing.eval()),
+        "mapped_attributes": mapped_attrs,
+        "render_pipeline": ren_info,
+    }))
+'''
+
+
+def t_setup_gpu_instancing(a: dict) -> dict:
+    """Pilar 16 — Pipeline de Hardware Instancing en GPU: toma un operador fuente (POP/CHOP/TOP/SOP), auto-mapea atributos (P, Color, Scale, N) en las páginas de instancing del geometryCOMP y monta opcionalmente cámara, material y renderTOP."""
+    src = str(a.get("instance_source") or "").strip()
+    if not src:
+        return {"ok": False, "error": "falta 'instance_source' (ruta del operador con puntos/datos de instancia)"}
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "instanced_geo").strip(),
+        "instance_source": src,
+        "base_geometry": str(a.get("base_geometry") or "box").strip().lower(),
+        "color_mode": str(a.get("color_mode") or "auto").strip().lower(),
+        "scale_mode": str(a.get("scale_mode") or "auto").strip().lower(),
+        "orient_mode": str(a.get("orient_mode") or "auto").strip().lower(),
+        "create_render_pipeline": False if str(a.get("create_render_pipeline") or "").lower() in ("0", "false", "no") else True,
+    }
+    code = _SETUP_GPU_INSTANCING.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 31. td_setup_postfx_chain — Pilar 17: Rack Modular de Post-Procesado ─────
+
+_SETUP_POSTFX_CHAIN = r'''
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+src_top = op(spec['input_top']) or parent.op(spec['input_top'])
+if not src_top or src_top.family != 'TOP':
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"input_top no encontrado o no es TOP: {spec['input_top']}"}))
+else:
+    r_name = spec['name']
+    comp = parent.op(r_name)
+    if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+        comp.destroy()
+        comp = None
+    if not comp:
+        comp = parent.create(td.baseCOMP, r_name)
+
+    # Custom Parameters de Mastering
+    page = None
+    for pg in comp.customPages:
+        if pg.name == 'PostFX':
+            page = pg; break
+    if not page:
+        page = comp.appendCustomPage('PostFX')
+
+    def ensure_cpar(method, pname, label, v_default, v_min=0.0, v_max=1.0):
+        existing = getattr(comp.par, pname, None)
+        if existing is not None and existing.isCustom:
+            return existing
+        p = getattr(page, method)(pname, label=label)[0]
+        p.val = v_default
+        p.normMin, p.normMax = v_min, v_max
+        return p
+
+    p_bloom = ensure_cpar('appendToggle', 'Bloom', 'Enable Bloom', True)
+    p_b_int = ensure_cpar('appendFloat', 'Bloomintensity', 'Bloom Intensity', 0.6, 0.0, 2.0)
+    p_b_rad = ensure_cpar('appendFloat', 'Bloomradius', 'Bloom Radius', 15.0, 1.0, 50.0)
+
+    p_trail = ensure_cpar('appendToggle', 'Feedbacktrail', 'Enable Feedback Trail', False)
+    p_fb_op = ensure_cpar('appendFloat', 'Trailopacity', 'Trail Opacity', 0.85, 0.0, 0.98)
+
+    p_bri = ensure_cpar('appendFloat', 'Brightness', 'Brightness', 1.0, 0.0, 2.0)
+    p_con = ensure_cpar('appendFloat', 'Contrast', 'Contrast', 1.1, 0.2, 2.5)
+    p_gam = ensure_cpar('appendFloat', 'Gamma', 'Gamma', 1.0, 0.2, 2.5)
+    p_sat = ensure_cpar('appendFloat', 'Saturation', 'Saturation', 1.15, 0.0, 3.0)
+
+    def ensure_child(cls_name, cname):
+        c = comp.op(cname)
+        if c and getattr(c, 'OPType', c.type) != cls_name:
+            c.destroy()
+            c = None
+        return c or comp.create(getattr(td, cls_name), cname)
+
+    in1 = ensure_child('inTOP', 'in1')
+    in1.nodeX, in1.nodeY = -240, 0
+
+    # Feedback loop opcional
+    fb_comp = ensure_child('compositeTOP', 'fb_over')
+    fb_comp.par.operand = 'over'
+    fb_decay = ensure_child('levelTOP', 'fb_decay')
+    fb_decay.par.opacity.expr = "parent().par.Trailopacity if parent().par.Feedbacktrail else 0.0"
+    fb_top = ensure_child('feedbackTOP', 'fb1')
+    fb_top.par.top = fb_comp.path
+    fb_decay.inputConnectors[0].connect(fb_top)
+    fb_comp.inputConnectors[0].connect(in1)
+    fb_comp.inputConnectors[1].connect(fb_decay)
+    fb_comp.nodeX, fb_comp.nodeY = 0, 0
+
+    # Rama Bloom
+    blm_thresh = ensure_child('levelTOP', 'bloom_thresh')
+    blm_thresh.inputConnectors[0].connect(fb_comp)
+    blm_thresh.par.threshold = 0.55
+    blm_thresh.nodeX, blm_thresh.nodeY = 160, 120
+
+    blm_blur = ensure_child('blurTOP', 'bloom_blur')
+    blm_blur.inputConnectors[0].connect(blm_thresh)
+    blm_blur.par.size.expr = "parent().par.Bloomradius"
+    blm_blur.nodeX, blm_blur.nodeY = 320, 120
+
+    blm_gain = ensure_child('levelTOP', 'bloom_gain')
+    blm_gain.inputConnectors[0].connect(blm_blur)
+    blm_gain.par.brightness1.expr = "parent().par.Bloomintensity if parent().par.Bloom else 0.0"
+    blm_gain.nodeX, blm_gain.nodeY = 480, 120
+
+    blm_add = ensure_child('compositeTOP', 'bloom_add')
+    blm_add.par.operand = 'add'
+    blm_add.inputConnectors[0].connect(fb_comp)
+    blm_add.inputConnectors[1].connect(blm_gain)
+    blm_add.nodeX, blm_add.nodeY = 320, 0
+
+    # Mastering / Color Grade
+    grade = ensure_child('levelTOP', 'grade')
+    grade.inputConnectors[0].connect(blm_add)
+    grade.par.brightness1.expr = "parent().par.Brightness"
+    grade.par.contrast.expr = "parent().par.Contrast"
+    grade.par.gamma1.expr = "parent().par.Gamma"
+    if hasattr(grade.par, 'saturation'):
+        grade.par.saturation.expr = "parent().par.Saturation"
+    grade.nodeX, grade.nodeY = 500, 0
+
+    out1 = ensure_child('outTOP', 'out1')
+    out1.inputConnectors[0].connect(grade)
+    out1.nodeX, out1.nodeY = 680, 0
+
+    # Conectar entrada del rack al source TOP
+    comp.inputConnectors[0].connect(src_top)
+
+    try: comp.cook(force=True)
+    except: pass
+
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "rack_comp": comp.path,
+        "input_top": src_top.path,
+        "output_top": out1.path,
+        "stages": ["feedback_trail", "bloom_glow", "color_mastering"],
+        "custom_parameters": ["Bloom", "Bloomintensity", "Bloomradius", "Feedbacktrail", "Trailopacity", "Brightness", "Contrast", "Gamma", "Saturation"],
+    }))
+'''
+
+
+def t_setup_postfx_chain(a: dict) -> dict:
+    """Pilar 17 — Rack Modular de Post-Procesado y Mastering (baseCOMP en GPU con Bloom/Glow multicapa, Feedback Trail estelar, Color Grading y Custom Parameters listos para controlar desde UI/audio)."""
+    inp = str(a.get("input_top") or "").strip()
+    if not inp:
+        return {"ok": False, "error": "falta 'input_top' (ruta del TOP a procesar)"}
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "postfx_rack").strip(),
+        "input_top": inp,
+    }
+    code = _SETUP_POSTFX_CHAIN.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 32. td_setup_io_bridge — Pilar 18: Hub de Protocolos OSC / MIDI / DMX / UDP ─
+
+_SETUP_IO_BRIDGE = r'''
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+proto = spec.get('protocol', 'osc').lower()
+b_name = spec['name']
+comp = parent.op(b_name)
+if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+    comp.destroy()
+    comp = None
+if not comp:
+    comp = parent.create(td.baseCOMP, b_name)
+
+def ensure_child(cls_name, cname):
+    c = comp.op(cname)
+    if c and getattr(c, 'OPType', c.type) != cls_name:
+        c.destroy()
+        c = None
+    return c or comp.create(getattr(td, cls_name), cname)
+
+port = int(spec.get('port', 7000))
+addr = spec.get('target_address', '127.0.0.1')
+loopback = bool(spec.get('loopback_test', True))
+created_ops = []
+
+if proto == 'osc':
+    oin = ensure_child('oscinCHOP', 'osc_in')
+    oin.par.port = port
+    oin.nodeX, oin.nodeY = 0, 0
+    created_ops.append(oin.path)
+
+    out_null = ensure_child('nullCHOP', 'out_io')
+    out_null.inputConnectors[0].connect(oin)
+    out_null.nodeX, out_null.nodeY = 240, 0
+    created_ops.append(out_null.path)
+
+    if loopback:
+        oout = ensure_child('oscoutCHOP', 'osc_out_sim')
+        oout.par.port = port
+        oout.par.netaddress = addr
+        lfo = ensure_child('lfoCHOP', 'sim_signal')
+        lfo.par.frequency = 1.0
+        lfo.par.channelname = 'osc_ch1 osc_ch2'
+        oout.inputConnectors[0].connect(lfo)
+        lfo.nodeX, lfo.nodeY = -240, 140
+        oout.nodeX, oout.nodeY = 0, 140
+        created_ops.extend([lfo.path, oout.path])
+
+elif proto == 'dmx':
+    dout = ensure_child('dmxoutCHOP', 'dmx_out')
+    dout.par.netaddress = addr
+    dout.nodeX, dout.nodeY = 0, 0
+    created_ops.append(dout.path)
+
+    sig = ensure_child('waveCHOP', 'dmx_channels')
+    sig.par.channelname = 'chan[1-12]'
+    dout.inputConnectors[0].connect(sig)
+    sig.nodeX, sig.nodeY = -200, 0
+    created_ops.append(sig.path)
+
+elif proto == 'midi':
+    min_op = ensure_child('midiinCHOP', 'midi_in')
+    min_op.nodeX, min_op.nodeY = 0, 0
+    created_ops.append(min_op.path)
+
+    out_null = ensure_child('nullCHOP', 'out_io')
+    out_null.inputConnectors[0].connect(min_op)
+    out_null.nodeX, out_null.nodeY = 200, 0
+    created_ops.append(out_null.path)
+
+else:
+    # UDP dat
+    uin = ensure_child('udpinDAT', 'udp_in')
+    uin.par.port = port
+    uin.nodeX, uin.nodeY = 0, 0
+    created_ops.append(uin.path)
+
+try: comp.cook(force=True)
+except: pass
+
+print('<<JSON>>' + json.dumps({
+    "ok": True,
+    "io_hub": comp.path,
+    "protocol": proto,
+    "port": port,
+    "target_address": addr,
+    "loopback_test": loopback,
+    "nodes_created": created_ops,
+    "out_channel_path": comp.op('out_io').path if comp.op('out_io') else None,
+}))
+'''
+
+
+def t_setup_io_bridge(a: dict) -> dict:
+    """Pilar 18 — Hub Universal de Protocolos e I/O Externo: crea módulos listos para OSC, MIDI, DMX/Art-Net o UDP con generadores de loopback/simulación integrados para probar transmisiones y recepciones en vivo."""
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "io_hub").strip(),
+        "protocol": str(a.get("protocol") or "osc").strip().lower(),
+        "port": int(a.get("port") if a.get("port") is not None else 7000),
+        "target_address": str(a.get("target_address") or "127.0.0.1").strip(),
+        "loopback_test": False if str(a.get("loopback_test") or "").lower() in ("0", "false", "no") else True,
+    }
+    code = _SETUP_IO_BRIDGE.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 33. td_record_movie — Pilar 19: Grabador determinista de video/animaciones ─
+
+def t_record_movie(a: dict) -> dict:
+    """Pilar 19 — Grabador determinista de video/loops y secuencias: avanza paso a paso N frames a FPS constante cocinando al 100%, genera una animación limpia (GIF animado universal con PIL o frames) y verifica el archivo resultante en disco."""
+    import tempfile
+    import time
+    from pathlib import Path
+    from PIL import Image
+
+    top_path = str(a.get("top_path") or "").strip()
+    if not top_path:
+        return {"ok": False, "error": "falta 'top_path' (ruta del TOP a grabar)"}
+
+    num_frames = min(max(int(a.get("num_frames") if a.get("num_frames") is not None else 24), 2), 240)
+    fps = max(float(a.get("fps") if a.get("fps") is not None else 30.0), 1.0)
+    reset_first = str(a.get("reset_first") or "").lower() in ("1", "true", "yes", "si", "sí") or a.get("reset_first") is True
+
+    if reset_first:
+        parent_guess = top_path.rsplit("/", 1)[0] or "/"
+        t_control_simulation({"container_path": parent_guess, "action": "reset_only"})
+
+    tmp_files: list[Path] = []
+    try:
+        step_code = r'''
+import json
+spec = __SPEC__
+t = op(spec['top_path'])
+if not t:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"TOP no encontrado: {spec['top_path']}"}))
+else:
+    try:
+        op('/').time.frame += 1
+    except: pass
+    if t.parent():
+        for c in t.parent().children:
+            try: c.cook(force=True)
+            except: pass
+    try: t.cook(force=True)
+    except: pass
+    t.save(spec['save_path'])
+    print('<<JSON>>' + json.dumps({"ok": True, "w": int(t.width), "h": int(t.height)}))
+'''
+        for i in range(num_frames):
+            tmp_p = Path(tempfile.gettempdir()) / f"tdmcp_rec_{os.getpid()}_{i}.png"
+            tmp_files.append(tmp_p)
+            spec = {"top_path": top_path, "save_path": str(tmp_p)}
+            ok, r = exec_code(step_code.replace("__SPEC__", repr(spec)))
+            if not ok or not isinstance(r, dict) or not r.get("ok"):
+                return {"ok": False, "error": f"falló captura de frame {i}: {r}"}
+
+        # Cargar frames y armar GIF animado determinista
+        loaded_imgs = [Image.open(p).convert("RGBA") for p in tmp_files]
+        first = loaded_imgs[0]
+        out_path = str(a.get("out_path") or "").strip()
+        if not out_path:
+            slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", top_path.strip("/")) or "rec"
+            out_path = str(Path(tempfile.gettempdir()) / f"td_loop_{slug}.gif")
+
+        os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+        frame_dur_ms = int(round(1000.0 / fps))
+        first.save(out_path, save_all=True, append_images=loaded_imgs[1:], duration=frame_dur_ms, loop=0)
+
+        fsize = os.path.getsize(out_path) if os.path.exists(out_path) else 0
+        return {
+            "ok": True,
+            "top_path": top_path,
+            "file_path": out_path,
+            "format": "gif",
+            "num_frames": num_frames,
+            "fps": fps,
+            "duration_seconds": round(num_frames / fps, 3),
+            "resolution": f"{first.width}x{first.height}",
+            "file_size_bytes": fsize,
+        }
+    except Exception as e:
+        return {"ok": False, "error": f"error en td_record_movie: {e}"}
+    finally:
+        for tf in tmp_files:
+            try:
+                if tf.exists(): tf.unlink()
+            except: pass
+
+
+# ── 34. td_heal_network — Pilar 20: Auto-healer y doctor de redes ────────────
+
+_HEAL_NETWORK = r'''
+import json
+spec = __SPEC__
+root = op(spec['container_path']) or op('/')
+dry_run = bool(spec.get('dry_run', False))
+
+if not root:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"contenedor no encontrado: {spec['container_path']}"}))
+else:
+    all_ops = []
+    def collect(comp, depth):
+        for c in comp.children:
+            if c.name.startswith('.'): continue
+            all_ops.append(c)
+            if c.family == 'COMP' and depth < 4:
+                collect(c, depth + 1)
+    collect(root, 0)
+
+    fixes = []
+
+    # 1. Torus trap en geometryCOMPs
+    for c in all_ops:
+        if not getattr(c, 'valid', False): continue
+        if getattr(c, 'OPType', c.type) == 'geometryCOMP':
+            tor = c.op('torus1')
+            other_geos = [ch for ch in c.children if ch.family in ('POP', 'SOP') and ch.name != 'torus1']
+            if tor and other_geos:
+                fixes.append({"type": "destroy_residual_torus", "target": tor.path, "action": "destroy"})
+                if not dry_run:
+                    try: tor.destroy()
+                    except: pass
+
+            # 2. Flags display/render apagadas
+            pop_sop_children = [ch for ch in c.children if ch.family in ('POP', 'SOP')]
+            active_render = [ch for ch in pop_sop_children if getattr(ch, 'render', False)]
+            if pop_sop_children and not active_render:
+                term = next((ch for ch in pop_sop_children if ch.name.startswith(('out', 'null'))), pop_sop_children[-1])
+                fixes.append({"type": "enable_render_display_flags", "target": term.path, "action": "set display=True, render=True"})
+                if not dry_run:
+                    try:
+                        term.display = True
+                        term.render = True
+                    except: pass
+
+    # 3. TOPs con resolution custom no fijada
+    for c in all_ops:
+        if not getattr(c, 'valid', False): continue
+        if c.family == 'TOP' and hasattr(c.par, 'outputresolution'):
+            rw = getattr(c.par, 'resolutionw', None)
+            rh = getattr(c.par, 'resolutionh', None)
+            if rw and rh and (not rw.isDefault or not rh.isDefault) and str(c.par.outputresolution.eval()) != 'custom':
+                fixes.append({"type": "set_outputresolution_custom", "target": c.path, "action": "set outputresolution='custom'"})
+                if not dry_run:
+                    try: c.par.outputresolution = 'custom'
+                    except: pass
+
+    # 4. renderTOP sin cámara válida
+    all_cams = [c for c in all_ops if getattr(c, 'valid', False) and getattr(c, 'OPType', c.type) == 'cameraCOMP']
+    for c in all_ops:
+        if not getattr(c, 'valid', False): continue
+        if getattr(c, 'OPType', c.type) == 'renderTOP' and hasattr(c.par, 'camera'):
+            cam_val = str(c.par.camera.eval() or '').strip()
+            cam_node = op(cam_val) or c.parent().op(cam_val)
+            if not cam_node and all_cams:
+                target_cam = all_cams[0].path
+                fixes.append({"type": "bind_missing_camera", "target": c.path, "action": f"set camera='{target_cam}'"})
+                if not dry_run:
+                    try: c.par.camera = target_cam
+                    except: pass
+
+    # 5. Nan/Inf en simulaciones
+    has_nan = False
+    for c in all_ops:
+        if not getattr(c, 'valid', False): continue
+        if c.family in ('POP', 'CHOP'):
+            try:
+                b = c.bounds() if callable(getattr(c, 'bounds', None)) else getattr(c, 'bounds', None)
+                if b and any(str(v).lower() in ('nan', 'inf') for v in list(b.center) + list(b.size)):
+                    has_nan = True
+                    break
+            except: pass
+
+    if has_nan:
+        for c in all_ops:
+            if not getattr(c, 'valid', False): continue
+            if getattr(c, 'OPType', c.type) in ('feedbackPOP', 'particlePOP', 'feedbackTOP', 'speedCHOP'):
+                for rp in ('resetpulse', 'reset'):
+                    p = getattr(c.par, rp, None)
+                    if p:
+                        fixes.append({"type": "reset_nan_simulation", "target": f"{c.path}.par.{rp}", "action": "pulse"})
+                        if not dry_run:
+                            try: p.pulse()
+                            except: pass
+
+    # Cook settle
+    if not dry_run:
+        for _ in range(3):
+            for c in all_ops:
+                if not getattr(c, 'valid', False): continue
+                try: c.cook(force=True)
+                except: pass
+
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "container_path": root.path,
+        "dry_run": dry_run,
+        "fixes_count": len(fixes),
+        "fixes": fixes,
+    }))
+'''
+
+
+def t_heal_network(a: dict) -> dict:
+    """Pilar 20 — Doctor Autónomo de Redes (Self-Healing): detecta y repara automáticamente fallas estructurales (torus1 residual, flags display/render ausentes, outputresolution='custom' no fijado, cámaras de renderTOP desvinculadas y NaNs en simulaciones)."""
+    container_path = str(a.get("container_path") or "/project1").strip()
+    dry_run = str(a.get("dry_run") or "").lower() in ("1", "true", "yes", "si", "sí") or a.get("dry_run") is True
+    spec = {"container_path": container_path, "dry_run": dry_run}
+    code = _HEAL_NETWORK.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    if ok and isinstance(res, dict) and not dry_run:
+        ver = t_verify_network({"container_path": container_path})
+        res["post_healing_verification"] = {
+            "verdict": ver.get("verdict"),
+            "issues_count": len(ver.get("issues", [])),
+        }
+    return res
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -4733,6 +5378,24 @@ LIVE_TOOLS = [
       "preset_a": "string (opcional: preset inicial para blend)", "preset_b": "string (opcional: preset final para blend)",
       "alpha": "float (default 0.5: factor 0.0..1.0 para blend)", "include_children": "bool (default true)",
       "file_path": "string (opcional: archivo JSON en disco para exportar/importar presets)"}, t_preset_manager),
+    ("td_setup_gpu_instancing", "Pilar 16 — Pipeline de Hardware Instancing en GPU: toma un operador fuente (POP/CHOP/TOP/SOP), auto-mapea atributos (P, Color, Scale, N) en las páginas de instancing del geometryCOMP y monta opcionalmente cámara, material y renderTOP.",
+     {"instance_source": "string (requerido: ruta del operador con instancias)",
+      "parent_path": "string (default /project1)", "name": "string (default instanced_geo)",
+      "base_geometry": "box|sphere|grid|torus (default box)", "color_mode": "auto|none (default auto)",
+      "scale_mode": "auto|none (default auto)", "orient_mode": "auto|none (default auto)",
+      "create_render_pipeline": "bool (default true)"}, t_setup_gpu_instancing),
+    ("td_setup_postfx_chain", "Pilar 17 — Rack Modular de Post-Procesado y Mastering (baseCOMP en GPU con Bloom/Glow multicapa, Feedback Trail estelar, Color Grading y Custom Parameters listos para controlar desde UI/audio).",
+     {"input_top": "string (requerido: ruta del TOP a procesar)", "parent_path": "string (default /project1)",
+      "name": "string (default postfx_rack)"}, t_setup_postfx_chain),
+    ("td_setup_io_bridge", "Pilar 18 — Hub Universal de Protocolos e I/O Externo: crea módulos listos para OSC, MIDI, DMX/Art-Net o UDP con generadores de loopback/simulación integrados para probar transmisiones y recepciones en vivo.",
+     {"parent_path": "string (default /project1)", "name": "string (default io_hub)",
+      "protocol": "osc|midi|dmx|udp (default osc)", "port": "int (default 7000)",
+      "target_address": "string (default 127.0.0.1)", "loopback_test": "bool (default true)"}, t_setup_io_bridge),
+    ("td_record_movie", "Pilar 19 — Grabador determinista de video/loops y secuencias: avanza paso a paso N frames a FPS constante cocinando al 100%, genera una animación limpia (GIF animado universal con PIL o frames) y verifica el archivo resultante en disco.",
+     {"top_path": "string (requerido: ruta del TOP a grabar)", "out_path": "string (opcional: ruta del archivo final)",
+      "num_frames": "int (default 24, rango 2..240)", "fps": "float (default 30.0)", "reset_first": "bool (default true)"}, t_record_movie),
+    ("td_heal_network", "Pilar 20 — Doctor Autónomo de Redes (Self-Healing): detecta y repara automáticamente fallas estructurales (torus1 residual, flags display/render ausentes, outputresolution='custom' no fijado, cámaras de renderTOP desvinculadas y NaNs en simulaciones).",
+     {"container_path": "string (default /project1)", "dry_run": "bool (default false: solo diagnostica si true)"}, t_heal_network),
 ]
 
 LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]

@@ -307,11 +307,72 @@ pr_blend = live.t_preset_manager({"comp_path": SB, "action": "blend", "preset_a"
 show("preset_manager (blend)", pr_blend, 1200)
 assert pr_blend.get("ok") is True and set(pr_blend.get("presets_available", [])) >= {"calm", "intense"} and pr_blend.get("parameters_affected", 0) >= 1, f"td_preset_manager falló: {pr_blend}"
 
-print("\n### 32. cleanup")
+print("\n### 32. td_setup_gpu_instancing (Pilar 16)")
+inst_res = live.t_setup_gpu_instancing({
+    "parent_path": SB,
+    "name": "my_instances",
+    "instance_source": SB + "/glsl_test",
+    "base_geometry": "box",
+    "create_render_pipeline": True,
+})
+show("setup_gpu_instancing", inst_res, 1200)
+assert inst_res.get("ok") is True and inst_res.get("instancing_enabled") is True, f"td_setup_gpu_instancing falló: {inst_res}"
+
+print("\n### 33. td_setup_postfx_chain (Pilar 17)")
+postfx_res = live.t_setup_postfx_chain({
+    "parent_path": SB,
+    "name": "master_postfx",
+    "input_top": SB + "/p1_scene_out",
+})
+show("setup_postfx_chain", postfx_res, 1200)
+assert postfx_res.get("ok") is True and len(postfx_res.get("custom_parameters", [])) >= 5, f"td_setup_postfx_chain falló: {postfx_res}"
+
+print("\n### 34. td_setup_io_bridge (Pilar 18)")
+io_res = live.t_setup_io_bridge({
+    "parent_path": SB,
+    "name": "osc_bridge",
+    "protocol": "osc",
+    "port": 7120,
+    "loopback_test": True,
+})
+show("setup_io_bridge", io_res, 1200)
+assert io_res.get("ok") is True and io_res.get("out_channel_path"), f"td_setup_io_bridge falló: {io_res}"
+
+print("\n### 35. td_record_movie (Pilar 19)")
+rec_res = live.t_record_movie({
+    "top_path": SB + "/p1_scene_out",
+    "num_frames": 6,
+    "fps": 30.0,
+    "reset_first": False,
+})
+show("record_movie", rec_res, 1200)
+assert rec_res.get("ok") is True and os.path.exists(rec_res.get("file_path", "")), f"td_record_movie falló: {rec_res}"
+
+print("\n### 36. td_heal_network (Pilar 20)")
+# Crear un geometryCOMP con torus1 y desactivar flags para probar que td_heal_network lo repara
+live.exec_code(f'''
+import json
+sb = op({SB!r})
+g = sb.create(geometryCOMP, 'sick_geo')
+p = g.create(spherePOP, 'p_target')
+p.display = False
+p.render = False
+print('<<JSON>>' + json.dumps({{'ok': True}}))
+''')
+heal_dry = live.t_heal_network({"container_path": SB, "dry_run": True})
+show("heal_network (dry_run)", heal_dry, 1000)
+assert heal_dry.get("ok") is True and heal_dry.get("fixes_count", 0) >= 1, f"heal dry_run falló: {heal_dry}"
+
+heal_real = live.t_heal_network({"container_path": SB, "dry_run": False})
+show("heal_network (applied)", heal_real, 1000)
+assert heal_real.get("ok") is True and heal_real.get("fixes_count", 0) >= 1, f"heal real falló: {heal_real}"
+
+print("\n### 37. cleanup")
 for p in (SB, "/hermes_live_b"):
     ok, r = live.call("delete_operator", {"path": p})
     print(p, "->", json.dumps(r, ensure_ascii=False)[:160])
-for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn"), cs_res.get("contact_sheet_path")):
+for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn"), cs_res.get("contact_sheet_path"), rec_res.get("file_path")):
     if f and os.path.exists(f):
         os.remove(f)
 print("temporales borrados")
+print("\nALL 37 LIVE STAGES PASSED OK.")
