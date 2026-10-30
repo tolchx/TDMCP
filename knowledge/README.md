@@ -4,7 +4,7 @@ MCP server por **stdio en Python puro (stdlib, sin dependencias)**. Trabaja en d
 mismo proceso y sin bridge (:44444 retirado):
 
 * **22 tools offline** — responden con la KB curada **sin** TouchDesigner abierto.
-* **25 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
+* **30 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
   para operaciones de alto nivel sobre el proyecto vivo; si TD está cerrado devuelven un error claro.
 
 ## Tools offline (22)
@@ -34,7 +34,7 @@ mismo proceso y sin bridge (:44444 retirado):
 | `glsl_curriculum` | Currículum estructurado GLSL (`glsl_curriculum.json` con `entry='<id>'` y `learning_path=true`) + librería POP + 79 shaders sueltos. |
 | `contracts` | **Contratos verificados en vivo** contra TD 2025.32460 + TDMCP 1.1.55, servidos desde `contracts/VERIFIED_CONTRACTS.md` (versionado, no derivado). |
 
-## Tools live (25) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
+## Tools live (30) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
 
 | Tool | Qué hace (y por qué complementa al oficial) |
 |---|---|
@@ -49,7 +49,7 @@ mismo proceso y sin bridge (:44444 retirado):
 | `eval_render_frame` | Evalúa calidad visual de una imagen o TOP en vivo: detecta frames negros, planos o transparentes emitiendo veredicto `PASS`/`FAIL` y métricas de luminancia y contraste. |
 | `get_op_errors_deep` | Diagnóstico profundo de un COMP y sus hijos (con presupuesto `max_nodes`/`max_sec`): errores de cocinado, advertencias y trazas de compilación GLSL en DATs `_info`. |
 | `td_measure` | Mide en vivo el rango real de canales CHOP (`min`, `max`, `mean`, `range`, si es constante/normalizado y `suggested_scale`/`suggested_offset`), geometría POP/SOP (`numPoints`, `numPrims`, `bounds`, atributos), resolución TOP o contenido DAT. |
-| `td_glsl_apply` | Pipeline GLSL atómico en vivo: valida estáticamente el shader (`glsl_analyze`), crea el `textDAT` + `glslPOP`/`glslcopyPOP`/`glslTOP`, auto-configura `Create Attributes` (`attr` sequence, `custom`, `numcomps`), `outputattrs`, `outputaccess` y `uniforms` (`vec` sequence + `vec0type`), conecta inputs y verifica la compilación leyendo `_info`. |
+| `td_glsl_apply` | Pipeline GLSL atómico en vivo: valida estáticamente el shader (`glsl_analyze`), crea el `textDAT` + `glslPOP`/`glslcopyPOP`/`glslTOP` + `infoDAT`, auto-extrae y configura `uniforms` (incluyendo `=expr`), `Create Attributes` (`attr` sequence, `custom`, `numcomps`), `outputattrs` y `outputaccess`, conecta inputs y verifica la compilación con líneas de error. |
 | `td_explore_project` | Radiografía rápida de un contenedor o proyecto en una sola llamada (con presupuesto `max_nodes`/`max_sec`): conteos por familia y tipo, sub-COMPs, shaders GLSL, `customPars`, errores activos y top operadores por `cookTime`. |
 | `td_compare_networks` | Compara en vivo dos contenedores COMP (`path_a` vs `path_b`): operadores exclusivos de cada lado, diferencias de parámetros no-default y diferencias de cableado. |
 | `td_spatial_context` | Contexto espacial de la UI de TouchDesigner: pane activo, ruta abierta en el editor, operador actual (`currentChild`), selección múltiple y estado del timeline. |
@@ -63,6 +63,11 @@ mismo proceso y sin bridge (:44444 retirado):
 | `td_visual_diff` | **Pilar 8b**: compara dos TOPs o PNGs píxel a píxel (`mean_abs_diff`, `changed_pixels_pct`, `psnr_db` y veredicto `SIGNIFICANT_CHANGE` / `SUBTLE_CHANGE` / `IDENTICAL_NO_OP`). |
 | `td_control_simulation` | **Pilar 9**: resetea atómicamente todos los nodos temporales (`feedbackPOP`, `particlePOP`, `feedbackTOP`, `trailPOP`, `cachePOP`, `speedCHOP`), avanza $N$ pasos de pre-roll y diagnostica `STABLE_DYNAMIC`, `STABLE_STATIC`, `EMPTY`, `EXPLODING` o `NAN_CORRUPTED`. |
 | `td_harvest_pattern` | **Pilar 10**: cosecha un contenedor vivo hacia `knowledge/custom_templates/<name>.json` + `.tdxn`, quedando disponible al instante en `templates` y `td_instantiate_template`. |
+| `td_build_control_panel` | **Pilar 11**: construye un panel UI de control y monitoreo Perform-ready (`containerCOMP` con cabecera, visor `opviewerCOMP` conectado al TOP de salida, dock de `parameterCOMP`s interactivos y `windowCOMP` opcional). |
+| `td_render_contact_sheet` | **Pilar 12**: visión temporal multi-frame; avanza la red $N$ muestras espaciadas por `step_frames`, compone una hoja de contacto PNG ($R \times C$) con barra de progreso temporal y calcula métricas de movimiento (`ANIMATING` / `STATIC` / `BLANK`). |
+| `td_setup_audio_analyzer` | **Pilar 13**: construye un analizador de audio multi-banda (`baseCOMP` con fuente `test_oscillator`/`file`/`device`/`op`, filtros por banda, envolventes RMS, normalización y `lagCHOP` hacia `out_audio` con canales `bass`, `mid`, `high`, `rms`, `kick`) y vincula bindings opcionales. |
+| `td_setup_scene_switcher` | **Pilar 14**: switcher maestro de escenas con crossfade suave (`switchTOP` `blend=True` + `filterCHOP`) y Smart Cooking automático (`chopexecuteDAT` que apaga `allowCooking` en escenas inactivas fuera de la transición). |
+| `td_preset_manager` | **Pilar 15**: gestor e interpolador de presets de estado para cualquier COMP (`capture`, `list`, `apply`, `delete`, `blend` lineal con `alpha = 0.0..1.0` entre dos presets). |
 
 ## Watchdog
 
@@ -89,8 +94,8 @@ python knowledge/build_assets.py --import-archive C:/ruta/backup/td-knowledge-kb
 ```bash
 python knowledge/server.py                 # servidor stdio (habla MCP por stdin/stdout)
 python knowledge/server.py --selftest      # corre las 22 tools offline con args de prueba
-python knowledge/test_protocol.py          # handshake + tools/list (47 tools) + llamadas por protocolo
-python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316)
+python knowledge/test_protocol.py          # handshake + tools/list (52 tools) + llamadas por protocolo
+python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316, 32 stages)
 ```
 
 Verificado en Windows 11 · Python 3.10 / 3.13 · TouchDesigner 2025.32460 · TDMCP 1.1.55.

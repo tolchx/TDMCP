@@ -252,11 +252,66 @@ reinst_res = live.t_instantiate_template({
 show("re-instantiate harvested pattern", reinst_res, 1000)
 assert reinst_res.get("ok") is True and reinst_res.get("created_count", 0) >= 5, f"re-instanciación falló: {reinst_res}"
 
-print("\n### 27. cleanup")
+print("\n### 27. td_build_control_panel (Pilar 11)")
+panel_res = live.t_build_control_panel({
+    "parent_path": SB,
+    "name": "studio_ui",
+    "target_ops": [SB],
+    "preview_top": SB + "/p1_scene_out",
+    "title": "HERMES STUDIO UI",
+    "create_window": True,
+})
+show("build_control_panel", panel_res, 1200)
+assert panel_res.get("ok") is True and len(panel_res.get("parameter_widgets", [])) >= 1 and panel_res.get("window_comp_path"), f"td_build_control_panel falló: {panel_res}"
+
+print("\n### 28. td_render_contact_sheet (Pilar 12)")
+cs_res = live.t_render_contact_sheet({
+    "top_path": SB + "/p1_scene_out",
+    "num_frames": 4,
+    "step_frames": 2,
+    "cols": 2,
+    "tile_width": 160,
+})
+show("render_contact_sheet", cs_res, 1200)
+assert cs_res.get("ok") is True and os.path.exists(cs_res.get("contact_sheet_path", "")), f"td_render_contact_sheet falló: {cs_res}"
+
+print("\n### 29. td_setup_audio_analyzer (Pilar 13)")
+aud_res = live.t_setup_audio_analyzer({
+    "parent_path": SB,
+    "name": "audio_fx",
+    "source_type": "test_oscillator",
+    "bindings": [
+        {"band": "bass", "target_op": SB + "/b", "target_par": "brightness1", "scale": 0.5, "offset": 0.8},
+    ],
+})
+show("setup_audio_analyzer", aud_res, 1200)
+assert aud_res.get("ok") is True and "bass" in aud_res.get("live_channels", {}) and len(aud_res.get("wired_bindings", [])) == 1, f"td_setup_audio_analyzer falló: {aud_res}"
+
+print("\n### 30. td_setup_scene_switcher (Pilar 14)")
+sw_res = live.t_setup_scene_switcher({
+    "parent_path": SB,
+    "name": "master_switcher",
+    "scene_paths": [SB + "/tpl_feedback", SB + "/tpl_reinstantiated"],
+    "active_scene": 0,
+    "transition_seconds": 0.8,
+    "smart_cooking": True,
+})
+show("setup_scene_switcher", sw_res, 1200)
+assert sw_res.get("ok") is True and len(sw_res.get("scenes", [])) == 2 and sw_res["scenes"][0]["allow_cooking"] is True and sw_res["scenes"][1]["allow_cooking"] is False, f"td_setup_scene_switcher falló: {sw_res}"
+
+print("\n### 31. td_preset_manager (Pilar 15)")
+pr_cap_a = live.t_preset_manager({"comp_path": SB, "action": "capture", "preset_name": "calm"})
+live.exec_code(f"import json; op({SB!r}).par.Noiseamp = 1.8; print('<<JSON>>' + json.dumps({{'ok': True}}))")
+pr_cap_b = live.t_preset_manager({"comp_path": SB, "action": "capture", "preset_name": "intense"})
+pr_blend = live.t_preset_manager({"comp_path": SB, "action": "blend", "preset_a": "calm", "preset_b": "intense", "alpha": 0.5})
+show("preset_manager (blend)", pr_blend, 1200)
+assert pr_blend.get("ok") is True and set(pr_blend.get("presets_available", [])) >= {"calm", "intense"} and pr_blend.get("parameters_affected", 0) >= 1, f"td_preset_manager falló: {pr_blend}"
+
+print("\n### 32. cleanup")
 for p in (SB, "/hermes_live_b"):
     ok, r = live.call("delete_operator", {"path": p})
     print(p, "->", json.dumps(r, ensure_ascii=False)[:160])
-for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn")):
+for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn"), cs_res.get("contact_sheet_path")):
     if f and os.path.exists(f):
         os.remove(f)
 print("temporales borrados")

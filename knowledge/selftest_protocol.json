@@ -14,7 +14,7 @@
     "version": "0.2.0",
     "title": "td-knowledge — capa de conocimiento offline de TouchDesigner"
    },
-   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (25 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, td_harvest_pattern) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (30 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, td_harvest_pattern, td_build_control_panel, td_render_contact_sheet, td_setup_audio_analyzer, td_setup_scene_switcher, td_preset_manager) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
   }
  },
  {
@@ -934,7 +934,7 @@
     },
     {
      "name": "td_glsl_apply",
-     "description": "Pipeline GLSL atómico en vivo: valida estáticamente el código (POP/TOP), crea el textDAT + glslPOP/glslcopyPOP/glslTOP, auto-configura Create Attributes / outputattrs / outputaccess / uniforms, conecta inputs y verifica la compilación.",
+     "description": "Pipeline GLSL atómico en vivo: valida estáticamente el código (POP/TOP), crea el textDAT + glslPOP/glslcopyPOP/glslTOP + infoDAT, auto-extrae y configura uniforms (incluyendo '=expr'), Create Attributes / outputattrs / outputaccess, conecta inputs y verifica la compilación con líneas de error.",
      "inputSchema": {
       "type": "object",
       "properties": {
@@ -968,7 +968,7 @@
        },
        "uniforms": {
         "type": "string",
-        "description": "string (opcional: JSON dict de uniforms)"
+        "description": "string (opcional: JSON dict de uniforms, soporta '=expr')"
        },
        "resolution": {
         "type": "string",
@@ -1407,6 +1407,236 @@
       "readOnlyHint": false,
       "openWorldHint": true
      }
+    },
+    {
+     "name": "td_build_control_panel",
+     "description": "Pilar 11 — Construye un panel UI de control y monitoreo Perform-ready (containerCOMP con cabecera, visor opviewerCOMP conectado al TOP de salida y dock de parameterCOMPs interactivos vinculados a los Custom Parameters de cada operador objetivo).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "target_ops": {
+        "type": "string",
+        "description": "string (requerido: ruta o rutas separadas por coma de los COMPs/operadores a controlar)"
+       },
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default control_panel)"
+       },
+       "preview_top": {
+        "type": "string",
+        "description": "string (opcional: ruta del TOP a mostrar en el visor)"
+       },
+       "title": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "include_builtin": {
+        "type": "boolean",
+        "description": "bool (default false)"
+       },
+       "width": {
+        "type": "integer",
+        "description": "int (default 1280)"
+       },
+       "height": {
+        "type": "integer",
+        "description": "int (default 720)"
+       },
+       "create_window": {
+        "type": "boolean",
+        "description": "bool (default false: crea también un windowCOMP)"
+       }
+      },
+      "required": [
+       "target_ops"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_render_contact_sheet",
+     "description": "Pilar 12 — Visión temporal multi-frame: avanza la red/simulación durante N muestras espaciadas por step_frames, captura cada frame del TOP objetivo, compone una hoja de contacto PNG (grilla R x C con barra de progreso temporal) y calcula métricas de movimiento inter-frame (ANIMATING / STATIC / BLANK).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "top_path": {
+        "type": "string",
+        "description": "string (requerido: ruta del TOP a muestrear)"
+       },
+       "out_path": {
+        "type": "string",
+        "description": "string (opcional: ruta del PNG de salida)"
+       },
+       "num_frames": {
+        "type": "integer",
+        "description": "int (default 6, rango 2..16)"
+       },
+       "step_frames": {
+        "type": "integer",
+        "description": "int (default 4)"
+       },
+       "cols": {
+        "type": "integer",
+        "description": "int (default 3)"
+       },
+       "tile_width": {
+        "type": "integer",
+        "description": "int (default 320)"
+       },
+       "reset_first": {
+        "type": "boolean",
+        "description": "bool (default false)"
+       }
+      },
+      "required": [
+       "top_path"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_setup_audio_analyzer",
+     "description": "Pilar 13 — Analizador de audio multi-banda llave en mano: construye un baseCOMP con fuente (test_oscillator/file/device/op), filtros por banda (bass, mid, high), envolventes RMS, normalización y lag hacia un nullCHOP maestro (canales bass, mid, high, rms, kick) y vincula bindings opcionales.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default audio_analyzer)"
+       },
+       "source_type": {
+        "type": "string",
+        "description": "test_oscillator|file|device|op (default test_oscillator)"
+       },
+       "source_path": {
+        "type": "string",
+        "description": "string (opcional: archivo u operador CHOP)"
+       },
+       "gain": {
+        "type": "string",
+        "description": "float (default 1.0)"
+       },
+       "lag_attack": {
+        "type": "string",
+        "description": "float (default 0.04)"
+       },
+       "lag_release": {
+        "type": "string",
+        "description": "float (default 0.18)"
+       },
+       "bindings": {
+        "type": "string",
+        "description": "string (opcional: JSON list de bindings {band, target_op, target_par, scale, offset})"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_setup_scene_switcher",
+     "description": "Pilar 14 — Switcher maestro de escenas con crossfade suave (switchTOP blend=True + filterCHOP) y Smart Cooking automático (chopexecuteDAT que apaga allowCooking en los contenedores de escenas inactivas fuera de la transición).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "scene_paths": {
+        "type": "string",
+        "description": "string (requerido: rutas separadas por coma de 2+ escenas COMP o TOP)"
+       },
+       "parent_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (default scene_switcher)"
+       },
+       "active_scene": {
+        "type": "integer",
+        "description": "int (default 0)"
+       },
+       "transition_seconds": {
+        "type": "string",
+        "description": "float (default 1.0)"
+       },
+       "smart_cooking": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       }
+      },
+      "required": [
+       "scene_paths"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_preset_manager",
+     "description": "Pilar 15 — Gestor e interpolador de presets de estado para cualquier COMP: captura (capture), lista (list), aplica (apply), borra (delete) o interpola linealmente (blend con alpha 0.0..1.0) entre dos presets de Custom Parameters y parámetros de hijos.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "comp_path": {
+        "type": "string",
+        "description": "string (requerido: ruta del COMP)"
+       },
+       "action": {
+        "type": "string",
+        "description": "capture|apply|blend|list|delete (default list)"
+       },
+       "preset_name": {
+        "type": "string",
+        "description": "string (opcional: nombre para capture/apply/delete)"
+       },
+       "preset_a": {
+        "type": "string",
+        "description": "string (opcional: preset inicial para blend)"
+       },
+       "preset_b": {
+        "type": "string",
+        "description": "string (opcional: preset final para blend)"
+       },
+       "alpha": {
+        "type": "string",
+        "description": "float (default 0.5: factor 0.0..1.0 para blend)"
+       },
+       "include_children": {
+        "type": "boolean",
+        "description": "bool (default true)"
+       },
+       "file_path": {
+        "type": "string",
+        "description": "string (opcional: archivo JSON en disco para exportar/importar presets)"
+       }
+      },
+      "required": [
+       "comp_path"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
     }
    ]
   }
@@ -1522,7 +1752,7 @@
    "content": [
     {
      "type": "text",
-     "text": "{\n \"archivo\": \"contracts\\\\VERIFIED_CONTRACTS.md\",\n \"secciones\": [\n  \"C1 — Medición: siempre asentar antes de leer\",\n  \"C10 — Simulación de partículas: el loop de feedback es obligatorio (medido en `/pop_sim_trails`, 2026-09-29 noche)\",\n  \"C11 — GlslPOP para COLOREAR (medido en `/pop_color_trails`, 2026-09-29 noche)\",\n  \"C12 — Instancing: fuente de datos y guardias (medido en `/pop_trails_floor`, 2026-09-30)\",\n  \"C13 — poptoTOP → glslTOP: la nube como textura de datos (2026-09-30, `/pop_sim_trails`)\",\n  \"C14 — Campo de estelas sin glsl (medido en `/pop_field_trails`, 2026-09-30, 16/16)\",\n  \"C15 — Cuatro POPs de estructura, medidos en vivo (2026-09-30, batería reg-20260930-094856, 14/14)\",\n  \"C16 — Seis POPs de topología y patrones, medidos en vivo (2026-09-30, batería reg-20260930-131003, 20/20)\",\n  \"C17 — Seis POPs de población y superficies, medidos en vivo (2026-10-02, batería reg-20261002-022418, 26/26)\",\n  \"C18 — Arquitectura POP oficial extraída de OP Snippets (2026-10-05)\",\n  \"C19 — rayPOP y copyPOP medidos en vivo (2026-10-29, batería reg-20261029-2040, 34/34)\",\n  \"C2 — POPs y render\",\n  \"C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2135, 35/35)\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"C8 — Trails, cámara y renderTOP (medido en `/pop_streams`, 2026-09-29)\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\"\n ],\n \"contratos\": [\n  \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n  \"`render_cache_vs_data` — el render no siempre re-sube geometría POP\",\n  \"`clock_stopped` — el reloj maestro puede estar parado\",\n  \"`png_use_pil` — verificá imágenes con PIL, no con un decoder casero\",\n  \"`points_need_pointprims` — lo que dibuja son las PRIMITIVAS, no los puntos\",\n  \"`autotorus_masks_render` — el auto-torus hace pasar por bueno un render roto\",\n  \"`render_flag_on_terminal` — las flags van en el nodo terminal del chain\",\n  \"`pop_render_network` — receta mínima que dibuja (verificada)\",\n  \"`pointsprite_pars` — el look de partículas\",\n  \"`python_pop_api` — POPs vs SOPs en Python\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"`trail_moves_points` — trailPOP acumula desplazamiento: el enjambre SALE del anillo\",\n  \"`cam_follows_data` — la cámara se centra en el centroide de P medido, no en el origen\",\n  \"`renderTOP_geometry_is_a_list` — crear OTRO geometryCOMP lo AGREGA a `ren.par.geometry`\",\n  \"`noisesize_writeonly` — `noisePOP.noisesize` no cambia aunque lo escribas [V*]\",\n  \"`POP_wiring_inputs_declarados` — wiring falla si el destino declara 0 inputs [V]\",\n  \"`trailPOP_pars` — la receta oficial inventa pars del trailPOP; `length` es TIEMPO [V]\",\n  \"`poptoTOP_no_renderiza` — poptoTOP es conversión de DATOS, no un renderizador [V]\",\n  \"`instancing_pop_crosscomp` — la fuente POP directa NO cruza COMPs [V]\",\n  \"`instancecolormode_menu` — el menú real no es 'op' (doc) [V]\",\n  \"Guardias para escenas MULTI-geometry [V]\",\n  \"Addendum (2026-09-30): orientar instancias según PartVel (flechas) [V]\",\n  \"`pixeldat_no_computedat` — el pixel shader del glslTOP va en `pixeldat` [V]\",\n  \"`glsltop_pixel_main` — el pixel shader exige `out fragColor` + `TDOutputSwizzle` [V]\",\n  \"`poptotop_textura_cruda` — la textura trae valores CRUDOS; el rango va por uniform [V]\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\",\n  \"`particle_feedback_loop` — sin `targetpop` cerrado, la integración se descarta\",\n  \"`particle_initialize_enferma` — `initializepulse` + `preroll` hinchan el buffer del loop\",\n  \"`popto_chop_part_channels` — los canales `Part*` engañan a un filtro por prefijo\",\n  \"`sphere_pop_radz` — la esfera se achica por `radz` (execute_code); `cols`/`rows` no aplican\",\n  \"(abierto) `steppulse` no integra el estado\",\n  \"`glsl_compute_canonical_main` — el main se escribe COMPLETO: `id` y guardia incluidos\",\n  \"`glsl_input_attrs_por_helper` — los atributos de ENTRADA no son buffers: se leen con `TDIn_*`\",\n  \"`color_es_atributo` — el color de render es `Color` float4 y se CREA con attr0name='color'\",\n  \"Gradables del color [V] (canales `Color_0/1/2` del poptoCHOP, lista EXACTA)\",\n  \"`attributePOP_no_mapea` — attributePOP crea constantes; NO copia atributo→atributo [V]\",\n  \"`rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V] (CERRADO, proyecto 8)\",\n  \"`noise_gradient_attr` — el noisePOP expone el campo vectorial por punto [V]\",\n  \"`td_slow_operation` — TD rechaza llamadas mientras se recupera [V]\",\n  \"`poptochop_sprinkle_soltero` — sprinklePOP sin input alimenta a poptoCHOP [V]\",\n  \"`poptochop_doble_cook` — la primera lectura tras cambiar de POP puede venir rancia [V]\",\n  \"`grouppop_debugcolor` — debugcolor convierte la membresía de grupo en dato medible [V]\",\n  \"`transformpop_group_sin_poblacion_no_filtra` — grupo vacío o inexistente mueve TODO [V]\",\n  \"`transformpop_mapeo_exacto` — T/R/S es una matriz, punto a punto, con pivot real [V]\",\n  \"`quantizepop_inplace` — scope de salida vacío NO es no-op: cuantiza el mismo atributo [V]\",\n  \"`limitpop_loop_ventana` — 'loop' NO envuelve en [min,max]: shift por una ventana [V]\",\n  \"`neighborpop_arrays_y_avg` — la vecindad por distancia y el promedio opt-in [V]\",\n  \"`connectivitypop_tabla_prims` — reconecta sin tocar puntos; el cerrojo sólo entra por firstdim [V]\",\n  \"`pop_help_no_existe` — casing sensible en tipos POP: `mathmixPOP` y `lookupattributePOP` [V]\",\n  \"`facetpop_unique_prims_intactas` — unique des-duplica puntos y NUNCA toca primitivas [V]\",\n  \"`subdividepop_escalado_exacto` — iterations es scaling de topología determinístico [V]\",\n  \"`triangulatepop_toggle_necesario` — sin `triangulatequads=on` NO triangula nada [V]\",\n  \"`extrudepop_jaula_siempre` — la jaula existe incluso con distance=0 [V]\",\n  \"`patternpop_genera_por_indice` — ramp/sin exactos; el random no depende de numpoints [V]\",\n  \"`randompop_set_scope_noop` — el 'set' de randomPOP contradice el default in-place de la familia [V]\",\n  \"`camara_lookat_canonica` — apuntar la cámara con rx/ry a mano NO apunta; el mecanismo canónico es lookat + traslación [V]\",\n  \"`grouppop_poblacion_inmutable` — thin etiqueta, no elimina; el multiset de puntos es invariable [V]\",\n  \"`grouppop_bound_sin_efecto_api` — CERRADO (2026-10-05): bound excluye con `bound0enabled=ON` [V]\",\n  \"`proximity_conteos_exactos` — el grafo es distancia pura y los conteos son reproducibles [V]\",\n  \"`revolve_topologia_exacta` — el barrido conserva el radio del perfil: 2·divs pts / divs quads [V]\",\n  \"`tubepop_cono_y_caps` — radx/rady son los radios de los EXTREMOS (cono) y endcaps suma cols-2 [V]\",\n  \"`topologypop_specpop` — la topología de B se aplica sobre los puntos de A (ref vivo, copy no congela) [V]\",\n  \"`lookuptexturepop_override_y_texels` — sin override el attr no aparece; el muestreo es exacto por texel con interpolate off [V]\",\n  \"`pop_data_model_hierarchy` — Clases de atributos y metadata de dimensión [V]\",\n  \"`mathmix_mathcombine_uniforms` — Mezclado matemático y uniformes sin overhead [V]\",\n  \"`particle_trail_lifecyle` — Identidad persistente en sistemas de partículas [V]\",\n  \"`field_pop_parameter_override` — Inyección paramétrica de campos por punto [V]\",\n  \"`ray_pop_intersection_attrs` — Detección de colisiones y atributos de rayo [V]\",\n  \"`normalpop_tangents_vertex_class` — Tangentes se generan en la clase Vertex como 'T' [V]\",\n  \"`attributeconvert_interclass_migration` — Migración exacta entre clases de atributos [V]\",\n  \"`td_python_fstring_backslash` — el intérprete de TD (Py <= 3.11) no admite backslash dentro de una expresion f-string [V]\",\n  \"`jev_juzga_alcance_del_commit` — el juez LLM hereda el alcance del `git status` del repo [V]\",\n  \"`triage_ve_la_evidencia_vigente` — la evidencia del gauntlet vive en `results/<run_id>/` y usa `ok`, no `all_ok` [V]\",\n  \"`triage_corrida_en_vivo_suite_completa` — la señal EN VIVO del triage corría `--quick`, así que un rojo de F3+ era invisible [V]\",\n  \"`raypop_reescribe_P_y_N` — el rayo mueve P al impacto y pisa N, con o sin toggles [V]\",\n  \"`raypop_sentinelas_de_miss` — los miss usan centinelas, no valores \\\"razonables\\\" [V]\",\n  \"`raypop_limit_lift_negate` — límites y signos que no son los obvios [V]\",\n  \"`raypop_hw_y_bounces` — HW tracing sólo da el primer hit; los rebotes exigen N [V]\",\n  \"`copypop_formula_y_plantilla` — copias = fuente x template x ncy [V]\",\n  \"`rate_limiter_cascada` — un cooldown del MCP contamina el build siguiente [V]\",\n  \"`mathcombine_raypop_gating` — `gt` produce el 0/1 y `mix` lo usa como selector [V]\",\n  \"`mathcombine_encadenado_y_atributos` — bloques encadenados y auto-atributos [V]\",\n  \"`mathcombine_segunda_entrada_sin_prefijo` — `in1_<attr>` no es el nombre [V]\",\n  \"`mathcombine_layout_sin_solapamiento` — la red de prueba no deja nodos encimados [V]\",\n  \"`mathcombine_limites` — qué NO se midió [V]\"\n ],\n \"total\": 89\n}"
+     "text": "{\n \"archivo\": \"contracts\\\\VERIFIED_CONTRACTS.md\",\n \"secciones\": [\n  \"C1 — Medición: siempre asentar antes de leer\",\n  \"C10 — Simulación de partículas: el loop de feedback es obligatorio (medido en `/pop_sim_trails`, 2026-09-29 noche)\",\n  \"C11 — GlslPOP para COLOREAR (medido en `/pop_color_trails`, 2026-09-29 noche)\",\n  \"C12 — Instancing: fuente de datos y guardias (medido en `/pop_trails_floor`, 2026-09-30)\",\n  \"C13 — poptoTOP → glslTOP: la nube como textura de datos (2026-09-30, `/pop_sim_trails`)\",\n  \"C14 — Campo de estelas sin glsl (medido en `/pop_field_trails`, 2026-09-30, 16/16)\",\n  \"C15 — Cuatro POPs de estructura, medidos en vivo (2026-09-30, batería reg-20260930-094856, 14/14)\",\n  \"C16 — Seis POPs de topología y patrones, medidos en vivo (2026-09-30, batería reg-20260930-131003, 20/20)\",\n  \"C17 — Seis POPs de población y superficies, medidos en vivo (2026-10-02, batería reg-20261002-022418, 26/26)\",\n  \"C18 — Arquitectura POP oficial extraída de OP Snippets (2026-10-05)\",\n  \"C19 — rayPOP y copyPOP medidos en vivo (2026-10-29, batería reg-20261029-2040, 34/34)\",\n  \"C2 — POPs y render\",\n  \"C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2135, 35/35)\",\n  \"C21 — forceradialPOP medido en vivo (2026-10-30, batería reg-20261030-003135, 35/36 + flaky ajeno)\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"C8 — Trails, cámara y renderTOP (medido en `/pop_streams`, 2026-09-29)\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\"\n ],\n \"contratos\": [\n  \"`cook_lag` — los cambios de DAT/uniforms se aplican con un cook de retraso\",\n  \"`render_cache_vs_data` — el render no siempre re-sube geometría POP\",\n  \"`clock_stopped` — el reloj maestro puede estar parado\",\n  \"`png_use_pil` — verificá imágenes con PIL, no con un decoder casero\",\n  \"`points_need_pointprims` — lo que dibuja son las PRIMITIVAS, no los puntos\",\n  \"`autotorus_masks_render` — el auto-torus hace pasar por bueno un render roto\",\n  \"`render_flag_on_terminal` — las flags van en el nodo terminal del chain\",\n  \"`pop_render_network` — receta mínima que dibuja (verificada)\",\n  \"`pointsprite_pars` — el look de partículas\",\n  \"`python_pop_api` — POPs vs SOPs en Python\",\n  \"C3 — GLSL POP (uniforms, atributos, DAT)\",\n  \"C4 — Herramientas TDMCP (contratos de API)\",\n  \"C5 — Cómo verificar un efecto (checklist)\",\n  \"C6 — Nombres REALES de parámetros POP (vía get_help, 2026-09-29)\",\n  \"C7 — GLSL pesado puede provocar TDR de GPU (Vulkan crash), 2026-09-29\",\n  \"`trail_moves_points` — trailPOP acumula desplazamiento: el enjambre SALE del anillo\",\n  \"`cam_follows_data` — la cámara se centra en el centroide de P medido, no en el origen\",\n  \"`renderTOP_geometry_is_a_list` — crear OTRO geometryCOMP lo AGREGA a `ren.par.geometry`\",\n  \"`noisesize_writeonly` — `noisePOP.noisesize` no cambia aunque lo escribas [V*]\",\n  \"`POP_wiring_inputs_declarados` — wiring falla si el destino declara 0 inputs [V]\",\n  \"`trailPOP_pars` — la receta oficial inventa pars del trailPOP; `length` es TIEMPO [V]\",\n  \"`poptoTOP_no_renderiza` — poptoTOP es conversión de DATOS, no un renderizador [V]\",\n  \"`instancing_pop_crosscomp` — la fuente POP directa NO cruza COMPs [V]\",\n  \"`instancecolormode_menu` — el menú real no es 'op' (doc) [V]\",\n  \"Guardias para escenas MULTI-geometry [V]\",\n  \"Addendum (2026-09-30): orientar instancias según PartVel (flechas) [V]\",\n  \"`pixeldat_no_computedat` — el pixel shader del glslTOP va en `pixeldat` [V]\",\n  \"`glsltop_pixel_main` — el pixel shader exige `out fragColor` + `TDOutputSwizzle` [V]\",\n  \"`poptotop_textura_cruda` — la textura trae valores CRUDOS; el rango va por uniform [V]\",\n  \"C9 — Ruido 4D animado (medido en `/pop_field`, 2026-09-29)\",\n  \"`particle_feedback_loop` — sin `targetpop` cerrado, la integración se descarta\",\n  \"`particle_initialize_enferma` — `initializepulse` + `preroll` hinchan el buffer del loop\",\n  \"`popto_chop_part_channels` — los canales `Part*` engañan a un filtro por prefijo\",\n  \"`sphere_pop_radz` — la esfera se achica por `radz` (execute_code); `cols`/`rows` no aplican\",\n  \"(abierto) `steppulse` no integra el estado\",\n  \"`glsl_compute_canonical_main` — el main se escribe COMPLETO: `id` y guardia incluidos\",\n  \"`glsl_input_attrs_por_helper` — los atributos de ENTRADA no son buffers: se leen con `TDIn_*`\",\n  \"`color_es_atributo` — el color de render es `Color` float4 y se CREA con attr0name='color'\",\n  \"Gradables del color [V] (canales `Color_0/1/2` del poptoCHOP, lista EXACTA)\",\n  \"`attributePOP_no_mapea` — attributePOP crea constantes; NO copia atributo→atributo [V]\",\n  \"`rerangePOP_mapea` — el mapeador atributo→atributo sin glsl [V] (CERRADO, proyecto 8)\",\n  \"`noise_gradient_attr` — el noisePOP expone el campo vectorial por punto [V]\",\n  \"`td_slow_operation` — TD rechaza llamadas mientras se recupera [V]\",\n  \"`poptochop_sprinkle_soltero` — sprinklePOP sin input alimenta a poptoCHOP [V]\",\n  \"`poptochop_doble_cook` — la primera lectura tras cambiar de POP puede venir rancia [V]\",\n  \"`grouppop_debugcolor` — debugcolor convierte la membresía de grupo en dato medible [V]\",\n  \"`transformpop_group_sin_poblacion_no_filtra` — grupo vacío o inexistente mueve TODO [V]\",\n  \"`transformpop_mapeo_exacto` — T/R/S es una matriz, punto a punto, con pivot real [V]\",\n  \"`quantizepop_inplace` — scope de salida vacío NO es no-op: cuantiza el mismo atributo [V]\",\n  \"`limitpop_loop_ventana` — 'loop' NO envuelve en [min,max]: shift por una ventana [V]\",\n  \"`neighborpop_arrays_y_avg` — la vecindad por distancia y el promedio opt-in [V]\",\n  \"`connectivitypop_tabla_prims` — reconecta sin tocar puntos; el cerrojo sólo entra por firstdim [V]\",\n  \"`pop_help_no_existe` — casing sensible en tipos POP: `mathmixPOP` y `lookupattributePOP` [V]\",\n  \"`facetpop_unique_prims_intactas` — unique des-duplica puntos y NUNCA toca primitivas [V]\",\n  \"`subdividepop_escalado_exacto` — iterations es scaling de topología determinístico [V]\",\n  \"`triangulatepop_toggle_necesario` — sin `triangulatequads=on` NO triangula nada [V]\",\n  \"`extrudepop_jaula_siempre` — la jaula existe incluso con distance=0 [V]\",\n  \"`patternpop_genera_por_indice` — ramp/sin exactos; el random no depende de numpoints [V]\",\n  \"`randompop_set_scope_noop` — el 'set' de randomPOP contradice el default in-place de la familia [V]\",\n  \"`camara_lookat_canonica` — apuntar la cámara con rx/ry a mano NO apunta; el mecanismo canónico es lookat + traslación [V]\",\n  \"`grouppop_poblacion_inmutable` — thin etiqueta, no elimina; el multiset de puntos es invariable [V]\",\n  \"`grouppop_bound_sin_efecto_api` — CERRADO (2026-10-05): bound excluye con `bound0enabled=ON` [V]\",\n  \"`proximity_conteos_exactos` — el grafo es distancia pura y los conteos son reproducibles [V]\",\n  \"`revolve_topologia_exacta` — el barrido conserva el radio del perfil: 2·divs pts / divs quads [V]\",\n  \"`tubepop_cono_y_caps` — radx/rady son los radios de los EXTREMOS (cono) y endcaps suma cols-2 [V]\",\n  \"`topologypop_specpop` — la topología de B se aplica sobre los puntos de A (ref vivo, copy no congela) [V]\",\n  \"`lookuptexturepop_override_y_texels` — sin override el attr no aparece; el muestreo es exacto por texel con interpolate off [V]\",\n  \"`pop_data_model_hierarchy` — Clases de atributos y metadata de dimensión [V]\",\n  \"`mathmix_mathcombine_uniforms` — Mezclado matemático y uniformes sin overhead [V]\",\n  \"`particle_trail_lifecyle` — Identidad persistente en sistemas de partículas [V]\",\n  \"`field_pop_parameter_override` — Inyección paramétrica de campos por punto [V]\",\n  \"`ray_pop_intersection_attrs` — Detección de colisiones y atributos de rayo [V]\",\n  \"`normalpop_tangents_vertex_class` — Tangentes se generan en la clase Vertex como 'T' [V]\",\n  \"`attributeconvert_interclass_migration` — Migración exacta entre clases de atributos [V]\",\n  \"`td_python_fstring_backslash` — el intérprete de TD (Py <= 3.11) no admite backslash dentro de una expresion f-string [V]\",\n  \"`jev_juzga_alcance_del_commit` — el juez LLM hereda el alcance del `git status` del repo [V]\",\n  \"`triage_ve_la_evidencia_vigente` — la evidencia del gauntlet vive en `results/<run_id>/` y usa `ok`, no `all_ok` [V]\",\n  \"`triage_corrida_en_vivo_suite_completa` — la señal EN VIVO del triage corría `--quick`, así que un rojo de F3+ era invisible [V]\",\n  \"`raypop_reescribe_P_y_N` — el rayo mueve P al impacto y pisa N, con o sin toggles [V]\",\n  \"`raypop_sentinelas_de_miss` — los miss usan centinelas, no valores \\\"razonables\\\" [V]\",\n  \"`raypop_limit_lift_negate` — límites y signos que no son los obvios [V]\",\n  \"`raypop_hw_y_bounces` — HW tracing sólo da el primer hit; los rebotes exigen N [V]\",\n  \"`copypop_formula_y_plantilla` — copias = fuente x template x ncy [V]\",\n  \"`rate_limiter_cascada` — un cooldown del MCP contamina el build siguiente [V]\",\n  \"`mathcombine_raypop_gating` — `gt` produce el 0/1 y `mix` lo usa como selector [V]\",\n  \"`mathcombine_encadenado_y_atributos` — bloques encadenados y auto-atributos [V]\",\n  \"`mathcombine_segunda_entrada_sin_prefijo` — `in1_<attr>` no es el nombre [V]\",\n  \"`mathcombine_layout_sin_solapamiento` — la red de prueba no deja nodos encimados [V]\",\n  \"`mathcombine_limites` — qué NO se midió [V]\",\n  \"`forceradial_nombre_de_tipo` — el tipo es `forceradialPOP` [V]\",\n  \"`forceradial_atributos_y_defaults` — pasa los puntos y agrega PartForce [V]\",\n  \"`forceradial_radial_falloff` — valores exactos, curva sin fórmula [V]\",\n  \"`forceradial_spiral_direction` — el gotcha del tutorial, confirmado [V]\",\n  \"`forceradial_global_force_gate` — globforcemult default 0 [V]\",\n  \"`forceradial_map_escalar` — la página `map` es el mecanismo del \\\"escalar\\\" [V]\",\n  \"`forceradial_render_en_puntos` — gridPOP emite quads (C2) [V]\",\n  \"`forceradial_limites` — qué NO se midió [V]\"\n ],\n \"total\": 97\n}"
     }
    ],
    "isError": false

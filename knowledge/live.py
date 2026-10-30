@@ -1343,7 +1343,7 @@ else:
                 except Exception as e:
                     warnings.append(f"resolution: {e}")
 
-        # Uniforms (vec0name + vec0type + vec0valuex/y/z/w)
+        # Uniforms (vec0name + vec0type + vec0valuex/y/z/w), soporta floats, listas y '=expr'
         uniforms_set = []
         uniforms = spec.get('uniforms') or {}
         if uniforms and hasattr(node.par, 'vec'):
@@ -1363,7 +1363,12 @@ else:
                         getattr(node.par, vt).val = vtype_str
                     for c_i, suf in enumerate(('x', 'y', 'z', 'w')):
                         if c_i < len(vals) and hasattr(node.par, f'vec{idx}value{suf}'):
-                            getattr(node.par, f'vec{idx}value{suf}').val = float(vals[c_i])
+                            p_val = getattr(node.par, f'vec{idx}value{suf}')
+                            raw_v = vals[c_i]
+                            if isinstance(raw_v, str) and raw_v.strip().startswith('='):
+                                p_val.expr = raw_v.strip()[1:].strip()
+                            else:
+                                p_val.val = float(raw_v)
                     uniforms_set.append(uname)
                 except Exception as e:
                     warnings.append(f"uniform {uname}: {e}")
@@ -1395,31 +1400,47 @@ else:
             warns_td = node.warnings() or ""
         except Exception:
             pass
-        info_txt = ""
-        for d in (getattr(node, 'docked', []) or []):
-            if d.name.endswith('_info') and getattr(d, 'isText', False):
-                try:
-                    d.cook(force=True)
-                except Exception:
-                    pass
-                info_txt = (d.text or "").strip()
-                break
-        if not info_txt:
-            info_cand = parent.op(name + '_info')
-            if info_cand and getattr(info_cand, 'isText', False):
-                info_txt = (info_cand.text or "").strip()
+
+        # Asegurar infoDAT conectado al nodo GLSL para capturar el log real del compilador GPU
+        info_node = parent.op(name + '_info')
+        if not info_node or getattr(info_node, 'OPType', info_node.type) != 'infoDAT':
+            if info_node:
+                info_node.destroy()
+            info_node = parent.create(td.infoDAT, name + '_info')
+        try:
+            info_node.par.op = node.path
+            info_node.nodeX = node.nodeX
+            info_node.nodeY = node.nodeY - 210
+            info_node.dock = node
+            info_node.cook(force=True)
+        except Exception:
+            pass
+        info_txt = (info_node.text or "").strip()
+
+        # Extraer líneas de error de compilación con contexto de código GLSL
+        import re
+        error_lines = []
+        code_lines = (spec.get('code') or '').splitlines()
+        for line in info_txt.splitlines():
+            m_err = re.search(r'(?:0\((\d+)\)|0:(\d+):)\s*(?:error|warning)[^:]*:\s*(.+)', line, re.I)
+            if m_err:
+                lno = int(m_err.group(1) or m_err.group(2))
+                src_line = code_lines[lno - 1].strip() if 1 <= lno <= len(code_lines) else ""
+                error_lines.append({"line": lno, "message": m_err.group(3).strip(), "code_line": src_line})
 
         has_shader_err = any(k in info_txt.lower() for k in ('error:', 'compilation error', 'failed')) or bool(errs)
         print('<<JSON>>' + json.dumps({
             "ok": not has_shader_err,
             "op_path": node.path,
             "dat_path": dat_node.path,
+            "info_dat_path": info_node.path,
             "op_type": op_type,
             "linked_par": linked_par,
             "attrs_configured": attrs_configured,
             "uniforms_set": uniforms_set,
             "wired_inputs": wired,
             "compile_ok": not has_shader_err,
+            "error_lines": error_lines,
             "td_errors": errs,
             "td_warnings": warns_td,
             "compiler_info": info_txt[:1500] if info_txt else "Compile Results: Success",
@@ -1479,14 +1500,29 @@ def t_glsl_apply(a: dict) -> dict:
     writes_set = set(analysis.get("escribe") or [])
     outputaccess = "readwrite" if (reads_set & writes_set) else None
 
-    # Uniforms
+    # Uniforms (auto-extraídos del código GLSL + overrides explícitos del usuario)
     uniforms = {}
+    for m_u in re.finditer(r"^\s*uniform\s+(float|int|uint|vec2|vec3|vec4|ivec2|ivec3|ivec4)\s+([A-Za-z_]\w*)\s*;", code_str, re.M):
+        utype, uname = m_u.group(1), m_u.group(2)
+        if uname.startswith(("uTD", "sTD", "mTD")):
+            continue
+        if uname.lower() in ("utime", "time", "itime"):
+            uniforms[uname] = "=absTime.seconds"
+        elif utype.endswith("2"):
+            uniforms[uname] = [0.0, 0.0]
+        elif utype.endswith("3"):
+            uniforms[uname] = [0.0, 0.0, 0.0]
+        elif utype.endswith("4"):
+            uniforms[uname] = [0.0, 0.0, 0.0, 1.0]
+        else:
+            uniforms[uname] = 0.0
+
     raw_u = a.get("uniforms")
     if isinstance(raw_u, dict):
-        uniforms = raw_u
+        uniforms.update(raw_u)
     elif isinstance(raw_u, str) and raw_u.strip():
         try:
-            uniforms = json.loads(raw_u)
+            uniforms.update(json.loads(raw_u))
         except Exception as e:
             return {"ok": False, "error": f"uniforms debe ser JSON válido: {e}"}
 
@@ -3561,6 +3597,1035 @@ def t_harvest_pattern(a: dict) -> dict:
     }
 
 
+# ── 25. td_build_control_panel — Pilar 11: Generador de Panel UI Perform ────
+
+_BUILD_CONTROL_PANEL = r'''
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+targets = []
+for tp in spec.get('target_ops') or []:
+    t = op(tp) or parent.op(tp)
+    if t:
+        targets.append(t)
+
+if not targets:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"ninguno de target_ops fue encontrado: {spec.get('target_ops')}"}))
+else:
+    p_name = spec['name']
+    panel = parent.op(p_name)
+    if panel and getattr(panel, 'OPType', panel.type) != 'containerCOMP':
+        panel.destroy()
+        panel = None
+    if not panel:
+        panel = parent.create(td.containerCOMP, p_name)
+
+    W = int(spec.get('width', 1280))
+    H = int(spec.get('height', 720))
+    panel.par.w = W
+    panel.par.h = H
+    if hasattr(panel.par, 'align'):
+        panel.par.align = 'lr'
+    if hasattr(panel.par, 'bgcolorr'):
+        panel.par.bgcolorr, panel.par.bgcolorg, panel.par.bgcolorb = 0.07, 0.08, 0.10
+        panel.par.bgalpha = 1.0
+
+    # Descubrir TOP de preview si no fue especificado explícitamente
+    preview_op = op(spec['preview_top']) if spec.get('preview_top') else None
+    if not preview_op:
+        for t in targets:
+            if t.family == 'TOP':
+                preview_op = t
+                break
+            elif t.family == 'COMP':
+                for cand_name in ('out1', 'null_final', 'out_visual', 'render1', 'bg'):
+                    cand = t.op(cand_name)
+                    if cand and cand.family == 'TOP':
+                        preview_op = cand
+                        break
+                if not preview_op:
+                    tops = [c for c in t.children if c.family == 'TOP']
+                    if tops:
+                        preview_op = tops[-1]
+            if preview_op:
+                break
+
+    def ensure_child(comp, cls_name, cname):
+        c = comp.op(cname)
+        if c and getattr(c, 'OPType', c.type) != cls_name:
+            c.destroy()
+            c = None
+        return c or comp.create(getattr(td, cls_name), cname)
+
+    # Columna izquierda: Cabecera + Viewport en vivo
+    vp_pane = ensure_child(panel, 'containerCOMP', 'viewport_pane')
+    vp_pane.par.w = max(W - 380, 400)
+    vp_pane.par.h = H
+    vp_pane.par.hmode = 'fill'
+    vp_pane.par.vmode = 'fill'
+    vp_pane.par.align = 'tb'
+    vp_pane.par.alignorder = 0
+    vp_pane.nodeX, vp_pane.nodeY = 0, 0
+
+    hdr = ensure_child(vp_pane, 'containerCOMP', 'header_bar')
+    hdr.par.h = 44
+    hdr.par.hmode = 'fill'
+    hdr.par.alignorder = 0
+    hdr.par.bgcolorr, hdr.par.bgcolorg, hdr.par.bgcolorb = 0.10, 0.12, 0.16
+    hdr.par.bgalpha = 1.0
+    hdr.nodeX, hdr.nodeY = 0, 140
+
+    hdr_txt = ensure_child(hdr, 'textTOP', 'header_txt')
+    title_str = spec.get('title') or f"STUDIO CONTROL — {', '.join(t.name for t in targets)}"
+    hdr_txt.par.text = title_str
+    if hasattr(hdr_txt.par, 'outputresolution'):
+        hdr_txt.par.outputresolution = 'custom'
+        hdr_txt.par.resolutionw = max(W - 380, 400)
+        hdr_txt.par.resolutionh = 44
+    if hasattr(hdr_txt.par, 'fontsize'):
+        hdr_txt.par.fontsize = 16
+    if hasattr(hdr_txt.par, 'alignx'):
+        hdr_txt.par.alignx = 'left'
+    hdr.par.top = hdr_txt.path
+
+    viewer = ensure_child(vp_pane, 'opviewerCOMP', 'live_viewer')
+    viewer.par.hmode = 'fill'
+    viewer.par.vmode = 'fill'
+    viewer.par.alignorder = 1
+    viewer.nodeX, viewer.nodeY = 0, 0
+    target_for_viewer = preview_op or targets[0]
+    if hasattr(viewer.par, 'opviewer'):
+        viewer.par.opviewer = target_for_viewer.path
+    if preview_op and hasattr(viewer.par, 'top'):
+        viewer.par.top = preview_op.path
+
+    # Columna derecha: Inspector Dock con parameterCOMPs interactivos
+    dock = ensure_child(panel, 'containerCOMP', 'inspector_dock')
+    dock.par.w = 380
+    dock.par.h = H
+    dock.par.vmode = 'fill'
+    dock.par.align = 'tb'
+    dock.par.spacing = 6
+    dock.par.alignorder = 1
+    dock.par.bgcolorr, dock.par.bgcolorg, dock.par.bgcolorb = 0.11, 0.12, 0.15
+    dock.par.bgalpha = 1.0
+    dock.nodeX, dock.nodeY = 240, 0
+
+    widgets = []
+    inc_builtin = bool(spec.get('include_builtin', False))
+    slot_h = max(180, int((H - 16) / max(len(targets), 1)))
+    for idx, t in enumerate(targets):
+        w_name = f"par_{idx}_{t.name}"
+        pw = ensure_child(dock, 'parameterCOMP', w_name)
+        pw.par.op = t.path
+        has_custom = bool(list(getattr(t, 'customPars', [])))
+        pw.par.custom = True
+        pw.par.builtin = bool(inc_builtin or not has_custom)
+        if hasattr(pw.par, 'header'):
+            pw.par.header = True
+        pw.par.w = 368
+        pw.par.h = slot_h
+        pw.par.hmode = 'fill'
+        pw.par.alignorder = idx
+        pw.nodeX, pw.nodeY = 0, -idx * 150
+        widgets.append({
+            "widget_path": pw.path,
+            "target_op": t.path,
+            "shows_custom": True,
+            "shows_builtin": bool(pw.par.builtin.eval()),
+            "custom_pars_count": len(list(getattr(t, 'customPars', []))),
+        })
+
+    win_path = None
+    if spec.get('create_window'):
+        win = ensure_child(parent, 'windowCOMP', p_name + '_window')
+        if hasattr(win.par, 'winop'):
+            win.par.winop = panel.path
+        win.nodeX, win.nodeY = panel.nodeX + 220, panel.nodeY
+        win_path = win.path
+
+    try:
+        panel.cook(force=True)
+    except Exception:
+        pass
+
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "panel_path": panel.path,
+        "resolution": f"{W}x{H}",
+        "title": title_str,
+        "preview_top": preview_op.path if preview_op else None,
+        "viewer_path": viewer.path,
+        "inspector_dock_path": dock.path,
+        "parameter_widgets": widgets,
+        "window_comp_path": win_path,
+    }))
+'''
+
+
+def t_build_control_panel(a: dict) -> dict:
+    """Pilar 11 — Construye un panel UI de control y monitoreo en vivo (containerCOMP Perform-ready con cabecera, visor opviewerCOMP conectado al TOP de salida y dock de parameterCOMPs vinculados a los Custom Parameters de cada operador objetivo)."""
+    raw_targets = a.get("target_ops") or a.get("target_op") or ""
+    if isinstance(raw_targets, str):
+        target_ops = [x.strip() for x in raw_targets.split(",") if x.strip()]
+    elif isinstance(raw_targets, list):
+        target_ops = [str(x).strip() for x in raw_targets if str(x).strip()]
+    else:
+        target_ops = []
+    if not target_ops:
+        return {"ok": False, "error": "falta 'target_ops' (ruta o rutas separadas por coma de los COMPs/operadores a controlar)"}
+
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "control_panel").strip(),
+        "target_ops": target_ops,
+        "preview_top": str(a.get("preview_top") or "").strip() or None,
+        "title": str(a.get("title") or "").strip() or None,
+        "include_builtin": str(a.get("include_builtin") or "").lower() in ("1", "true", "yes", "si", "sí") or a.get("include_builtin") is True,
+        "width": int(a.get("width") if a.get("width") is not None else 1280),
+        "height": int(a.get("height") if a.get("height") is not None else 720),
+        "create_window": str(a.get("create_window") or "").lower() in ("1", "true", "yes", "si", "sí") or a.get("create_window") is True,
+    }
+    code = _BUILD_CONTROL_PANEL.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 26. td_render_contact_sheet — Pilar 12: Visión temporal multi-frame ──────
+
+_STEP_AND_SAVE_TOP = r'''
+import json
+spec = __SPEC__
+t = op(spec['top_path'])
+if not t or t.family != 'TOP':
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"TOP no encontrado: {spec['top_path']}"}))
+else:
+    steps = int(spec.get('step_frames', 0))
+    parent = t.parent()
+    if steps > 0:
+        try:
+            op('/').time.frame = op('/').time.frame + steps
+        except Exception:
+            pass
+        if parent:
+            for _ in range(min(steps, 15)):
+                for c in parent.children:
+                    try:
+                        c.cook(force=True)
+                    except Exception:
+                        pass
+    try:
+        t.cook(force=True)
+    except Exception:
+        pass
+    t.save(spec['save_path'])
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "frame": float(op('/').time.frame),
+        "seconds": round(float(op('/').time.seconds), 4),
+        "width": int(t.width),
+        "height": int(t.height),
+    }))
+'''
+
+
+def t_render_contact_sheet(a: dict) -> dict:
+    """Pilar 12 — Visión temporal para TouchDesigner: avanza la red/simulación durante N muestras espaciadas por step_frames, captura cada frame del TOP objetivo, compone una hoja de contacto PNG (grilla R x C con barra de progreso temporal) y calcula métricas de movimiento inter-frame (ANIMATING / STATIC / BLANK)."""
+    import math
+    import tempfile
+    import time
+    from pathlib import Path
+    from PIL import Image, ImageDraw
+
+    top_path = str(a.get("top_path") or "").strip()
+    if not top_path:
+        return {"ok": False, "error": "falta 'top_path' (ruta del TOP a muestrear en el tiempo)"}
+
+    num_frames = min(max(int(a.get("num_frames") if a.get("num_frames") is not None else 6), 2), 16)
+    step_frames = max(int(a.get("step_frames") if a.get("step_frames") is not None else 4), 1)
+    cols = min(max(int(a.get("cols") if a.get("cols") is not None else min(num_frames, 3)), 1), 8)
+    rows = int(math.ceil(num_frames / float(cols)))
+    tile_w = min(max(int(a.get("tile_width") if a.get("tile_width") is not None else 320), 96), 960)
+    reset_first = str(a.get("reset_first") or "").lower() in ("1", "true", "yes", "si", "sí") or a.get("reset_first") is True
+
+    if reset_first:
+        parent_guess = top_path.rsplit("/", 1)[0] or "/"
+        t_control_simulation({"container_path": parent_guess, "action": "reset_only"})
+
+    tmp_files: list[Path] = []
+    frames_meta: list[dict] = []
+    try:
+        for i in range(num_frames):
+            if i > 0:
+                time.sleep(min(0.12, max(0.02, step_frames / 60.0)))
+            tmp_p = Path(tempfile.gettempdir()) / f"tdmcp_cs_{os.getpid()}_{i}.png"
+            tmp_files.append(tmp_p)
+            spec = {
+                "top_path": top_path,
+                "step_frames": 0 if i == 0 else step_frames,
+                "save_path": str(tmp_p),
+            }
+            ok, r = exec_code(_STEP_AND_SAVE_TOP.replace("__SPEC__", repr(spec)))
+            if not ok or not isinstance(r, dict) or not r.get("ok"):
+                return {"ok": False, "error": f"falló captura de muestra {i} en {top_path}: {r}"}
+            frames_meta.append({"sample": i, "frame": r.get("frame"), "seconds": r.get("seconds"), "w": r.get("width", 256), "h": r.get("height", 256)})
+
+        src_w = max(int(frames_meta[0].get("w") or 256), 1)
+        src_h = max(int(frames_meta[0].get("h") or 256), 1)
+        tile_h = max(int(round(tile_w * (src_h / float(src_w)))), 64)
+        hdr_h = 14
+        pad = 6
+
+        sheet_w = cols * (tile_w + pad) + pad
+        sheet_h = rows * (tile_h + hdr_h + pad) + pad
+        sheet = Image.new("RGBA", (sheet_w, sheet_h), (16, 18, 24, 255))
+        draw = ImageDraw.Draw(sheet)
+
+        loaded_rgb_small = []
+        mean_lumas = []
+
+        for idx, tf in enumerate(tmp_files):
+            im = Image.open(tf).convert("RGBA")
+            # Versión reducida para estadística rápida inter-frame
+            im_stat = im.resize((96, 96), Image.Resampling.BILINEAR)
+            px = list(im_stat.getdata())
+            loaded_rgb_small.append(px)
+            luma = sum((0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2]) for p in px) / max(len(px), 1)
+            mean_lumas.append(round(luma, 3))
+
+            tile_im = im.resize((tile_w, tile_h), Image.Resampling.BILINEAR)
+            r_idx = idx // cols
+            c_idx = idx % cols
+            x0 = pad + c_idx * (tile_w + pad)
+            y0 = pad + r_idx * (tile_h + hdr_h + pad)
+
+            # Barra superior de progreso temporal de la celda
+            draw.rectangle([x0, y0, x0 + tile_w - 1, y0 + hdr_h - 1], fill=(28, 32, 42, 255))
+            prog_w = int(round(((idx + 1) / float(num_frames)) * (tile_w - 4)))
+            draw.rectangle([x0 + 2, y0 + 3, x0 + 2 + max(prog_w, 4), y0 + hdr_h - 4], fill=(0, 215, 255, 255))
+
+            sheet.paste(tile_im, (x0, y0 + hdr_h))
+            draw.rectangle([x0, y0, x0 + tile_w - 1, y0 + hdr_h + tile_h - 1], outline=(58, 66, 84, 255), width=1)
+
+        per_step_mad = []
+        for i in range(1, len(loaded_rgb_small)):
+            pa, pb = loaded_rgb_small[i - 1], loaded_rgb_small[i]
+            diff = sum((abs(a0[0] - b0[0]) + abs(a0[1] - b0[1]) + abs(a0[2] - b0[2])) / 3.0 for a0, b0 in zip(pa, pb)) / max(len(pa), 1)
+            per_step_mad.append(round(diff, 3))
+
+        mean_motion = sum(per_step_mad) / max(len(per_step_mad), 1)
+        max_motion = max(per_step_mad) if per_step_mad else 0.0
+
+        if max(mean_lumas or [0.0]) < 1.0:
+            verdict = "BLANK"
+        elif mean_motion < 0.2 and max_motion < 0.4:
+            verdict = "STATIC"
+        else:
+            verdict = "ANIMATING"
+
+        slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", top_path.strip("/")) or "top"
+        out_path = str(a.get("out_path") or "").strip() or str(Path(tempfile.gettempdir()) / f"td_contact_sheet_{slug}.png")
+        os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+        sheet.save(out_path, format="PNG")
+
+        return {
+            "ok": True,
+            "top_path": top_path,
+            "contact_sheet_path": out_path,
+            "grid": f"{rows}x{cols}",
+            "sheet_resolution": f"{sheet_w}x{sheet_h}",
+            "tile_resolution": f"{tile_w}x{tile_h}",
+            "num_frames": num_frames,
+            "step_frames": step_frames,
+            "temporal_verdict": verdict,
+            "motion_metrics": {
+                "mean_temporal_motion": round(mean_motion, 3),
+                "max_step_mad": round(max_motion, 3),
+                "per_step_mad": per_step_mad,
+                "frame_mean_luma": mean_lumas,
+            },
+            "samples": frames_meta,
+        }
+    except Exception as e:
+        return {"ok": False, "error": f"error en td_render_contact_sheet: {e}"}
+    finally:
+        for tf in tmp_files:
+            try:
+                if tf.exists():
+                    tf.unlink()
+            except Exception:
+                pass
+
+
+# ── 27. td_setup_audio_analyzer — Pilar 13: Analizador de audio multi-banda ──
+
+_SETUP_AUDIO_ANALYZER = r'''
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+c_name = spec['name']
+comp = parent.op(c_name)
+if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+    comp.destroy()
+    comp = None
+if not comp:
+    comp = parent.create(td.baseCOMP, c_name)
+
+def ensure_op(cls_name, n_name):
+    c = comp.op(n_name)
+    if c and getattr(c, 'OPType', c.type) != cls_name:
+        c.destroy()
+        c = None
+    return c or comp.create(getattr(td, cls_name), n_name)
+
+stype = spec.get('source_type', 'test_oscillator').lower()
+if stype == 'file':
+    src = ensure_op('audiofileinCHOP', 'audio_src')
+    if spec.get('source_path'):
+        src.par.file = spec['source_path']
+elif stype == 'device':
+    src = ensure_op('audiodeviceinCHOP', 'audio_src')
+elif stype == 'op':
+    src = ensure_op('selectCHOP', 'audio_src')
+    if spec.get('source_path'):
+        src.par.chop = spec['source_path']
+else:
+    # test_oscillator: sintetizador multi-banda autónomo (80Hz bass con pulso kick, 950Hz mid, 5200Hz high)
+    osc_b = ensure_op('audiooscillatorCHOP', 'osc_bass')
+    osc_b.par.frequency = 80.0
+    osc_b.par.amp = 0.75
+    osc_b.nodeX, osc_b.nodeY = -420, 180
+
+    lfo_k = ensure_op('lfoCHOP', 'lfo_kick_env')
+    lfo_k.par.frequency = 2.0
+    lfo_k.par.offset = 0.55
+    lfo_k.par.amp = 0.45
+    lfo_k.nodeX, lfo_k.nodeY = -420, 60
+
+    mod_b = ensure_op('mathCHOP', 'mod_bass')
+    mod_b.par.chopop = 'mul'
+    mod_b.inputConnectors[0].connect(osc_b)
+    mod_b.inputConnectors[1].connect(lfo_k)
+    mod_b.nodeX, mod_b.nodeY = -240, 140
+
+    osc_m = ensure_op('audiooscillatorCHOP', 'osc_mid')
+    osc_m.par.frequency = 950.0
+    osc_m.par.amp = 0.45
+    osc_m.nodeX, osc_m.nodeY = -240, 0
+
+    osc_h = ensure_op('audiooscillatorCHOP', 'osc_high')
+    osc_h.par.frequency = 5200.0
+    osc_h.par.amp = 0.30
+    osc_h.nodeX, osc_h.nodeY = -240, -140
+
+    src = ensure_op('mathCHOP', 'audio_src')
+    src.par.chopop = 'add'
+    src.inputConnectors[0].connect(mod_b)
+    src.inputConnectors[1].connect(osc_m)
+    src.inputConnectors[2].connect(osc_h)
+src.nodeX, src.nodeY = 0, 0
+
+pre = ensure_op('mathCHOP', 'pre_gain')
+pre.inputConnectors[0].connect(src)
+pre.par.gain = float(spec.get('gain', 1.0))
+pre.nodeX, pre.nodeY = 180, 0
+
+bands_cfg = [
+    ('bass', 'lowpass', 180.0, 2.2, 220),
+    ('mid', 'bandpass', 1000.0, 2.6, 80),
+    ('high', 'highpass', 4000.0, 3.2, -60),
+]
+lag_att = float(spec.get('lag_attack', 0.04))
+lag_rel = float(spec.get('lag_release', 0.18))
+band_tails = []
+
+for bname, fmode, cutoff, mult_gain, y_pos in bands_cfg:
+    flt = ensure_op('audiofilterCHOP', f'filt_{bname}')
+    flt.inputConnectors[0].connect(pre)
+    flt.par.units = 'frequency'
+    flt.par.filter = fmode
+    flt.par.cutofffrequency = cutoff
+    flt.nodeX, flt.nodeY = 380, y_pos
+
+    an = ensure_op('analyzeCHOP', f'rms_{bname}')
+    an.inputConnectors[0].connect(flt)
+    an.par.function = 'rmspower'
+    an.nodeX, an.nodeY = 560, y_pos
+
+    mth = ensure_op('mathCHOP', f'norm_{bname}')
+    mth.inputConnectors[0].connect(an)
+    mth.par.gain = mult_gain
+    mth.nodeX, mth.nodeY = 740, y_pos
+
+    lg = ensure_op('lagCHOP', f'env_{bname}')
+    lg.inputConnectors[0].connect(mth)
+    lg.par.lag1 = lag_att
+    lg.par.lag2 = lag_rel
+    lg.par.renamefrom = '*'
+    lg.par.renameto = bname
+    lg.nodeX, lg.nodeY = 920, y_pos
+    band_tails.append(lg)
+
+# Canal RMS general (espectro completo)
+an_full = ensure_op('analyzeCHOP', 'rms_full')
+an_full.inputConnectors[0].connect(pre)
+an_full.par.function = 'rmspower'
+an_full.nodeX, an_full.nodeY = 560, -200
+
+mth_full = ensure_op('mathCHOP', 'norm_rms')
+mth_full.inputConnectors[0].connect(an_full)
+mth_full.par.gain = 1.8
+mth_full.nodeX, mth_full.nodeY = 740, -200
+
+lg_full = ensure_op('lagCHOP', 'env_rms')
+lg_full.inputConnectors[0].connect(mth_full)
+lg_full.par.lag1 = lag_att
+lg_full.par.lag2 = lag_rel
+lg_full.par.renamefrom = '*'
+lg_full.par.renameto = 'rms'
+lg_full.nodeX, lg_full.nodeY = 920, -200
+band_tails.append(lg_full)
+
+# Canal Kick (ataque ultrarrápido derivado de rms_bass)
+mth_kick = ensure_op('mathCHOP', 'norm_kick')
+mth_kick.inputConnectors[0].connect(comp.op('rms_bass'))
+mth_kick.par.gain = 3.0
+mth_kick.nodeX, mth_kick.nodeY = 740, 340
+
+lg_kick = ensure_op('lagCHOP', 'env_kick')
+lg_kick.inputConnectors[0].connect(mth_kick)
+lg_kick.par.lag1 = 0.01
+lg_kick.par.lag2 = 0.10
+lg_kick.par.renamefrom = '*'
+lg_kick.par.renameto = 'kick'
+lg_kick.nodeX, lg_kick.nodeY = 920, 340
+band_tails.append(lg_kick)
+
+mrg = ensure_op('mergeCHOP', 'merge_bands')
+for c_conn in mrg.inputConnectors:
+    c_conn.disconnect()
+for idx, bt in enumerate(band_tails):
+    mrg.inputConnectors[idx].connect(bt)
+mrg.nodeX, mrg.nodeY = 1120, 60
+
+out_null = ensure_op('nullCHOP', 'out_audio')
+out_null.inputConnectors[0].connect(mrg)
+out_null.nodeX, out_null.nodeY = 1300, 60
+
+out_port = ensure_op('outCHOP', 'out1')
+out_port.inputConnectors[0].connect(out_null)
+out_port.nodeX, out_port.nodeY = 1480, 60
+
+for c in comp.children:
+    try:
+        c.cook(force=True)
+    except Exception:
+        pass
+
+live_channels = {}
+for ch in out_null.chans():
+    try:
+        live_channels[ch.name] = round(float(ch.eval()), 5)
+    except Exception:
+        pass
+
+wired_bindings = []
+warnings = []
+for b in (spec.get('bindings') or []):
+    band = str(b.get('band') or 'bass').strip()
+    t_path = str(b.get('target_op') or '').strip()
+    t_par = str(b.get('target_par') or '').strip()
+    scale = float(b.get('scale', 1.0))
+    offset = float(b.get('offset', 0.0))
+    t_node = op(t_path) or parent.op(t_path)
+    if not t_node or not hasattr(t_node.par, t_par):
+        warnings.append(f"binding destino inválido: {t_path}.{t_par}")
+        continue
+    expr_str = f"op('{out_null.path}')['{band}'] * {scale} + {offset}"
+    getattr(t_node.par, t_par).expr = expr_str
+    wired_bindings.append({"band": band, "target": f"{t_node.path}.par.{t_par}", "expression": expr_str})
+
+print('<<JSON>>' + json.dumps({
+    "ok": True,
+    "analyzer_comp": comp.path,
+    "output_null_chop": out_null.path,
+    "out_chop": out_port.path,
+    "source_type": stype,
+    "live_channels": live_channels,
+    "wired_bindings": wired_bindings,
+    "warnings": warnings,
+}))
+'''
+
+
+def t_setup_audio_analyzer(a: dict) -> dict:
+    """Pilar 13 — Construye un módulo analizador de audio multi-banda llave en mano (baseCOMP con fuente audiofilein/audiodevicein/select/test_oscillator -> filtros lowpass/bandpass/highpass -> envolvente RMS -> normalización y lag -> nullCHOP con canales bass, mid, high, rms y kick) y opcionalmente los vincula a parámetros de la escena."""
+    raw_b = a.get("bindings")
+    b_list = []
+    if isinstance(raw_b, list):
+        b_list = raw_b
+    elif isinstance(raw_b, str) and raw_b.strip():
+        try:
+            b_list = json.loads(raw_b)
+        except Exception as e:
+            return {"ok": False, "error": f"bindings debe ser JSON válido (lista de objetos): {e}"}
+
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "audio_analyzer").strip(),
+        "source_type": str(a.get("source_type") or "test_oscillator").strip().lower(),
+        "source_path": str(a.get("source_path") or "").strip() or None,
+        "gain": float(a.get("gain") if a.get("gain") is not None else 1.0),
+        "lag_attack": float(a.get("lag_attack") if a.get("lag_attack") is not None else 0.04),
+        "lag_release": float(a.get("lag_release") if a.get("lag_release") is not None else 0.18),
+        "bindings": b_list,
+    }
+    code = _SETUP_AUDIO_ANALYZER.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 28. td_setup_scene_switcher — Pilar 14: Switcher de escenas + Smart Cook ─
+
+_SETUP_SCENE_SWITCHER = r'''
+import json
+spec = __SPEC__
+parent = op(spec['parent_path']) or op('/')
+raw_scenes = spec.get('scene_paths') or []
+resolved_scenes = []
+for sp in raw_scenes:
+    s_op = op(sp) or parent.op(sp)
+    if not s_op:
+        continue
+    if s_op.family == 'TOP':
+        top_op = s_op
+        comp_op = s_op.parent() if s_op.parent() != op('/') and s_op.parent() != parent else None
+    elif s_op.family == 'COMP':
+        comp_op = s_op
+        top_op = None
+        for cname in ('out1', 'null_final', 'out_visual', 'render1', 'bg'):
+            cand = s_op.op(cname)
+            if cand and cand.family == 'TOP':
+                top_op = cand
+                break
+        if not top_op:
+            tops = [c for c in s_op.children if c.family == 'TOP']
+            if tops:
+                top_op = tops[-1]
+    else:
+        continue
+    if top_op:
+        resolved_scenes.append({"input_path": s_op.path, "comp_path": comp_op.path if comp_op else None, "top_path": top_op.path})
+
+if len(resolved_scenes) < 2:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"se requieren al menos 2 escenas con TOP de salida válido; resueltas={len(resolved_scenes)}"}))
+else:
+    sw_name = spec['name']
+    comp = parent.op(sw_name)
+    if comp and getattr(comp, 'OPType', comp.type) != 'baseCOMP':
+        comp.destroy()
+        comp = None
+    if not comp:
+        comp = parent.create(td.baseCOMP, sw_name)
+
+    # Custom Parameters en el switcher
+    page = None
+    for pg in comp.customPages:
+        if pg.name == 'Switcher':
+            page = pg
+            break
+    if not page:
+        page = comp.appendCustomPage('Switcher')
+
+    def ensure_cpar(method, pname, label):
+        existing = getattr(comp.par, pname, None)
+        if existing is not None and existing.isCustom:
+            return existing
+        return getattr(page, method)(pname, label=label)[0]
+
+    n_scenes = len(resolved_scenes)
+    act_idx = min(max(int(spec.get('active_scene', 0)), 0), n_scenes - 1)
+    p_scene = ensure_cpar('appendInt', 'Scene', 'Active Scene')
+    p_scene.min, p_scene.max = 0, n_scenes - 1
+    p_scene.clampMin, p_scene.clampMax = True, True
+    p_scene.normMin, p_scene.normMax = 0, n_scenes - 1
+    p_scene.val = act_idx
+
+    p_trans = ensure_cpar('appendFloat', 'Transitiontime', 'Transition Time (s)')
+    p_trans.min, p_trans.max = 0.0, 10.0
+    p_trans.clampMin = True
+    p_trans.normMin, p_trans.normMax = 0.0, 4.0
+    p_trans.val = float(spec.get('transition_seconds', 1.0))
+
+    p_smart = ensure_cpar('appendToggle', 'Smartcooking', 'Smart Cooking Gate')
+    p_smart.val = bool(spec.get('smart_cooking', True))
+
+    def ensure_child(cls_name, cname):
+        c = comp.op(cname)
+        if c and getattr(c, 'OPType', c.type) != cls_name:
+            c.destroy()
+            c = None
+        return c or comp.create(getattr(td, cls_name), cname)
+
+    sw_top = ensure_child('switchTOP', 'sw_visual')
+    sw_top.par.blend = True
+    for conn in sw_top.inputConnectors:
+        conn.disconnect()
+
+    for idx, sc in enumerate(resolved_scenes):
+        sel = ensure_child('selectTOP', f'in_scene_{idx}')
+        sel.par.top = sc['top_path']
+        sel.nodeX, sel.nodeY = 0, -idx * 130
+        sw_top.inputConnectors[idx].connect(sel)
+
+    sw_top.nodeX, sw_top.nodeY = 240, -60
+
+    idx_c = ensure_child('constantCHOP', 'idx_target')
+    idx_c.par.name0 = 'scene_idx'
+    idx_c.par.value0.expr = "parent().par.Scene"
+    idx_c.nodeX, idx_c.nodeY = 0, 160
+
+    idx_f = ensure_child('filterCHOP', 'idx_smooth')
+    idx_f.inputConnectors[0].connect(idx_c)
+    idx_f.par.width.expr = "parent().par.Transitiontime"
+    idx_f.nodeX, idx_f.nodeY = 200, 160
+
+    sw_top.par.index.expr = "op('idx_smooth')['scene_idx']"
+
+    out_null = ensure_child('nullTOP', 'out_visual')
+    out_null.inputConnectors[0].connect(sw_top)
+    out_null.nodeX, out_null.nodeY = 440, -60
+
+    out_port = ensure_child('outTOP', 'out1')
+    out_port.inputConnectors[0].connect(out_null)
+    out_port.nodeX, out_port.nodeY = 620, -60
+
+    # Tabla de escenas para Smart Cooking
+    sc_tbl = ensure_child('tableDAT', 'scenes_table')
+    sc_tbl.clear()
+    sc_tbl.appendRow(['index', 'comp_path', 'top_path'])
+    for idx, sc in enumerate(resolved_scenes):
+        sc_tbl.appendRow([str(idx), sc['comp_path'] or '', sc['top_path']])
+    sc_tbl.nodeX, sc_tbl.nodeY = 0, 300
+
+    # chopexecuteDAT que apaga allowCooking en escenas fuera del crossfade actual
+    ce = ensure_child('chopexecuteDAT', 'smart_cook_exec')
+    ce.par.active = True
+    ce.par.chop = 'idx_smooth'
+    ce.par.valuechange = True
+    ce.nodeX, ce.nodeY = 400, 160
+    ce.text = (
+        "def onValueChange(channel, sampleIndex, val, prev):\n"
+        "    if not parent().par.Smartcooking.eval():\n"
+        "        return\n"
+        "    tbl = op('scenes_table')\n"
+        "    for r in range(1, tbl.numRows):\n"
+        "        idx = int(tbl[r, 'index'].val)\n"
+        "        cpath = tbl[r, 'comp_path'].val\n"
+        "        if cpath:\n"
+        "            c = op(cpath)\n"
+        "            if c:\n"
+        "                c.allowCooking = (abs(val - idx) < 0.999)\n"
+        "    return\n"
+    )
+
+    # Aplicar estado inicial de Smart Cooking para active_scene
+    if bool(spec.get('smart_cooking', True)):
+        for idx, sc in enumerate(resolved_scenes):
+            if sc['comp_path']:
+                c_node = op(sc['comp_path'])
+                if c_node:
+                    c_node.allowCooking = (idx == act_idx)
+
+    for c in comp.children:
+        try:
+            c.cook(force=True)
+        except Exception:
+            pass
+
+    for idx, sc in enumerate(resolved_scenes):
+        c_node = op(sc['comp_path']) if sc['comp_path'] else None
+        sc['index'] = idx
+        sc['allow_cooking'] = bool(c_node.allowCooking) if c_node else True
+
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "switcher_comp": comp.path,
+        "output_top": out_null.path,
+        "out_top": out_port.path,
+        "active_scene": act_idx,
+        "transition_seconds": float(p_trans.eval()),
+        "smart_cooking": bool(p_smart.eval()),
+        "scenes": resolved_scenes,
+    }))
+'''
+
+
+def t_setup_scene_switcher(a: dict) -> dict:
+    """Pilar 14 — Construye un switcher maestro de escenas con crossfade suave (switchTOP blend=True + filterCHOP) y Smart Cooking automático (chopexecuteDAT que desactiva allowCooking en los contenedores de escenas inactivas fuera de la transición)."""
+    raw_scenes = a.get("scene_paths") or ""
+    if isinstance(raw_scenes, str):
+        scene_paths = [x.strip() for x in raw_scenes.split(",") if x.strip()]
+    elif isinstance(raw_scenes, list):
+        scene_paths = [str(x).strip() for x in raw_scenes if str(x).strip()]
+    else:
+        scene_paths = []
+    if len(scene_paths) < 2:
+        return {"ok": False, "error": "hacen falta al menos 2 rutas en 'scene_paths' (separadas por coma o lista)"}
+
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "name": str(a.get("name") or "scene_switcher").strip(),
+        "scene_paths": scene_paths,
+        "active_scene": int(a.get("active_scene") if a.get("active_scene") is not None else 0),
+        "transition_seconds": float(a.get("transition_seconds") if a.get("transition_seconds") is not None else 1.0),
+        "smart_cooking": False if str(a.get("smart_cooking") or "").lower() in ("0", "false", "no") else True,
+    }
+    code = _SETUP_SCENE_SWITCHER.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 29. td_preset_manager — Pilar 15: Gestor e interpolador de Presets ──────
+
+_PRESET_MANAGER = r'''
+import json
+spec = __SPEC__
+comp = op(spec['comp_path'])
+if not comp or comp.family != 'COMP':
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"COMP no encontrado: {spec['comp_path']}"}))
+else:
+    pdat = comp.op('_mcp_presets')
+    if not pdat or getattr(pdat, 'OPType', pdat.type) != 'textDAT':
+        if pdat:
+            pdat.destroy()
+        pdat = comp.create(td.textDAT, '_mcp_presets')
+        pdat.nodeX, pdat.nodeY = -320, 260
+
+    store = {"presets": {}}
+    if (pdat.text or '').strip():
+        try:
+            store = json.loads(pdat.text)
+            if "presets" not in store or not isinstance(store["presets"], dict):
+                store = {"presets": {}}
+        except Exception:
+            store = {"presets": {}}
+
+    if spec.get('imported_presets'):
+        store["presets"].update(spec['imported_presets'])
+
+    action = spec.get('action', 'list').lower()
+    pname = spec.get('preset_name')
+    inc_children = bool(spec.get('include_children', True))
+    changes = []
+
+    def is_orable_par(p):
+        st = str(getattr(p, 'style', ''))
+        if st in ('Pulse', 'Header', 'Momentary'):
+            return False
+        if p.readOnly or str(p.mode).endswith(('EXPRESSION', 'BIND', 'EXPORT')):
+            return False
+        return True
+
+    if action == 'capture':
+        if not pname:
+            print('<<JSON>>' + json.dumps({"ok": False, "error": "falta 'preset_name' para action='capture'"}))
+        else:
+            cp_dict = {}
+            for p in getattr(comp, 'customPars', []):
+                if is_orable_par(p):
+                    v = p.eval()
+                    if isinstance(v, (int, float, bool, str)):
+                        cp_dict[p.name] = v
+            ch_dict = {}
+            if inc_children:
+                for c in comp.children:
+                    if c.name.startswith(('.', '_mcp_')):
+                        continue
+                    for p in c.pars():
+                        try:
+                            if p.isDefault or not is_orable_par(p):
+                                continue
+                            v = p.eval()
+                            if isinstance(v, (int, float, bool, str)):
+                                ch_dict[f"{c.name}.{p.name}"] = v
+                        except Exception:
+                            pass
+            store["presets"][pname] = {"custom_pars": cp_dict, "child_pars": ch_dict}
+            pdat.text = json.dumps(store, indent=2)
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "comp_path": comp.path,
+                "action": "capture",
+                "preset_name": pname,
+                "custom_pars_saved": len(cp_dict),
+                "child_pars_saved": len(ch_dict),
+                "presets_available": list(store["presets"].keys()),
+                "store": store,
+            }))
+
+    elif action == 'apply':
+        if not pname or pname not in store["presets"]:
+            print('<<JSON>>' + json.dumps({"ok": False, "error": f"preset '{pname}' no existe en {comp.path}; disponibles={list(store['presets'].keys())}"}))
+        else:
+            pr = store["presets"][pname]
+            for k, v in (pr.get("custom_pars") or {}).items():
+                if hasattr(comp.par, k):
+                    try:
+                        getattr(comp.par, k).val = v
+                        changes.append({"target": f"par.{k}", "value": v})
+                    except Exception:
+                        pass
+            for k, v in (pr.get("child_pars") or {}).items():
+                if '.' in k:
+                    cname, parname = k.split('.', 1)
+                    cnode = comp.op(cname)
+                    if cnode and hasattr(cnode.par, parname):
+                        try:
+                            getattr(cnode.par, parname).val = v
+                            changes.append({"target": k, "value": v})
+                        except Exception:
+                            pass
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "comp_path": comp.path,
+                "action": "apply",
+                "preset_name": pname,
+                "parameters_affected": len(changes),
+                "sample_changes": changes[:25],
+                "presets_available": list(store["presets"].keys()),
+            }))
+
+    elif action == 'blend':
+        pa_name = spec.get('preset_a')
+        pb_name = spec.get('preset_b')
+        alpha = min(max(float(spec.get('alpha', 0.5)), 0.0), 1.0)
+        if pa_name not in store["presets"] or pb_name not in store["presets"]:
+            print('<<JSON>>' + json.dumps({"ok": False, "error": f"preset_a='{pa_name}' o preset_b='{pb_name}' no existen; disponibles={list(store['presets'].keys())}"}))
+        else:
+            pra = store["presets"][pa_name]
+            prb = store["presets"][pb_name]
+
+            def blend_val(va, vb, p_obj):
+                if isinstance(va, bool) or isinstance(vb, bool):
+                    return va if alpha < 0.5 else vb
+                if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
+                    v = (1.0 - alpha) * float(va) + alpha * float(vb)
+                    if str(getattr(p_obj, 'style', '')) == 'Int':
+                        return int(round(v))
+                    return round(v, 6)
+                return va if alpha < 0.5 else vb
+
+            all_cp = set(pra.get("custom_pars", {}).keys()) | set(prb.get("custom_pars", {}).keys())
+            for k in all_cp:
+                if hasattr(comp.par, k):
+                    p_obj = getattr(comp.par, k)
+                    va = pra.get("custom_pars", {}).get(k, p_obj.eval())
+                    vb = prb.get("custom_pars", {}).get(k, p_obj.eval())
+                    bv = blend_val(va, vb, p_obj)
+                    try:
+                        p_obj.val = bv
+                        changes.append({"target": f"par.{k}", "from": va, "to": vb, "blended": bv})
+                    except Exception:
+                        pass
+
+            all_ch = set(pra.get("child_pars", {}).keys()) | set(prb.get("child_pars", {}).keys())
+            for k in all_ch:
+                if '.' in k:
+                    cname, parname = k.split('.', 1)
+                    cnode = comp.op(cname)
+                    if cnode and hasattr(cnode.par, parname):
+                        p_obj = getattr(cnode.par, parname)
+                        va = pra.get("child_pars", {}).get(k, p_obj.eval())
+                        vb = prb.get("child_pars", {}).get(k, p_obj.eval())
+                        bv = blend_val(va, vb, p_obj)
+                        try:
+                            p_obj.val = bv
+                            changes.append({"target": k, "from": va, "to": vb, "blended": bv})
+                        except Exception:
+                            pass
+
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "comp_path": comp.path,
+                "action": "blend",
+                "preset_a": pa_name,
+                "preset_b": pb_name,
+                "alpha": alpha,
+                "parameters_affected": len(changes),
+                "sample_changes": changes[:25],
+                "presets_available": list(store["presets"].keys()),
+            }))
+
+    elif action == 'delete':
+        if pname in store["presets"]:
+            del store["presets"][pname]
+            pdat.text = json.dumps(store, indent=2)
+        print('<<JSON>>' + json.dumps({
+            "ok": True,
+            "comp_path": comp.path,
+            "action": "delete",
+            "deleted": pname,
+            "presets_available": list(store["presets"].keys()),
+        }))
+
+    else:
+        summary = {
+            k: {"custom_pars": len(v.get("custom_pars", {})), "child_pars": len(v.get("child_pars", {}))}
+            for k, v in store["presets"].items()
+        }
+        print('<<JSON>>' + json.dumps({
+            "ok": True,
+            "comp_path": comp.path,
+            "action": "list",
+            "presets_available": list(store["presets"].keys()),
+            "presets_summary": summary,
+        }))
+'''
+
+
+def t_preset_manager(a: dict) -> dict:
+    """Pilar 15 — Gestor de estados/presets e interpolador (morphing) para cualquier COMP: captura (capture), lista (list), aplica (apply), borra (delete) o interpola linealmente (blend con alpha 0.0..1.0) entre dos presets de Custom Parameters y parámetros de hijos."""
+    comp_path = str(a.get("comp_path") or "").strip()
+    if not comp_path:
+        return {"ok": False, "error": "falta 'comp_path' (ruta del COMP cuyos presets se gestionan)"}
+    action = str(a.get("action") or "list").strip().lower()
+    file_path = str(a.get("file_path") or "").strip() or None
+
+    imported_presets = None
+    if file_path and action in ("apply", "blend", "list") and os.path.exists(file_path):
+        try:
+            with open(file_path, "r", encoding="utf-8") as fh:
+                doc = json.load(fh)
+                imported_presets = doc.get("presets", doc) if isinstance(doc, dict) else None
+        except Exception as e:
+            return {"ok": False, "error": f"no se pudo leer file_path '{file_path}': {e}"}
+
+    spec = {
+        "comp_path": comp_path,
+        "action": action,
+        "preset_name": str(a.get("preset_name") or "").strip() or None,
+        "preset_a": str(a.get("preset_a") or "").strip() or None,
+        "preset_b": str(a.get("preset_b") or "").strip() or None,
+        "alpha": float(a.get("alpha") if a.get("alpha") is not None else 0.5),
+        "include_children": False if str(a.get("include_children") or "").lower() in ("0", "false", "no") else True,
+        "imported_presets": imported_presets,
+    }
+    code = _PRESET_MANAGER.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    if ok and isinstance(res, dict) and action == "capture" and file_path and "store" in res:
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as fh:
+                json.dump(res["store"], fh, ensure_ascii=False, indent=2)
+            res["saved_file"] = file_path
+        except Exception as e:
+            res["file_warning"] = str(e)
+    if isinstance(res, dict) and "store" in res:
+        del res["store"]
+    return res
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -3593,11 +4658,11 @@ LIVE_TOOLS = [
     ("td_measure", "Mide en vivo un operador: rango real de canales CHOP (min, max, media, si es constante/normalizado y scale/offset sugeridos), geometría POP/SOP (numPoints, numPrims, bounds, atributos), resolución TOP o filas/texto DAT.",
      {"path": "string (requerido: ruta del operador)", "channel": "string (opcional, nombre de canal CHOP)",
       "target_min": "string (opcional, float default 0.0)", "target_max": "string (opcional, float default 1.0)"}, t_measure),
-    ("td_glsl_apply", "Pipeline GLSL atómico en vivo: valida estáticamente el código (POP/TOP), crea el textDAT + glslPOP/glslcopyPOP/glslTOP, auto-configura Create Attributes / outputattrs / outputaccess / uniforms, conecta inputs y verifica la compilación.",
+    ("td_glsl_apply", "Pipeline GLSL atómico en vivo: valida estáticamente el código (POP/TOP), crea el textDAT + glslPOP/glslcopyPOP/glslTOP + infoDAT, auto-extrae y configura uniforms (incluyendo '=expr'), Create Attributes / outputattrs / outputaccess, conecta inputs y verifica la compilación con líneas de error.",
      {"name": "string (requerido: nombre del nodo GLSL)", "code": "string (requerido: código GLSL)",
       "parent_path": "string (default /project1)", "family": "pop|top|copy (default pop)",
       "source_path": "string (opcional: input 0)", "extra_inputs": "string (opcional: inputs 1,2… separados por coma)",
-      "write_attrs": "string (opcional: ej. 'Color:4, PartVel:3')", "uniforms": "string (opcional: JSON dict de uniforms)",
+      "write_attrs": "string (opcional: ej. 'Color:4, PartVel:3')", "uniforms": "string (opcional: JSON dict de uniforms, soporta '=expr')",
       "resolution": "string (opcional para TOP: ej. '1280x720')", "skip_validation": "bool (default false)"}, t_glsl_apply),
     ("td_explore_project", "Radiografía rápida de un contenedor o proyecto en vivo: conteos por familia y tipo, contenedores hijos, shaders GLSL, customPars, errores activos y top operadores por cookTime.",
      {"root_path": "string (default /project1)", "max_depth": "int (default 3)", "max_nodes": "int (default 2500)", "max_sec": "float (default 8.0)"}, t_explore_project),
@@ -3642,6 +4707,32 @@ LIVE_TOOLS = [
     ("td_harvest_pattern", "Pilar 10 — Cosecha un contenedor verificado en vivo y lo guarda como plantilla reutilizable en knowledge/custom_templates/<name>.json (+ .tdxn), quedando disponible inmediatamente en templates y td_instantiate_template.",
      {"container_path": "string (requerido: ruta del COMP a cosechar)", "name": "string (requerido: slug del template)",
       "description": "string (opcional)", "tags": "string (opcional: tags separados por coma)"}, t_harvest_pattern),
+    ("td_build_control_panel", "Pilar 11 — Construye un panel UI de control y monitoreo Perform-ready (containerCOMP con cabecera, visor opviewerCOMP conectado al TOP de salida y dock de parameterCOMPs interactivos vinculados a los Custom Parameters de cada operador objetivo).",
+     {"target_ops": "string (requerido: ruta o rutas separadas por coma de los COMPs/operadores a controlar)",
+      "parent_path": "string (default /project1)", "name": "string (default control_panel)",
+      "preview_top": "string (opcional: ruta del TOP a mostrar en el visor)", "title": "string (opcional)",
+      "include_builtin": "bool (default false)", "width": "int (default 1280)", "height": "int (default 720)",
+      "create_window": "bool (default false: crea también un windowCOMP)"}, t_build_control_panel),
+    ("td_render_contact_sheet", "Pilar 12 — Visión temporal multi-frame: avanza la red/simulación durante N muestras espaciadas por step_frames, captura cada frame del TOP objetivo, compone una hoja de contacto PNG (grilla R x C con barra de progreso temporal) y calcula métricas de movimiento inter-frame (ANIMATING / STATIC / BLANK).",
+     {"top_path": "string (requerido: ruta del TOP a muestrear)", "out_path": "string (opcional: ruta del PNG de salida)",
+      "num_frames": "int (default 6, rango 2..16)", "step_frames": "int (default 4)", "cols": "int (default 3)",
+      "tile_width": "int (default 320)", "reset_first": "bool (default false)"}, t_render_contact_sheet),
+    ("td_setup_audio_analyzer", "Pilar 13 — Analizador de audio multi-banda llave en mano: construye un baseCOMP con fuente (test_oscillator/file/device/op), filtros por banda (bass, mid, high), envolventes RMS, normalización y lag hacia un nullCHOP maestro (canales bass, mid, high, rms, kick) y vincula bindings opcionales.",
+     {"parent_path": "string (default /project1)", "name": "string (default audio_analyzer)",
+      "source_type": "test_oscillator|file|device|op (default test_oscillator)", "source_path": "string (opcional: archivo u operador CHOP)",
+      "gain": "float (default 1.0)", "lag_attack": "float (default 0.04)", "lag_release": "float (default 0.18)",
+      "bindings": "string (opcional: JSON list de bindings {band, target_op, target_par, scale, offset})"}, t_setup_audio_analyzer),
+    ("td_setup_scene_switcher", "Pilar 14 — Switcher maestro de escenas con crossfade suave (switchTOP blend=True + filterCHOP) y Smart Cooking automático (chopexecuteDAT que apaga allowCooking en los contenedores de escenas inactivas fuera de la transición).",
+     {"scene_paths": "string (requerido: rutas separadas por coma de 2+ escenas COMP o TOP)",
+      "parent_path": "string (default /project1)", "name": "string (default scene_switcher)",
+      "active_scene": "int (default 0)", "transition_seconds": "float (default 1.0)",
+      "smart_cooking": "bool (default true)"}, t_setup_scene_switcher),
+    ("td_preset_manager", "Pilar 15 — Gestor e interpolador de presets de estado para cualquier COMP: captura (capture), lista (list), aplica (apply), borra (delete) o interpola linealmente (blend con alpha 0.0..1.0) entre dos presets de Custom Parameters y parámetros de hijos.",
+     {"comp_path": "string (requerido: ruta del COMP)", "action": "capture|apply|blend|list|delete (default list)",
+      "preset_name": "string (opcional: nombre para capture/apply/delete)",
+      "preset_a": "string (opcional: preset inicial para blend)", "preset_b": "string (opcional: preset final para blend)",
+      "alpha": "float (default 0.5: factor 0.0..1.0 para blend)", "include_children": "bool (default true)",
+      "file_path": "string (opcional: archivo JSON en disco para exportar/importar presets)"}, t_preset_manager),
 ]
 
 LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
@@ -3649,7 +4740,7 @@ LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
 LIVE_READONLY = {
     "td_status", "find_in_ops", "tdn_diff", "eval_render_frame", "get_op_errors_deep",
     "td_measure", "td_explore_project", "td_compare_networks", "td_spatial_context",
-    "td_verify_network", "td_profile_network", "td_visual_diff",
+    "td_verify_network", "td_profile_network", "td_visual_diff", "td_render_contact_sheet",
 }
 
 
