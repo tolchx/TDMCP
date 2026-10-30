@@ -165,7 +165,7 @@ This fork integrates the complete **offline knowledge layer + high-level composi
 
 Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-### Dual-Server Architecture (67 Tools Total)
+### Dual-Server Architecture (73 Tools Total)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -175,9 +175,9 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
                     │ stdio (JSON-RPC)               │ SSE / HTTP (:13316)
                     ▼                                ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│     td-knowledge (41 Tools)          │  │     TDMCP.tox (26 Tools)     │
+│     td-knowledge (47 Tools)          │  │     TDMCP.tox (26 Tools)     │
 │   • 22 Offline Tools (0% TD overhead)│  │   • 26 In-Process Live Tools │
-│   • 19 High-Level Live Tools         │  │   • Direct TD Python engine  │
+│   • 25 High-Level Live Tools         │  │   • Direct TD Python engine  │
 │   • 1,302 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
 │   • 79 GLSL Shaders + 15 Lessons     │  │   • Undo-per-call & stats    │
 │   • 625-Op Topology + 97-POP Matrix  │  │   • Compatible w/ 2025.32460 │
@@ -186,9 +186,9 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
 
 ---
 
-### `td-knowledge` Tool Reference (41 Tools: 22 Offline + 19 Live)
+### `td-knowledge` Tool Reference (47 Tools: 22 Offline + 25 Live)
 
-The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **19 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
+The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **25 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
 
 | Category | Tool | Description |
 |---|---|---|
@@ -224,10 +224,16 @@ The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs
 | | `td_spatial_context` | Active UI context: current Network Editor pane, open container path, `currentChild`, `selectedChildren`, and timeline state. |
 | **Live Builders & Serialization (Require TD)** | `td_glsl_apply` | Atomic GLSL pipeline: static `glsl_analyze` check → creates `textDAT` + `glslPOP`/`glslcopyPOP`/`glslTOP` → auto-expands `attr` (`Create Attributes`) and `vec` (`uniforms` + `vec0type`) sequence blocks → wires inputs → verifies `_info` compilation. |
 | | `td_build_pop_render` | Atomic POP 3D render builder in 1 call: creates `geometryCOMP` (**destroys default `torus1`**), wires `source_pop` (or `spherePOP`) → `convertPOP(topointprims)` → `nullPOP(display=True, render=True)`, plus `cameraCOMP`, `pointspriteMAT`/`constantMAT`/`pbrMAT`, `renderTOP`, and `nullTOP`, runs 4 cook settle passes, and evaluates the rendered frame. |
-| | `td_instantiate_template` | Materializes any template or recipe (`templates` / `recipes`) live in 1 call: creates container + operators, expands sequence `numBlocks`, sets parameters/expressions and deferred references, wires connections, and runs `auto_layout`. |
+| | `td_instantiate_template` | Materializes any template or recipe (`templates` / `recipes` / `custom_templates`) live in 1 call: creates container + operators, expands sequence `numBlocks`, sets parameters/expressions and deferred references, wires connections, and runs `auto_layout`. |
+| | `td_scaffold_component` | **Pilar 6 — Component & Extension Builder**: creates Custom Parameter pages (`Float`, `Int`, `RGB`, `Toggle`, `Pulse`, `Menu`, `OP`), links them via expression or `bindMaster` to child operators, attaches and initializes a **Python Extension** (`reinitextensions`), and optionally saves a `.tox`. |
+| | `td_wire_reactive` | **Pilar 7 — Auto-Calibrated Reactive Bridge**: measures the real `[min, max]` of a live CHOP channel, builds `selectCHOP` → `mathCHOP` (mapped to `[target_min, target_max]`) → `lagCHOP` → `nullCHOP`, and binds the target parameter or uniform via expression. |
+| | `td_harvest_pattern` | **Pilar 10 — Pattern Harvester**: extracts a live verified COMP container into `knowledge/custom_templates/<name>.json` + `.tdxn`, making it immediately available in `templates` and `td_instantiate_template`. |
 | | `tdn_export` / `tdn_diff` | Export a live network to **TDN v1.4 JSON** and diff two `.tdn` files offline. |
 | | `tdxn_export` / `tdxn_build` | Export or build a complete network from **TDXN v2.1 YAML** (`=expr`, `~bind`, DATs, flags) in a single call. |
-| **Live Verification & Profiling (Require TD)** | `td_verify_network` | **Single-call Gauntlet verifier**: runs 4 settle cook passes, audits `geometryCOMP` ownership (`torus1` deleted, `display`/`render` flags, `numPoints`/`numPrims > 0`), checks POPs/CHOPs for `NaN`/`Inf`, runs `get_op_errors_deep` and `eval_render_frame`, and returns `PASS`/`FAIL` with `actionable_fixes`. |
+| **Live Verification, Camera & Profiling (Require TD)** | `td_verify_network` | **Single-call Gauntlet verifier**: runs 4 settle cook passes, audits `geometryCOMP` ownership (`torus1` deleted, `display`/`render` flags, `numPoints`/`numPrims > 0`), checks POPs/CHOPs for `NaN`/`Inf`, runs `get_op_errors_deep` and `eval_render_frame`, and returns `PASS`/`FAIL` with `actionable_fixes`. |
+| | `td_frame_camera_to_geo` | **Pilar 8a — Mathematical 3D Auto-Framing**: computes the combined world AABB of all active POPs/SOPs across `geometryCOMP`s and frames the `cameraCOMP` (`tx, ty, tz, near, far`) using camera FOV and render aspect ratio. |
+| | `td_visual_diff` | **Pilar 8b — Quantitative Pixel Diff**: compares two TOPs or PNGs pixel-by-pixel, returning `mean_abs_diff`, `changed_pixels_pct`, `psnr_db`, and verdict (`SIGNIFICANT_CHANGE` / `SUBTLE_CHANGE` / `IDENTICAL_NO_OP`). |
+| | `td_control_simulation` | **Pilar 9 — Simulation & Temporal Loop Controller**: detects all stateful operators (`feedbackPOP`, `particlePOP`, `feedbackTOP`, `trailPOP`, `cachePOP`, `speedCHOP`), pulses all resets atomically, runs $N$ pre-roll steps, and diagnoses `STABLE_DYNAMIC`, `STABLE_STATIC`, `EMPTY`, `EXPLODING`, or `NAN_CORRUPTED`. |
 | | `td_profile_network` | **Live CPU/GPU profiler & anti-pattern detector**: measures CPU `cookTime`, `gpuCookTime`, and memory per node, computes % of frame budget (`16.67ms` at 60fps), and flags `PERFORMANCE.md` anti-patterns (`copyPOP` >50k pts without instancing, CPU SOPs inside POP `geometryCOMP`, >4K TOPs, heavy `poptoCHOP`/`toptoCHOP` readbacks). |
 | | `eval_render_frame` | Evaluates TOP or image visual quality (`PASS`/`FAIL` for black, flat, or transparent frames with luminance/contrast metrics). |
 | | `get_op_errors_deep` | Recursive error, warning, and docked GLSL `_info` compiler error scanner (with `max_nodes`/`max_sec` budget). |
@@ -302,10 +308,10 @@ python knowledge/build_assets.py --import-archive td-knowledge-kb.zip
 # 3. Run internal tool self-tests (verifies all 22 offline tools)
 python knowledge/server.py --selftest
 
-# 4. Run JSON-RPC protocol test suite (verifies all 41 tools via stdio JSON-RPC 2.0)
+# 4. Run JSON-RPC protocol test suite (verifies all 47 tools via stdio JSON-RPC 2.0)
 python knowledge/test_protocol.py
 
-# 5. Run end-to-end live test suite against TouchDesigner (21 stages)
+# 5. Run end-to-end live test suite against TouchDesigner (27 stages across Pillars 1-10)
 python knowledge/test_live.py
 ```
 

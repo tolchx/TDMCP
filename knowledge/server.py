@@ -662,6 +662,21 @@ def _all_network_templates() -> list[dict]:
                     tl.append(ch)
         except Exception:
             pass
+    custom_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom_templates")
+    if os.path.isdir(custom_dir):
+        for fn in sorted(os.listdir(custom_dir)):
+            if not fn.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(custom_dir, fn), encoding="utf-8") as fh:
+                    ct = json.load(fh)
+                if isinstance(ct, dict) and ct.get("name"):
+                    if ct["name"] in seen:
+                        tl = [x for x in tl if x.get("name") != ct["name"]]
+                    seen.add(ct["name"])
+                    tl.append(ct)
+            except Exception:
+                pass
     return tl
 
 
@@ -1542,14 +1557,15 @@ TOOL_MAP = {name: (desc, schema, fn) for name, desc, schema, fn in TOOLS}
 
 SUPPORTED_PROTOCOLS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
-    "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (19 tools) para TouchDesigner. "
+    "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (25 tools) para TouchDesigner. "
     "Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars "
     "(soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, "
     "contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. "
     "Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, "
     "eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, "
-    "td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network) hablan con "
-    "el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+    "td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, "
+    "td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, "
+    "td_harvest_pattern) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
 )
 
 

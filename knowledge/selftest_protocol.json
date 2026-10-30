@@ -14,7 +14,7 @@
     "version": "0.2.0",
     "title": "td-knowledge — capa de conocimiento offline de TouchDesigner"
    },
-   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (19 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
+   "instructions": "td-knowledge: capa de conocimiento OFFLINE (22 tools) + herramientas LIVE de alto nivel (25 tools) para TouchDesigner. Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars (soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, td_scaffold_component, td_wire_reactive, td_frame_camera_to_geo, td_visual_diff, td_control_simulation, td_harvest_pattern) hablan con el MCP oficial TDMCP (127.0.0.1:13316) y requieren TouchDesigner con el .tox activo."
   }
  },
  {
@@ -1105,13 +1105,13 @@
     },
     {
      "name": "td_instantiate_template",
-     "description": "Instancia en vivo cualquier template de red (network_templates.json) o receta (recipes) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia, aplica parámetros/expresiones, cablea y ordena el layout.",
+     "description": "Instancia en vivo cualquier template de red (network_templates.json, pop-chains, custom_templates) o receta (recipes) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia, aplica parámetros/expresiones, cablea y ordena el layout.",
      "inputSchema": {
       "type": "object",
       "properties": {
        "template_name": {
         "type": "string",
-        "description": "string (requerido: ej. 'particle_gpu_basic', 'feedback_loop_top', 'basic_3d_render')"
+        "description": "string (requerido: ej. 'particle_gpu_basic', 'feedback-loop-top', 'pop-curl-noise')"
        },
        "parent_path": {
         "type": "string",
@@ -1192,6 +1192,219 @@
      },
      "annotations": {
       "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_scaffold_component",
+     "description": "Pilar 6 — Encapsula un COMP como módulo profesional de producción: crea páginas de Custom Parameters tipados, los vincula por expresión o bind a operadores hijos, configura e inicializa una Python Extension y opcionalmente exporta el .tox.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "comp_path": {
+        "type": "string",
+        "description": "string (requerido: ej. '/project1/my_fx')"
+       },
+       "comp_type": {
+        "type": "string",
+        "description": "string (default baseCOMP)"
+       },
+       "page_name": {
+        "type": "string",
+        "description": "string (default Controls)"
+       },
+       "custom_pars": {
+        "type": "string",
+        "description": "string (JSON list de custom pars con name, style, default, min, max, targets)"
+       },
+       "extension_class": {
+        "type": "string",
+        "description": "string (opcional: nombre de clase Python)"
+       },
+       "extension_code": {
+        "type": "string",
+        "description": "string (opcional: código de la extensión)"
+       },
+       "save_tox_path": {
+        "type": "string",
+        "description": "string (opcional: ruta donde guardar .tox)"
+       }
+      },
+      "required": [
+       "comp_path"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_wire_reactive",
+     "description": "Pilar 7 — Puente reactivo auto-calibrado: mide en vivo el rango real de un canal CHOP, construye la cadena de acondicionamiento (selectCHOP -> mathCHOP auto-escalado -> lagCHOP -> nullCHOP) y lo enlaza al parámetro o uniform destino.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "source_chop": {
+        "type": "string",
+        "description": "string (requerido: ruta del CHOP fuente)"
+       },
+       "target_op": {
+        "type": "string",
+        "description": "string (requerido: ruta del operador destino)"
+       },
+       "target_par": {
+        "type": "string",
+        "description": "string (requerido: nombre del parámetro en target_op)"
+       },
+       "channel": {
+        "type": "string",
+        "description": "string (opcional: canal CHOP)"
+       },
+       "target_min": {
+        "type": "string",
+        "description": "float (default 0.0)"
+       },
+       "target_max": {
+        "type": "string",
+        "description": "float (default 1.0)"
+       },
+       "lag_up": {
+        "type": "string",
+        "description": "float (default 0.05)"
+       },
+       "lag_down": {
+        "type": "string",
+        "description": "float (default 0.15)"
+       }
+      },
+      "required": [
+       "source_chop",
+       "target_op",
+       "target_par"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_frame_camera_to_geo",
+     "description": "Pilar 8a — Auto-encuadre 3D matemático: calcula el bounding box mundial combinado de todos los POPs/SOPs activos en los geometryCOMP de un contenedor y posiciona la cameraCOMP (tx/ty/tz y near/far según FOV y aspect ratio) para que toda la geometría quede en cuadro.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "container_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "camera_path": {
+        "type": "string",
+        "description": "string (opcional: ruta del cameraCOMP)"
+       },
+       "padding": {
+        "type": "string",
+        "description": "float (default 1.35)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_visual_diff",
+     "description": "Pilar 8b — Diff visual cuantitativo píxel a píxel entre dos TOPs en vivo (top_a vs top_b) o dos imágenes PNG (image_a vs image_b): devuelve mean_abs_diff, changed_pixels_pct, PSNR y veredicto (SIGNIFICANT_CHANGE / SUBTLE_CHANGE / IDENTICAL_NO_OP).",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "top_a": {
+        "type": "string",
+        "description": "string (opcional: ruta del primer TOP)"
+       },
+       "top_b": {
+        "type": "string",
+        "description": "string (opcional: ruta del segundo TOP)"
+       },
+       "image_a": {
+        "type": "string",
+        "description": "string (opcional: ruta PNG A)"
+       },
+       "image_b": {
+        "type": "string",
+        "description": "string (opcional: ruta PNG B)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": true,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_control_simulation",
+     "description": "Pilar 9 — Controlador de simulaciones y loops temporales: detecta operadores con estado (feedbackPOP, particlePOP, feedbackTOP, trailPOP, cachePOP, speedCHOP), pulsa todos los resets atómicamente, avanza N pasos de pre-roll y diagnostica si está STABLE_DYNAMIC, STABLE_STATIC, EMPTY, EXPLODING o NAN_CORRUPTED.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "container_path": {
+        "type": "string",
+        "description": "string (default /project1)"
+       },
+       "action": {
+        "type": "string",
+        "description": "reset_and_preroll|reset_only|diagnose (default reset_and_preroll)"
+       },
+       "preroll_steps": {
+        "type": "integer",
+        "description": "int (default 20)"
+       },
+       "max_extent": {
+        "type": "string",
+        "description": "float (default 10000.0)"
+       }
+      },
+      "required": []
+     },
+     "annotations": {
+      "readOnlyHint": false,
+      "openWorldHint": true
+     }
+    },
+    {
+     "name": "td_harvest_pattern",
+     "description": "Pilar 10 — Cosecha un contenedor verificado en vivo y lo guarda como plantilla reutilizable en knowledge/custom_templates/<name>.json (+ .tdxn), quedando disponible inmediatamente en templates y td_instantiate_template.",
+     "inputSchema": {
+      "type": "object",
+      "properties": {
+       "container_path": {
+        "type": "string",
+        "description": "string (requerido: ruta del COMP a cosechar)"
+       },
+       "name": {
+        "type": "string",
+        "description": "string (requerido: slug del template)"
+       },
+       "description": {
+        "type": "string",
+        "description": "string (opcional)"
+       },
+       "tags": {
+        "type": "string",
+        "description": "string (opcional: tags separados por coma)"
+       }
+      },
+      "required": [
+       "container_path",
+       "name"
+      ]
+     },
+     "annotations": {
+      "readOnlyHint": false,
       "openWorldHint": true
      }
     }

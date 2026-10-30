@@ -193,11 +193,70 @@ prof_res = live.t_profile_network({"root_path": SB, "force_cook": True})
 show("profile_network", prof_res, 1200)
 assert prof_res.get("ok") is True and prof_res.get("scanned_nodes", 0) >= 10, f"td_profile_network falló: {prof_res}"
 
-print("\n### 21. cleanup")
+print("\n### 21. td_scaffold_component (Pilar 6)")
+scaf_res = live.t_scaffold_component({
+    "comp_path": SB,
+    "page_name": "FXControls",
+    "custom_pars": [
+        {"name": "Noiseamp", "style": "Float", "label": "Noise Amp", "default": 0.75, "min": 0.0, "max": 2.0, "targets": ["a.amp"]},
+    ],
+    "extension_class": "HermesFx",
+    "extension_code": "class HermesFx:\n    def __init__(self, ownerComp):\n        self.ownerComp = ownerComp\n    def Ping(self):\n        return 'pong'\n",
+})
+show("scaffold_component", scaf_res, 1200)
+assert scaf_res.get("ok") is True and scaf_res.get("extension", {}).get("initialized") is True, f"td_scaffold_component falló: {scaf_res}"
+
+print("\n### 22. td_wire_reactive (Pilar 7)")
+wire_res = live.t_wire_reactive({
+    "source_chop": SB + "/k",
+    "target_op": SB + "/b",
+    "target_par": "gamma1",
+    "target_min": 0.8,
+    "target_max": 1.4,
+    "lag_up": 0.02,
+    "lag_down": 0.05,
+})
+show("wire_reactive", wire_res, 1200)
+assert wire_res.get("ok") is True and len(wire_res.get("chain_nodes", [])) >= 3, f"td_wire_reactive falló: {wire_res}"
+
+print("\n### 23. td_frame_camera_to_geo (Pilar 8a)")
+cam_res = live.t_frame_camera_to_geo({"container_path": SB, "padding": 1.4})
+show("frame_camera_to_geo", cam_res, 1200)
+assert cam_res.get("ok") is True and cam_res.get("computed_distance", 0) > 0, f"td_frame_camera_to_geo falló: {cam_res}"
+
+print("\n### 24. td_visual_diff (Pilar 8b)")
+vdiff_res = live.t_visual_diff({"top_a": SB + "/a", "top_b": SB + "/p1_scene_out"})
+show("visual_diff", vdiff_res, 1000)
+assert vdiff_res.get("ok") is True and vdiff_res.get("verdict") == "SIGNIFICANT_CHANGE", f"td_visual_diff falló: {vdiff_res}"
+
+print("\n### 25. td_control_simulation (Pilar 9)")
+sim_res = live.t_control_simulation({"container_path": SB, "action": "reset_and_preroll", "preroll_steps": 6})
+show("control_simulation", sim_res, 1200)
+assert sim_res.get("ok") is True and sim_res.get("simulation_state") in ("STABLE_DYNAMIC", "STABLE_STATIC"), f"td_control_simulation falló: {sim_res}"
+
+print("\n### 26. td_harvest_pattern + re-instanciación (Pilar 10)")
+harv_res = live.t_harvest_pattern({
+    "container_path": SB + "/tpl_feedback",
+    "name": "hermes-test-harvest",
+    "description": "Template de prueba cosechado en vivo",
+    "tags": "test, feedback, top",
+})
+show("harvest_pattern", harv_res, 1000)
+assert harv_res.get("ok") is True and os.path.exists(harv_res.get("template_json", "")), f"td_harvest_pattern falló: {harv_res}"
+reinst_res = live.t_instantiate_template({
+    "template_name": "hermes-test-harvest",
+    "parent_path": SB,
+    "container_name": "tpl_reinstantiated",
+    "clear_first": True,
+})
+show("re-instantiate harvested pattern", reinst_res, 1000)
+assert reinst_res.get("ok") is True and reinst_res.get("created_count", 0) >= 5, f"re-instanciación falló: {reinst_res}"
+
+print("\n### 27. cleanup")
 for p in (SB, "/hermes_live_b"):
     ok, r = live.call("delete_operator", {"path": p})
     print(p, "->", json.dumps(r, ensure_ascii=False)[:160])
-for f in (f1, f2):
-    if os.path.exists(f):
+for f in (f1, f2, harv_res.get("template_json"), harv_res.get("template_tdxn")):
+    if f and os.path.exists(f):
         os.remove(f)
 print("temporales borrados")

@@ -2078,6 +2078,13 @@ else:
             except Exception:
                 pass
 
+        # Contenido de texto para textDAT (de templates cosechados con td_harvest_pattern)
+        if nd.get('dat_content') is not None and getattr(node, 'isText', False):
+            try:
+                node.text = str(nd['dat_content'])
+            except Exception as e:
+                warnings.append(f"{node.path}.text: {e}")
+
         # Flags / OP properties
         for fk, fv in (nd.get('flags') or {}).items():
             try:
@@ -2285,6 +2292,7 @@ def t_instantiate_template(a: dict) -> dict:
                 "position": op_spec.get("position"),
                 "parameters": merged_pars,
                 "flags": op_spec.get("flags") or {},
+                "dat_content": op_spec.get("dat_content"),
             })
 
     norm_conns = []
@@ -2705,6 +2713,854 @@ def t_profile_network(a: dict) -> dict:
     return res
 
 
+# ── 19. td_scaffold_component — Pilar 6: Custom Pars + Bindings + Extensions ─
+
+_SCAFFOLD_COMPONENT = r'''
+import json
+spec = __SPEC__
+comp_path = spec['comp_path']
+comp = op(comp_path)
+if not comp:
+    parent_p, c_name = comp_path.rsplit('/', 1) if '/' in comp_path.strip('/') else ('/', comp_path.strip('/'))
+    parent = op(parent_p or '/')
+    if not parent:
+        print('<<JSON>>' + json.dumps({"ok": False, "error": "contenedor padre no encontrado: " + str(parent_p)}))
+        comp = None
+    else:
+        cls = getattr(td, spec.get('comp_type', 'baseCOMP'), td.baseCOMP)
+        comp = parent.create(cls, c_name)
+
+if comp:
+    warnings = []
+    created_pars = []
+    wired_targets = []
+    page_name = spec.get('page_name') or 'Controls'
+    page = None
+    for pg in comp.customPages:
+        if pg.name == page_name:
+            page = pg
+            break
+    if not page and spec.get('custom_pars'):
+        page = comp.appendCustomPage(page_name)
+
+    STYLE_METHODS = {
+        'float': 'appendFloat', 'int': 'appendInt', 'toggle': 'appendToggle',
+        'pulse': 'appendPulse', 'str': 'appendStr', 'string': 'appendStr',
+        'menu': 'appendMenu', 'rgb': 'appendRGB', 'rgba': 'appendRGBA',
+        'xy': 'appendXY', 'xyz': 'appendXYZ', 'wh': 'appendWH',
+        'top': 'appendTOP', 'chop': 'appendCHOP', 'pop': 'appendPOP',
+        'sop': 'appendSOP', 'dat': 'appendDAT', 'comp': 'appendCOMP', 'mat': 'appendMAT',
+    }
+
+    for cp in (spec.get('custom_pars') or []):
+        raw_name = str(cp.get('name') or '').strip()
+        if not raw_name:
+            continue
+        p_name = raw_name[0].upper() + raw_name[1:]
+        style = str(cp.get('style') or 'Float').strip().lower()
+        label = str(cp.get('label') or p_name)
+        m_name = STYLE_METHODS.get(style, 'appendFloat')
+        fn = getattr(page, m_name, None)
+        if not fn:
+            warnings.append(f"estilo de custom par no soportado: {style}")
+            continue
+        try:
+            kwargs = {'label': label}
+            if style in ('float', 'int') and cp.get('size'):
+                kwargs['size'] = int(cp['size'])
+            par_group = fn(p_name, **kwargs)
+            p0 = par_group[0]
+            if cp.get('min') is not None:
+                for p in par_group:
+                    p.min = float(cp['min'])
+                    p.normMin = float(cp.get('normMin', cp['min']))
+                    if cp.get('clampMin'):
+                        p.clampMin = True
+            if cp.get('max') is not None:
+                for p in par_group:
+                    p.max = float(cp['max'])
+                    p.normMax = float(cp.get('normMax', cp['max']))
+                    if cp.get('clampMax'):
+                        p.clampMax = True
+            if style == 'menu' and cp.get('menuNames'):
+                p0.menuNames = [str(x) for x in cp['menuNames']]
+                p0.menuLabels = [str(x) for x in (cp.get('menuLabels') or cp['menuNames'])]
+            if cp.get('default') is not None:
+                dval = cp['default']
+                if isinstance(dval, (list, tuple)):
+                    for idx, p in enumerate(par_group):
+                        if idx < len(dval):
+                            p.default = dval[idx]
+                            p.val = dval[idx]
+                else:
+                    p0.default = dval
+                    p0.val = dval
+            created_pars.append({"name": p0.name, "style": style, "label": label})
+
+            # Vincular targets internos (ej. "noise1.amp" o "glsl1.vec0valuex")
+            mode = str(cp.get('link_mode') or 'expr').lower()
+            for tgt in (cp.get('targets') or []):
+                if '.' not in str(tgt):
+                    continue
+                t_op_rel, t_par_name = str(tgt).rsplit('.', 1)
+                t_node = comp.op(t_op_rel)
+                if not t_node or not hasattr(t_node.par, t_par_name):
+                    warnings.append(f"target no encontrado: {tgt}")
+                    continue
+                tp = getattr(t_node.par, t_par_name)
+                if mode == 'bind':
+                    tp.bindExpr = f"parent().par.{p0.name}"
+                else:
+                    tp.expr = f"parent().par.{p0.name}"
+                wired_targets.append({"custom_par": p0.name, "target": f"{t_node.path}.par.{t_par_name}", "mode": mode})
+        except Exception as e:
+            warnings.append(f"custom_par {p_name}: {e}")
+
+    # Extensión Python opcional
+    ext_info = None
+    ext_code = spec.get('extension_code')
+    ext_cls = spec.get('extension_class')
+    if ext_code and ext_cls:
+        dat_name = f"{ext_cls}Ext"
+        edat = comp.op(dat_name) or comp.create(td.textDAT, dat_name)
+        edat.text = ext_code
+        try:
+            if hasattr(comp.par, 'extension1'):
+                comp.par.extension1 = f"op('./{dat_name}').module.{ext_cls}(me)"
+            if hasattr(comp.par, 'extname1'):
+                comp.par.extname1 = ext_cls
+            if hasattr(comp.par, 'promoteextension1'):
+                comp.par.promoteextension1 = True
+            if hasattr(comp.par, 'reinitextensions'):
+                comp.par.reinitextensions.pulse()
+            ext_obj = getattr(comp.ext, ext_cls, None)
+            ext_info = {
+                "dat_path": edat.path,
+                "class_name": ext_cls,
+                "promoted": True,
+                "initialized": ext_obj is not None,
+            }
+        except Exception as e:
+            warnings.append(f"extension {ext_cls}: {e}")
+            ext_info = {"dat_path": edat.path, "class_name": ext_cls, "initialized": False, "error": str(e)}
+
+    tox_saved = None
+    if spec.get('save_tox_path'):
+        try:
+            comp.save(spec['save_tox_path'])
+            tox_saved = spec['save_tox_path']
+        except Exception as e:
+            warnings.append(f"save_tox: {e}")
+
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "comp_path": comp.path,
+        "comp_type": getattr(comp, 'OPType', comp.type),
+        "page_name": page_name,
+        "custom_pars_created": created_pars,
+        "wired_targets": wired_targets,
+        "extension": ext_info,
+        "tox_saved": tox_saved,
+        "warnings": warnings,
+    }))
+'''
+
+
+def t_scaffold_component(a: dict) -> dict:
+    """Encapsula un contenedor COMP como módulo profesional de producción: crea Custom Parameters tipados, los vincula por expresión o bind a operadores hijos, configura e inicializa una Python Extension y opcionalmente guarda el .tox."""
+    comp_path = str(a.get("comp_path") or "").strip()
+    if not comp_path:
+        return {"ok": False, "error": "falta 'comp_path' (ej. '/project1/my_module')"}
+    raw_cp = a.get("custom_pars")
+    cp_list = []
+    if isinstance(raw_cp, list):
+        cp_list = raw_cp
+    elif isinstance(raw_cp, str) and raw_cp.strip():
+        try:
+            cp_list = json.loads(raw_cp)
+        except Exception as e:
+            return {"ok": False, "error": f"custom_pars debe ser JSON válido (lista de objetos): {e}"}
+
+    spec = {
+        "comp_path": comp_path,
+        "comp_type": str(a.get("comp_type") or "baseCOMP").strip(),
+        "page_name": str(a.get("page_name") or "Controls").strip(),
+        "custom_pars": cp_list,
+        "extension_class": str(a.get("extension_class") or "").strip() or None,
+        "extension_code": str(a.get("extension_code") or "") or None,
+        "save_tox_path": str(a.get("save_tox_path") or "").strip() or None,
+    }
+    code = _SCAFFOLD_COMPONENT.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 20. td_wire_reactive — Pilar 7: Puente reactivo auto-calibrado ───────────
+
+_WIRE_REACTIVE = r'''
+import json
+spec = __SPEC__
+src = op(spec['source_chop'])
+dst = op(spec['target_op'])
+if not src or src.family != 'CHOP':
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"source_chop no encontrado o no es CHOP: {spec['source_chop']}"}))
+elif not dst:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": f"target_op no encontrado: {spec['target_op']}"}))
+else:
+    t_par = spec['target_par']
+    # Soportar expansión de sequence si apunta a vec0valuex, etc.
+    import re
+    m_seq = re.match(r'^([a-zA-Z]+)(\d+)([a-zA-Z0-9_]*)$', t_par)
+    if m_seq:
+        seq_par = getattr(dst.par, m_seq.group(1), None)
+        if seq_par is not None and hasattr(seq_par, 'numBlocks'):
+            try:
+                idx = int(m_seq.group(2))
+                if int(seq_par.numBlocks) <= idx:
+                    seq_par.numBlocks = idx + 1
+            except Exception:
+                pass
+
+    if not hasattr(dst.par, t_par):
+        print('<<JSON>>' + json.dumps({"ok": False, "error": f"parámetro '{t_par}' no existe en {dst.path} ({dst.OPType})"}))
+    else:
+        try:
+            src.cook(force=True)
+        except Exception:
+            pass
+        chans = list(src.chans())
+        if not chans:
+            print('<<JSON>>' + json.dumps({"ok": False, "error": f"{src.path} no tiene canales activos"}))
+        else:
+            want_ch = spec.get('channel')
+            ch_obj = next((c for c in chans if c.name == want_ch), chans[0]) if want_ch else chans[0]
+            ch_name = ch_obj.name
+            ns = int(getattr(src, 'numSamples', 1))
+            vals = [float(ch_obj[i]) for i in range(min(max(ns, 1), 2048))] if ns > 1 else [float(ch_obj.eval())]
+            r_min = min(vals)
+            r_max = max(vals)
+            if (r_max - r_min) < 1e-6:
+                # Si es single-sample (ej. LFO o constante), inferir rango típico
+                op_t = getattr(src, 'OPType', src.type)
+                if op_t == 'lfoCHOP':
+                    off = float(src.par.offset.eval()) if hasattr(src.par, 'offset') else 0.0
+                    amp = float(src.par.amp.eval()) if hasattr(src.par, 'amp') else 1.0
+                    r_min, r_max = off - amp, off + amp
+                elif r_min < -1e-4:
+                    r_min, r_max = -1.0, 1.0
+                else:
+                    r_min, r_max = 0.0, max(1.0, abs(r_max))
+
+            parent = dst.parent()
+            prefix = spec.get('prefix') or f"react_{dst.name}_{t_par}"
+
+            def get_or_make(cls_name, n_name):
+                c = parent.op(n_name)
+                if c and getattr(c, 'OPType', c.type) != cls_name:
+                    c.destroy()
+                    c = None
+                return c or parent.create(getattr(td, cls_name), n_name)
+
+            sel = get_or_make('selectCHOP', prefix + '_sel')
+            sel.par.chop = src.path
+            sel.par.channames = ch_name
+
+            mth = get_or_make('mathCHOP', prefix + '_map')
+            mth.inputConnectors[0].connect(sel)
+            mth.par.fromrange1 = float(r_min)
+            mth.par.fromrange2 = float(r_max)
+            mth.par.torange1 = float(spec['target_min'])
+            mth.par.torange2 = float(spec['target_max'])
+
+            tail = mth
+            lag_path = None
+            lag_u = float(spec.get('lag_up', 0.05))
+            lag_d = float(spec.get('lag_down', 0.15))
+            if lag_u > 0.0 or lag_d > 0.0:
+                lg = get_or_make('lagCHOP', prefix + '_lag')
+                lg.inputConnectors[0].connect(mth)
+                lg.par.lag1 = lag_u
+                lg.par.lag2 = lag_d
+                tail = lg
+                lag_path = lg.path
+
+            nul = get_or_make('nullCHOP', prefix + '_ctrl')
+            nul.inputConnectors[0].connect(tail)
+
+            # Posicionar cadena cerca del operador destino
+            try:
+                base_x = dst.nodeX - 420
+                base_y = dst.nodeY - 140
+                for idx, n in enumerate([x for x in (sel, mth, op(lag_path) if lag_path else None, nul) if x]):
+                    n.nodeX = base_x + idx * 140
+                    n.nodeY = base_y
+            except Exception:
+                pass
+
+            for n in (sel, mth, tail, nul):
+                try:
+                    n.cook(force=True)
+                except Exception:
+                    pass
+
+            expr_str = f"op('{nul.name}')['{ch_name}']"
+            getattr(dst.par, t_par).expr = expr_str
+            try:
+                dst.cook(force=True)
+            except Exception:
+                pass
+            live_val = float(getattr(dst.par, t_par).eval())
+
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "source_chop": src.path,
+                "channel": ch_name,
+                "measured_range": [round(r_min, 5), round(r_max, 5)],
+                "target_range": [spec['target_min'], spec['target_max']],
+                "chain_nodes": [x for x in (sel.path, mth.path, lag_path, nul.path) if x],
+                "null_chop": nul.path,
+                "target_op": dst.path,
+                "target_par": t_par,
+                "expression_set": expr_str,
+                "live_evaluated_value": round(live_val, 5),
+            }))
+'''
+
+
+def t_wire_reactive(a: dict) -> dict:
+    """Puente reactivo auto-calibrado: mide el rango real de un canal CHOP, construye la cadena de acondicionamiento (selectCHOP -> mathCHOP auto-escalado -> lagCHOP -> nullCHOP) y lo vincula por expresión al parámetro o uniform destino."""
+    source_chop = str(a.get("source_chop") or "").strip()
+    target_op = str(a.get("target_op") or "").strip()
+    target_par = str(a.get("target_par") or "").strip()
+    if not source_chop or not target_op or not target_par:
+        return {"ok": False, "error": "hacen falta 'source_chop', 'target_op' y 'target_par'"}
+    spec = {
+        "source_chop": source_chop,
+        "channel": str(a.get("channel") or "").strip() or None,
+        "target_op": target_op,
+        "target_par": target_par,
+        "target_min": float(a.get("target_min") if a.get("target_min") is not None else 0.0),
+        "target_max": float(a.get("target_max") if a.get("target_max") is not None else 1.0),
+        "lag_up": float(a.get("lag_up") if a.get("lag_up") is not None else 0.05),
+        "lag_down": float(a.get("lag_down") if a.get("lag_down") is not None else 0.15),
+        "prefix": str(a.get("prefix") or "").strip() or None,
+    }
+    code = _WIRE_REACTIVE.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 21. td_frame_camera_to_geo — Pilar 8a: Auto-encuadre 3D matemático ───────
+
+_FRAME_CAMERA = r'''
+import json, math
+spec = __SPEC__
+root = op(spec['container_path'])
+if not root:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": "contenedor no encontrado: " + spec['container_path']}))
+else:
+    cam = op(spec['camera_path']) if spec.get('camera_path') else None
+    ren = None
+    geos = []
+    for c in ([root] + list(root.children)):
+        t = getattr(c, 'OPType', c.type)
+        if t == 'geometryCOMP':
+            geos.append(c)
+        elif t == 'cameraCOMP' and not cam:
+            cam = c
+        elif t == 'renderTOP' and not ren:
+            ren = c
+
+    if not cam:
+        print('<<JSON>>' + json.dumps({"ok": False, "error": "no se encontró ningún cameraCOMP en " + root.path}))
+    elif not geos:
+        print('<<JSON>>' + json.dumps({"ok": False, "error": "no se encontró ningún geometryCOMP en " + root.path}))
+    else:
+        w_min = [float('inf'), float('inf'), float('inf')]
+        w_max = [float('-inf'), float('-inf'), float('-inf')]
+        measured_sources = []
+
+        for g in geos:
+            gx = float(g.par.tx.eval()) if hasattr(g.par, 'tx') else 0.0
+            gy = float(g.par.ty.eval()) if hasattr(g.par, 'ty') else 0.0
+            gz = float(g.par.tz.eval()) if hasattr(g.par, 'tz') else 0.0
+            gsx = float(g.par.sx.eval()) if hasattr(g.par, 'sx') else 1.0
+            gsy = float(g.par.sy.eval()) if hasattr(g.par, 'sy') else 1.0
+            gsz = float(g.par.sz.eval()) if hasattr(g.par, 'sz') else 1.0
+
+            for gc in g.children:
+                if gc.family in ('POP', 'SOP') and (getattr(gc, 'display', False) or getattr(gc, 'render', False)):
+                    try:
+                        gc.cook(force=True)
+                        b = gc.bounds() if callable(getattr(gc, 'bounds', None)) else getattr(gc, 'bounds', None)
+                        if b:
+                            bmin = [float(b.min[0]) * gsx + gx, float(b.min[1]) * gsy + gy, float(b.min[2]) * gsz + gz]
+                            bmax = [float(b.max[0]) * gsx + gx, float(b.max[1]) * gsy + gy, float(b.max[2]) * gsz + gz]
+                            for i in range(3):
+                                w_min[i] = min(w_min[i], bmin[i], bmax[i])
+                                w_max[i] = max(w_max[i], bmin[i], bmax[i])
+                            measured_sources.append(gc.path)
+                    except Exception:
+                        pass
+
+        if not measured_sources or any(math.isinf(v) or math.isnan(v) for v in w_min + w_max):
+            print('<<JSON>>' + json.dumps({"ok": False, "error": "no se pudieron obtener bounds válidos de ningún POP/SOP con display/render en " + root.path}))
+        else:
+            center = [(w_min[i] + w_max[i]) * 0.5 for i in range(3)]
+            size = [max(w_max[i] - w_min[i], 0.001) for i in range(3)]
+            radius = max(math.sqrt(size[0]**2 + size[1]**2 + size[2]**2) * 0.5, 0.1)
+
+            fov_deg = float(cam.par.fov.eval()) if hasattr(cam.par, 'fov') else 45.0
+            aspect = (float(ren.width) / max(float(ren.height), 1.0)) if ren and getattr(ren, 'height', 0) else (16.0 / 9.0)
+            fov_h_rad = math.radians(max(min(fov_deg, 160.0), 5.0))
+            fov_v_rad = 2.0 * math.atan(math.tan(fov_h_rad * 0.5) / max(aspect, 0.1))
+            min_half_fov = min(fov_h_rad, fov_v_rad) * 0.5
+
+            padding = float(spec.get('padding', 1.35))
+            dist = (radius * padding) / max(math.sin(min_half_fov), 0.05)
+
+            old_pos = [float(cam.par.tx.eval()), float(cam.par.ty.eval()), float(cam.par.tz.eval())]
+            cam.par.tx = round(center[0], 5)
+            cam.par.ty = round(center[1], 5)
+            cam.par.tz = round(center[2] + dist, 5)
+            if hasattr(cam.par, 'rx'):
+                cam.par.rx, cam.par.ry, cam.par.rz = 0.0, 0.0, 0.0
+            if hasattr(cam.par, 'near'):
+                cam.par.near = round(max(0.001, min(0.1, dist * 0.01)), 5)
+            if hasattr(cam.par, 'far'):
+                cam.par.far = round(max(1000.0, (dist + radius * 4.0) * 2.0), 2)
+
+            if ren:
+                for _ in range(3):
+                    try:
+                        ren.cook(force=True)
+                    except Exception:
+                        pass
+
+            print('<<JSON>>' + json.dumps({
+                "ok": True,
+                "camera_path": cam.path,
+                "render_top_path": ren.path if ren else None,
+                "measured_sources": measured_sources,
+                "world_bounds": {
+                    "min": [round(v, 4) for v in w_min],
+                    "max": [round(v, 4) for v in w_max],
+                    "center": [round(v, 4) for v in center],
+                    "size": [round(v, 4) for v in size],
+                    "bounding_radius": round(radius, 4),
+                },
+                "camera_before": [round(v, 4) for v in old_pos],
+                "camera_after": [round(float(cam.par.tx.eval()), 4), round(float(cam.par.ty.eval()), 4), round(float(cam.par.tz.eval()), 4)],
+                "computed_distance": round(dist, 4),
+                "near": float(cam.par.near.eval()) if hasattr(cam.par, 'near') else None,
+                "far": float(cam.par.far.eval()) if hasattr(cam.par, 'far') else None,
+            }))
+'''
+
+
+def t_frame_camera_to_geo(a: dict) -> dict:
+    """Calcula el bounding box 3D mundial combinado de todos los POPs/SOPs activos en los geometryCOMP de un contenedor y auto-encuadra matemáticamente la cameraCOMP (tx/ty/tz y near/far según el FOV y aspect ratio)."""
+    container_path = str(a.get("container_path") or "/project1").strip()
+    spec = {
+        "container_path": container_path,
+        "camera_path": str(a.get("camera_path") or "").strip() or None,
+        "padding": float(a.get("padding") if a.get("padding") is not None else 1.35),
+    }
+    code = _FRAME_CAMERA.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    if ok and isinstance(res, dict) and res.get("render_top_path") and a.get("eval_frame", True) is not False:
+        ev = t_eval_render_frame({"op_path": res["render_top_path"]})
+        res["frame_evaluation"] = {
+            "quality": ev.get("quality"),
+            "verdict": ev.get("verdict"),
+            "metrics": ev.get("metrics"),
+        }
+    return res
+
+
+# ── 22. td_visual_diff — Pilar 8b: Diff visual cuantitativo entre TOPs/PNGs ──
+
+def t_visual_diff(a: dict) -> dict:
+    """Compara cuantitativamente dos TOPs en vivo (top_a vs top_b) o dos imágenes PNG (image_a vs image_b) píxel a píxel, devolviendo mean_abs_diff, changed_pixels_pct, PSNR y veredicto (SIGNIFICANT_CHANGE / SUBTLE_CHANGE / IDENTICAL_NO_OP)."""
+    import math
+    import tempfile
+    from pathlib import Path
+    from PIL import Image
+
+    top_a = str(a.get("top_a") or "").strip()
+    top_b = str(a.get("top_b") or "").strip()
+    img_a = str(a.get("image_a") or "").strip()
+    img_b = str(a.get("image_b") or "").strip()
+
+    tmp_files = []
+    try:
+        if top_a and not img_a:
+            p_a = Path(tempfile.gettempdir()) / f"tdmcp_vdiff_a_{os.getpid()}.png"
+            code_a = f"import json\nt = op({top_a!r})\nif not t: print('<<JSON>>' + json.dumps({{'error': 'no existe ' + {top_a!r}}}))\nelse:\n t.cook(force=True); t.save({str(p_a)!r}); print('<<JSON>>' + json.dumps({{'ok': True}}))"
+            ok, ra = exec_code(code_a)
+            if not ok or "error" in ra:
+                return {"ok": False, "error": f"No se pudo capturar top_a ({top_a}): {ra}"}
+            img_a = str(p_a)
+            tmp_files.append(p_a)
+
+        if top_b and not img_b:
+            p_b = Path(tempfile.gettempdir()) / f"tdmcp_vdiff_b_{os.getpid()}.png"
+            code_b = f"import json\nt = op({top_b!r})\nif not t: print('<<JSON>>' + json.dumps({{'error': 'no existe ' + {top_b!r}}}))\nelse:\n t.cook(force=True); t.save({str(p_b)!r}); print('<<JSON>>' + json.dumps({{'ok': True}}))"
+            ok, rb = exec_code(code_b)
+            if not ok or "error" in rb:
+                return {"ok": False, "error": f"No se pudo capturar top_b ({top_b}): {rb}"}
+            img_b = str(p_b)
+            tmp_files.append(p_b)
+
+        if not img_a or not img_b or not os.path.exists(img_a) or not os.path.exists(img_b):
+            return {"ok": False, "error": "Debés proveer (top_a y top_b) o (image_a e image_b) válidos."}
+
+        ia = Image.open(img_a).convert("RGBA")
+        ib = Image.open(img_b).convert("RGBA")
+        if ia.size != ib.size:
+            ib = ib.resize(ia.size, Image.Resampling.BILINEAR)
+
+        pa = list(ia.getdata())
+        pb = list(ib.getdata())
+        total_px = max(len(pa), 1)
+        sum_abs = 0.0
+        sum_sq = 0.0
+        max_diff = 0.0
+        changed_px = 0
+
+        for rgba_a, rgba_b in zip(pa, pb):
+            dr = abs(rgba_a[0] - rgba_b[0])
+            dg = abs(rgba_a[1] - rgba_b[1])
+            db = abs(rgba_a[2] - rgba_b[2])
+            d_px = (dr + dg + db) / 3.0
+            sum_abs += d_px
+            sum_sq += (dr * dr + dg * dg + db * db) / 3.0
+            if d_px > max_diff:
+                max_diff = d_px
+            if d_px > 2.0:
+                changed_px += 1
+
+        mae = sum_abs / total_px
+        mse = sum_sq / total_px
+        psnr = 99.0 if mse < 1e-9 else (10.0 * math.log10((255.0 * 255.0) / mse))
+        changed_pct = (changed_px / total_px) * 100.0
+
+        if mae < 0.2 and changed_pct < 0.1:
+            verdict = "IDENTICAL_NO_OP"
+        elif mae < 2.0 and changed_pct < 2.0:
+            verdict = "SUBTLE_CHANGE"
+        else:
+            verdict = "SIGNIFICANT_CHANGE"
+
+        return {
+            "ok": True,
+            "source_a": top_a or img_a,
+            "source_b": top_b or img_b,
+            "resolution": f"{ia.size[0]}x{ia.size[1]}",
+            "verdict": verdict,
+            "metrics": {
+                "mean_abs_diff": round(mae, 3),
+                "max_abs_diff": round(max_diff, 2),
+                "changed_pixels_pct": round(changed_pct, 2),
+                "psnr_db": round(psnr, 2),
+            },
+        }
+    except Exception as e:
+        return {"ok": False, "error": f"error en td_visual_diff: {e}"}
+    finally:
+        for tf in tmp_files:
+            try:
+                if tf.exists():
+                    tf.unlink()
+            except Exception:
+                pass
+
+
+# ── 23. td_control_simulation — Pilar 9: Reset, Pre-Roll y estabilidad temporal ─
+
+_CONTROL_SIM = r'''
+import json, math
+spec = __SPEC__
+root = op(spec['container_path'])
+if not root:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": "contenedor no encontrado: " + spec['container_path']}))
+else:
+    all_ops = []
+    def collect(comp, depth):
+        for c in comp.children:
+            if c.name.startswith('.'):
+                continue
+            all_ops.append(c)
+            if c.family == 'COMP' and depth < 4:
+                collect(c, depth + 1)
+    collect(root, 0)
+
+    TEMPORAL_TYPES = {
+        'feedbackPOP', 'particlePOP', 'trailPOP', 'cachePOP',
+        'feedbackTOP', 'cacheTOP', 'speedCHOP', 'filterCHOP', 'lagCHOP', 'trailCHOP',
+    }
+    temporal_nodes = []
+    reset_pulsed = []
+    action = spec.get('action', 'reset_and_preroll')
+
+    for n in all_ops:
+        t = getattr(n, 'OPType', n.type)
+        if t in TEMPORAL_TYPES:
+            temporal_nodes.append({"path": n.path, "type": t})
+            if action in ('reset_and_preroll', 'reset_only'):
+                for rp in ('resetpulse', 'reset', 'clear', 'preroll'):
+                    p = getattr(n.par, rp, None)
+                    if p is not None:
+                        try:
+                            if hasattr(p, 'pulse') and str(getattr(p, 'style', '')) == 'Pulse':
+                                p.pulse()
+                                reset_pulsed.append(f"{n.path}.par.{rp}.pulse()")
+                        except Exception:
+                            pass
+
+    steps = int(spec.get('preroll_steps', 20)) if action != 'reset_only' else 2
+    for _ in range(max(steps - 1, 1)):
+        for n in all_ops:
+            try:
+                n.cook(force=True)
+            except Exception:
+                pass
+
+    def snap_geo():
+        out = {}
+        for n in all_ops:
+            if n.family in ('POP', 'SOP'):
+                try:
+                    npts = int(n.numPoints() if callable(getattr(n, 'numPoints', None)) else getattr(n, 'numPoints', 0))
+                    b = n.bounds() if callable(getattr(n, 'bounds', None)) else getattr(n, 'bounds', None)
+                    if b:
+                        out[n.path] = {
+                            "type": getattr(n, 'OPType', n.type),
+                            "numPoints": npts,
+                            "center": [float(b.center[0]), float(b.center[1]), float(b.center[2])],
+                            "size": [float(b.size[0]), float(b.size[1]), float(b.size[2])],
+                        }
+                except Exception:
+                    pass
+        return out
+
+    s0 = snap_geo()
+    # Avanzar 1 frame del timeline para medir delta inter-frame real
+    try:
+        op('/').time.frame = op('/').time.frame + 1
+    except Exception:
+        pass
+    for n in all_ops:
+        try:
+            n.cook(force=True)
+        except Exception:
+            pass
+    s1 = snap_geo()
+
+    max_ext = float(spec.get('max_extent', 10000.0))
+    sim_reports = []
+    has_nan = False
+    has_explosion = False
+    has_motion = False
+    has_points = False
+
+    for path, d1 in s1.items():
+        d0 = s0.get(path, d1)
+        c0, c1 = d0['center'], d1['center']
+        sz1 = d1['size']
+        coords = c1 + sz1
+        nan_here = any(math.isnan(v) or math.isinf(v) for v in coords)
+        if nan_here:
+            has_nan = True
+        max_dim = max(sz1) if not nan_here else float('inf')
+        if max_dim > max_ext:
+            has_explosion = True
+        dc = math.sqrt(sum((c1[i] - c0[i])**2 for i in range(3))) if not nan_here else 0.0
+        ds = math.sqrt(sum((sz1[i] - d0['size'][i])**2 for i in range(3))) if not nan_here else 0.0
+        delta = dc + ds
+        if delta > 1e-6:
+            has_motion = True
+        if d1['numPoints'] > 0:
+            has_points = True
+        sim_reports.append({
+            "path": path,
+            "type": d1['type'],
+            "numPoints": d1['numPoints'],
+            "max_extent": round(max_dim, 4) if not nan_here else None,
+            "interframe_delta": round(delta, 6),
+            "nan_detected": nan_here,
+        })
+
+    recs = []
+    if has_nan:
+        state = "NAN_CORRUPTED"
+        recs.append("Se detectó NaN/Inf tras el pre-roll. Revisá divisiones por 0 (normalize(vec3(0))) en glslPOP y pulsá reset.")
+    elif has_explosion:
+        state = "EXPLODING"
+        recs.append(f"Los bounds superan max_extent ({max_ext}). Agregá un limitPOP (clamp/loop) o reducí la amplitud de fuerzas / dt.")
+    elif not has_points and sim_reports:
+        state = "EMPTY"
+        recs.append("0 puntos vivos tras el pre-roll. Revisá birthrate y lifeexpect en particlePOP o la geometría emisora.")
+    elif has_motion:
+        state = "STABLE_DYNAMIC"
+    else:
+        state = "STABLE_STATIC"
+
+    print('<<JSON>>' + json.dumps({
+        "ok": state in ("STABLE_DYNAMIC", "STABLE_STATIC"),
+        "container_path": root.path,
+        "action": action,
+        "preroll_steps": steps,
+        "simulation_state": state,
+        "temporal_nodes_count": len(temporal_nodes),
+        "temporal_nodes": temporal_nodes,
+        "reset_pulsed": reset_pulsed,
+        "node_metrics": sim_reports[:25],
+        "recommendations": recs,
+    }))
+'''
+
+
+def t_control_simulation(a: dict) -> dict:
+    """Controlador de simulaciones y loops temporales: detecta nodos con estado (feedbackPOP, particlePOP, feedbackTOP, trailPOP, cachePOP, speedCHOP), pulsa todos los resets atómicamente, avanza N pasos de pre-roll y diagnostica si la simulación está STABLE_DYNAMIC, STABLE_STATIC, EMPTY, EXPLODING o NAN_CORRUPTED."""
+    container_path = str(a.get("container_path") or "/project1").strip()
+    spec = {
+        "container_path": container_path,
+        "action": str(a.get("action") or "reset_and_preroll").strip().lower(),
+        "preroll_steps": int(a.get("preroll_steps") if a.get("preroll_steps") is not None else 20),
+        "max_extent": float(a.get("max_extent") if a.get("max_extent") is not None else 10000.0),
+    }
+    code = _CONTROL_SIM.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    return res
+
+
+# ── 24. td_harvest_pattern — Pilar 10: Cosecha de patrones hacia templates ───
+
+_HARVEST_PATTERN = r'''
+import json
+spec = __SPEC__
+root = op(spec['container_path'])
+if not root:
+    print('<<JSON>>' + json.dumps({"ok": False, "error": "contenedor no encontrado: " + spec['container_path']}))
+else:
+    operators = []
+    connections = []
+    root_prefix = root.path.rstrip('/') + '/'
+
+    def walk(comp, depth):
+        for c in comp.children:
+            if c.name.startswith('.'):
+                continue
+            rel_path = c.path[len(root_prefix):] if c.path.startswith(root_prefix) else c.name
+            parent_rel = comp.path[len(root_prefix):] if comp != root and comp.path.startswith(root_prefix) else None
+            pars = {}
+            for p in c.pars():
+                try:
+                    if p.isDefault or str(getattr(p, 'style', '')) == 'Pulse':
+                        continue
+                    if str(p.mode).endswith('EXPRESSION'):
+                        pars[p.name] = '=' + str(p.expr)
+                    else:
+                        v = p.eval()
+                        if isinstance(v, (int, float, bool, str)):
+                            pars[p.name] = v
+                except Exception:
+                    pass
+            flags = {}
+            for fk in ('display', 'render', 'bypass', 'lock'):
+                try:
+                    if bool(getattr(c, fk, False)):
+                        flags[fk] = True
+                except Exception:
+                    pass
+            op_entry = {
+                "name": c.name,
+                "type": getattr(c, 'OPType', c.type),
+                "parent": parent_rel,
+                "position": [int(getattr(c, 'nodeX', 0)), int(getattr(c, 'nodeY', 0))],
+                "parameters": pars,
+                "flags": flags,
+            }
+            if getattr(c, 'isText', False) and not c.name.endswith('_info'):
+                txt = str(getattr(c, 'text', '') or '')
+                if txt.strip():
+                    op_entry["dat_content"] = txt
+            operators.append(op_entry)
+
+            for in_idx, conn in enumerate(c.inputConnectors):
+                for cc in conn.connections:
+                    src = cc.owner
+                    src_rel = src.path[len(root_prefix):] if src.path.startswith(root_prefix) else src.name
+                    connections.append({
+                        "from": src_rel,
+                        "to": rel_path,
+                        "from_index": int(getattr(cc, 'index', 0)),
+                        "to_index": in_idx,
+                    })
+
+            if c.family == 'COMP' and depth < 3:
+                walk(c, depth + 1)
+
+    walk(root, 0)
+    print('<<JSON>>' + json.dumps({
+        "ok": True,
+        "container_path": root.path,
+        "operators": operators,
+        "connections": connections,
+    }))
+'''
+
+
+def t_harvest_pattern(a: dict) -> dict:
+    """Cosecha un contenedor vivo de TouchDesigner y lo guarda como template reutilizable en knowledge/custom_templates/<name>.json (+ .tdxn), quedando disponible inmediatamente en templates y td_instantiate_template."""
+    container_path = str(a.get("container_path") or "").strip()
+    raw_name = str(a.get("name") or "").strip()
+    if not container_path or not raw_name:
+        return {"ok": False, "error": "hacen falta 'container_path' y 'name' (ej. name='my-curl-scene')"}
+    clean_name = re.sub(r"[^a-zA-Z0-9_-]+", "-", raw_name).strip("-").lower()
+    desc = str(a.get("description") or f"Patrón cosechado en vivo desde {container_path}").strip()
+    raw_tags = a.get("tags") or ""
+    tags = [t.strip() for t in str(raw_tags).split(",") if t.strip()] if isinstance(raw_tags, str) else list(raw_tags)
+
+    code = _HARVEST_PATTERN.replace("__SPEC__", repr({"container_path": container_path}))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
+    if not ok or not isinstance(res, dict) or not res.get("ok"):
+        return res
+
+    tpl_doc = {
+        "name": clean_name,
+        "description": desc,
+        "tags": tags or ["custom", "harvested"],
+        "complexity": "custom",
+        "harvested_from": res.get("container_path"),
+        "operators": res.get("operators", []),
+        "connections": res.get("connections", []),
+    }
+    custom_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom_templates")
+    os.makedirs(custom_dir, exist_ok=True)
+    json_path = os.path.join(custom_dir, f"{clean_name}.json")
+    with open(json_path, "w", encoding="utf-8") as fh:
+        json.dump(tpl_doc, fh, ensure_ascii=False, indent=2)
+
+    tdxn_path = os.path.join(custom_dir, f"{clean_name}.tdxn")
+    try:
+        t_tdxn_export({"root_path": container_path, "out_path": tdxn_path, "include_dat_content": True})
+    except Exception:
+        tdxn_path = None
+
+    return {
+        "ok": True,
+        "name": clean_name,
+        "container_path": res.get("container_path"),
+        "operators_count": len(tpl_doc["operators"]),
+        "connections_count": len(tpl_doc["connections"]),
+        "template_json": json_path,
+        "template_tdxn": tdxn_path,
+        "hint": f"Ya podés instanciarlo en cualquier proyecto con td_instantiate_template(template_name={clean_name!r}).",
+    }
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -2754,8 +3610,8 @@ LIVE_TOOLS = [
       "source_pop": "string (opcional: ruta de POP existente a renderizar)", "primitive_mode": "points|native (default points)",
       "material": "pointsprite|constant|pbr (default pointsprite)", "resolution": "string (default 1280x720)",
       "point_size": "float (default 4.0)", "camera_tz": "float (default 5.0)"}, t_build_pop_render),
-    ("td_instantiate_template", "Instancia en vivo cualquier template de red (network_templates.json) o receta (recipes) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia, aplica parámetros/expresiones, cablea y ordena el layout.",
-     {"template_name": "string (requerido: ej. 'particle_gpu_basic', 'feedback_loop_top', 'basic_3d_render')",
+    ("td_instantiate_template", "Instancia en vivo cualquier template de red (network_templates.json, pop-chains, custom_templates) o receta (recipes) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia, aplica parámetros/expresiones, cablea y ordena el layout.",
+     {"template_name": "string (requerido: ej. 'particle_gpu_basic', 'feedback-loop-top', 'pop-curl-noise')",
       "parent_path": "string (default /project1)", "container_name": "string (opcional: crea un baseCOMP contenedor)",
       "clear_first": "bool (default false)"}, t_instantiate_template),
     ("td_verify_network", "Verificación integral en 1 llamada (Gauntlet vivo): fuerza 4 pasadas de cook (settle), audita ownership de geometryCOMPs (torus1 borrado, display/render activos, numPoints/numPrims > 0), detecta NaN/Inf en POPs/CHOPs, corre get_op_errors_deep y eval_render_frame, y devuelve veredicto PASS/FAIL con actionable_fixes.",
@@ -2764,6 +3620,28 @@ LIVE_TOOLS = [
     ("td_profile_network", "Profiler de rendimiento y cuellos de botella en vivo: mide cookTime CPU, gpuCookTime y memoria por nodo, calcula el % del presupuesto de frame (ej. 16.67ms a 60fps) y detecta anti-patrones de rendimiento (copyPOP masivo sin instancing, SOPs en pipeline POP, TOPs >4K, readbacks GPU->CPU).",
      {"root_path": "string (default /project1)", "max_depth": "int (default 4)", "top_n": "int (default 15)",
       "fps_target": "float (default 60.0)", "force_cook": "bool (default false)"}, t_profile_network),
+    ("td_scaffold_component", "Pilar 6 — Encapsula un COMP como módulo profesional de producción: crea páginas de Custom Parameters tipados, los vincula por expresión o bind a operadores hijos, configura e inicializa una Python Extension y opcionalmente exporta el .tox.",
+     {"comp_path": "string (requerido: ej. '/project1/my_fx')", "comp_type": "string (default baseCOMP)",
+      "page_name": "string (default Controls)", "custom_pars": "string (JSON list de custom pars con name, style, default, min, max, targets)",
+      "extension_class": "string (opcional: nombre de clase Python)", "extension_code": "string (opcional: código de la extensión)",
+      "save_tox_path": "string (opcional: ruta donde guardar .tox)"}, t_scaffold_component),
+    ("td_wire_reactive", "Pilar 7 — Puente reactivo auto-calibrado: mide en vivo el rango real de un canal CHOP, construye la cadena de acondicionamiento (selectCHOP -> mathCHOP auto-escalado -> lagCHOP -> nullCHOP) y lo enlaza al parámetro o uniform destino.",
+     {"source_chop": "string (requerido: ruta del CHOP fuente)", "target_op": "string (requerido: ruta del operador destino)",
+      "target_par": "string (requerido: nombre del parámetro en target_op)", "channel": "string (opcional: canal CHOP)",
+      "target_min": "float (default 0.0)", "target_max": "float (default 1.0)",
+      "lag_up": "float (default 0.05)", "lag_down": "float (default 0.15)"}, t_wire_reactive),
+    ("td_frame_camera_to_geo", "Pilar 8a — Auto-encuadre 3D matemático: calcula el bounding box mundial combinado de todos los POPs/SOPs activos en los geometryCOMP de un contenedor y posiciona la cameraCOMP (tx/ty/tz y near/far según FOV y aspect ratio) para que toda la geometría quede en cuadro.",
+     {"container_path": "string (default /project1)", "camera_path": "string (opcional: ruta del cameraCOMP)",
+      "padding": "float (default 1.35)"}, t_frame_camera_to_geo),
+    ("td_visual_diff", "Pilar 8b — Diff visual cuantitativo píxel a píxel entre dos TOPs en vivo (top_a vs top_b) o dos imágenes PNG (image_a vs image_b): devuelve mean_abs_diff, changed_pixels_pct, PSNR y veredicto (SIGNIFICANT_CHANGE / SUBTLE_CHANGE / IDENTICAL_NO_OP).",
+     {"top_a": "string (opcional: ruta del primer TOP)", "top_b": "string (opcional: ruta del segundo TOP)",
+      "image_a": "string (opcional: ruta PNG A)", "image_b": "string (opcional: ruta PNG B)"}, t_visual_diff),
+    ("td_control_simulation", "Pilar 9 — Controlador de simulaciones y loops temporales: detecta operadores con estado (feedbackPOP, particlePOP, feedbackTOP, trailPOP, cachePOP, speedCHOP), pulsa todos los resets atómicamente, avanza N pasos de pre-roll y diagnostica si está STABLE_DYNAMIC, STABLE_STATIC, EMPTY, EXPLODING o NAN_CORRUPTED.",
+     {"container_path": "string (default /project1)", "action": "reset_and_preroll|reset_only|diagnose (default reset_and_preroll)",
+      "preroll_steps": "int (default 20)", "max_extent": "float (default 10000.0)"}, t_control_simulation),
+    ("td_harvest_pattern", "Pilar 10 — Cosecha un contenedor verificado en vivo y lo guarda como plantilla reutilizable en knowledge/custom_templates/<name>.json (+ .tdxn), quedando disponible inmediatamente en templates y td_instantiate_template.",
+     {"container_path": "string (requerido: ruta del COMP a cosechar)", "name": "string (requerido: slug del template)",
+      "description": "string (opcional)", "tags": "string (opcional: tags separados por coma)"}, t_harvest_pattern),
 ]
 
 LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
@@ -2771,7 +3649,7 @@ LIVE_NAMES = [n for n, _d, _s, _f in LIVE_TOOLS]
 LIVE_READONLY = {
     "td_status", "find_in_ops", "tdn_diff", "eval_render_frame", "get_op_errors_deep",
     "td_measure", "td_explore_project", "td_compare_networks", "td_spatial_context",
-    "td_verify_network", "td_profile_network",
+    "td_verify_network", "td_profile_network", "td_visual_diff",
 }
 
 

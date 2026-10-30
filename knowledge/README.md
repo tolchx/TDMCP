@@ -4,7 +4,7 @@ MCP server por **stdio en Python puro (stdlib, sin dependencias)**. Trabaja en d
 mismo proceso y sin bridge (:44444 retirado):
 
 * **22 tools offline** — responden con la KB curada **sin** TouchDesigner abierto.
-* **19 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
+* **25 tools live** — hablan MCP contra el **server oficial de Derivative** (`127.0.0.1:13316/mcp`)
   para operaciones de alto nivel sobre el proyecto vivo; si TD está cerrado devuelven un error claro.
 
 ## Tools offline (22)
@@ -34,7 +34,7 @@ mismo proceso y sin bridge (:44444 retirado):
 | `glsl_curriculum` | Currículum estructurado GLSL (`glsl_curriculum.json` con `entry='<id>'` y `learning_path=true`) + librería POP + 79 shaders sueltos. |
 | `contracts` | **Contratos verificados en vivo** contra TD 2025.32460 + TDMCP 1.1.55, servidos desde `contracts/VERIFIED_CONTRACTS.md` (versionado, no derivado). |
 
-## Tools live (19) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
+## Tools live (25) — requieren TD con el `.tox` oficial activo (`127.0.0.1:13316`)
 
 | Tool | Qué hace (y por qué complementa al oficial) |
 |---|---|
@@ -54,9 +54,15 @@ mismo proceso y sin bridge (:44444 retirado):
 | `td_compare_networks` | Compara en vivo dos contenedores COMP (`path_a` vs `path_b`): operadores exclusivos de cada lado, diferencias de parámetros no-default y diferencias de cableado. |
 | `td_spatial_context` | Contexto espacial de la UI de TouchDesigner: pane activo, ruta abierta en el editor, operador actual (`currentChild`), selección múltiple y estado del timeline. |
 | `td_build_pop_render` | Construye en 1 llamada el pipeline completo de renderizado POP (`geometryCOMP` con eliminación de `torus1` + fuente/esfera POP + `convertPOP(topointprims)` + `nullPOP` con `display`/`render` + `cameraCOMP` + `pointspriteMAT`/`constantMAT`/`pbrMAT` + `renderTOP` + `nullTOP`), corre 4 pasadas de cook y evalúa el frame. |
-| `td_instantiate_template` | Instancia en vivo cualquier plantilla de red (`network_templates.json`) o receta (`recipes`) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia (`numBlocks`), aplica parámetros/expresiones, cablea y ordena el layout. |
+| `td_instantiate_template` | Instancia en vivo cualquier plantilla de red (`network_templates.json`, `pop-chains`, `custom_templates`) o receta (`recipes`) en una sola llamada: crea contenedores y operadores, expande bloques de secuencia (`numBlocks`), aplica parámetros/expresiones, cablea y ordena el layout. |
 | `td_verify_network` | Verificación integral en 1 llamada (Gauntlet vivo): fuerza 4 pasadas de cook (`settle`), audita ownership de `geometryCOMPs` (`torus1` borrado, `display`/`render` activos, `numPoints`/`numPrims > 0`), detecta `NaN`/`Inf` en POPs/CHOPs, corre `get_op_errors_deep` y `eval_render_frame`, y devuelve veredicto `PASS`/`FAIL` con `actionable_fixes`. |
 | `td_profile_network` | Profiler de rendimiento y cuellos de botella en vivo: mide `cookTime` CPU, `gpuCookTime` y memoria por nodo, calcula el % del presupuesto de frame (`16.67ms` a 60fps) y detecta anti-patrones (`copyPOP` masivo sin instancing, SOPs en pipeline POP, TOPs >4K, readbacks GPU→CPU). |
+| `td_scaffold_component` | **Pilar 6**: encapsula un COMP como módulo profesional con Custom Parameters tipados, bindings/expresiones hacia hijos, Python Extension (`reinitextensions`) y exportación `.tox`. |
+| `td_wire_reactive` | **Pilar 7**: mide en vivo un canal CHOP, construye la cadena `selectCHOP` → `mathCHOP` (auto-calibrado) → `lagCHOP` → `nullCHOP` y lo vincula al parámetro/uniform destino. |
+| `td_frame_camera_to_geo` | **Pilar 8a**: calcula el bounding box 3D mundial combinado de los POPs/SOPs activos y auto-encuadra matemáticamente la `cameraCOMP` (`tx, ty, tz, near, far`). |
+| `td_visual_diff` | **Pilar 8b**: compara dos TOPs o PNGs píxel a píxel (`mean_abs_diff`, `changed_pixels_pct`, `psnr_db` y veredicto `SIGNIFICANT_CHANGE` / `SUBTLE_CHANGE` / `IDENTICAL_NO_OP`). |
+| `td_control_simulation` | **Pilar 9**: resetea atómicamente todos los nodos temporales (`feedbackPOP`, `particlePOP`, `feedbackTOP`, `trailPOP`, `cachePOP`, `speedCHOP`), avanza $N$ pasos de pre-roll y diagnostica `STABLE_DYNAMIC`, `STABLE_STATIC`, `EMPTY`, `EXPLODING` o `NAN_CORRUPTED`. |
+| `td_harvest_pattern` | **Pilar 10**: cosecha un contenedor vivo hacia `knowledge/custom_templates/<name>.json` + `.tdxn`, quedando disponible al instante en `templates` y `td_instantiate_template`. |
 
 ## Watchdog
 
@@ -83,7 +89,7 @@ python knowledge/build_assets.py --import-archive C:/ruta/backup/td-knowledge-kb
 ```bash
 python knowledge/server.py                 # servidor stdio (habla MCP por stdin/stdout)
 python knowledge/server.py --selftest      # corre las 22 tools offline con args de prueba
-python knowledge/test_protocol.py          # handshake + tools/list (41 tools) + llamadas por protocolo
+python knowledge/test_protocol.py          # handshake + tools/list (47 tools) + llamadas por protocolo
 python knowledge/test_live.py              # prueba end-to-end en vivo contra TouchDesigner (:13316)
 ```
 
