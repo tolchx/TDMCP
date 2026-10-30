@@ -58,9 +58,10 @@ Probado el 2026-09-29 sobre el árbol de la sesión:
 | batería completa 26 builds | `results/reg-20261002-022418` — 26/26 exit 0, 167.2 s |
 | **`build_pop_ray.py`** (cobertura 5d: rayPOP — impacto/atributos, centinelas de miss, limit, lift, HW, bounces) | `results/reg-20261029-2040` — 24/24 cheks, 0 fallos, PNG 2104 px → C19 (corrige C18: no `RayHitNormal`) |
 | **`build_pop_copy.py`** (cobertura 5d: copyPOP — ncy, template translate, CopyId, bypass) | `results/reg-20261029-2040` — 20/20 cheks, 0 fallos, PNG 9833 px → C19 |
-| **`build_pop_mathcombine.py`** (cobertura 5d: mathcombinePOP — gating de rayPOP con gt/mix, control mathmix) | `results/reg-20261029-2105` — 19/19 cheks, 0 fallos, PNG 4680 px → C20 |
+| **`build_pop_mathcombine.py`** (cobertura 5d: mathcombinePOP — gating de rayPOP con gt/mix, control mathmix) | `results/reg-20261029-2135` — 20/20 cheks, 0 fallos, PNG 4680 px → C20 |
+| `td_layout.py` (layout de las 114 redes `/pop_*` y sus COMP anidados) | `results/reg-20261029-2135` — 114 redes, **0 pares solapados**, exit 0 |
 | batería completa 34 builds | `results/reg-20261029-2040` — 34/34 exit 0, 251.8 s (primer intento `reg-20261029-2035` 31/34 por cascada del rate limiter; fix en C19/`rate_limiter_cascada`) |
-| batería completa 35 builds (con mathcombine) | `results/reg-20261029-2105` — 35/35 exit 0, 264.8 s, 472 chequeos |
+| batería completa 35 builds (con mathcombine + layout) | `results/reg-20261029-2135` — 35/35 exit 0, 259.2 s, 473 chequeos, layout PASS |
 | sonda desechable `probe_bound2.py` (6 fases, borrada tras medir) | `results/probe_bound2` — cierra `grouppop_bound_sin_efecto_api`: con `bound0enabled=ON` excluye de verdad (radio = 0.5·scale ABSOLUTO, frontera inclusiva, invert = complemento exacto 8/12↔12/8, bound∩attr = AND fijo entre páginas, combine solo entre bloques de la misma secuencia: or 10 / xor 6 / and 4 / nor 10); el build 5c no encendía el Toggle → "sin efecto"; membresía STALE tras el primer enable → C17 |
 | `knowledge/server.py --selftest` (contratos C8/C9 en el archivo servido) | exit 0 |
 | `td_probe.py` · `check_single_home.py` | 6/6 · 0 violaciones, exit 0 |
@@ -227,8 +228,9 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
 
   **TRAMO 5d-1 CERRADO 2026-10-29 (TD vivo, MCP 1.1.55, build 2025.32460):** rayPOP, copyPOP y
   mathcombinePOP medidos con builds versionados (`build_pop_ray.py` 24/24, `build_pop_copy.py`
-  20/20, `build_pop_mathcombine.py` 19/19; batería `reg-20261029-2105` 35/35, 264.8 s, 472
-  chequeos). Cierran 3 de los 62 tipos listados al cierre 5c y el gating pendiente del ítem 10;
+  20/20, `build_pop_mathcombine.py` 20/20; batería `reg-20261029-2135` 35/35, 259.2 s, 473
+  chequeos, layout 114 redes / 0 solapamientos). Cierran 3 de los 62 tipos listados al cierre 5c
+  y el gating pendiente del ítem 10;
   `mathmixPOP` se midió como control, no como cobertura completa. El total no se recalcula porque
   la batería ya tenía builds posteriores a 5c (`line`, `curve`, `field_vectors`, `twist`,
   `analytics_cull`, `blend`) sin fila propia. Contratos **C19**, **C20** y corrección de C18
@@ -327,8 +329,9 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
     `docs/pop-coverage-2026-10-29.md`): inputs (puntos + geometría), `fastbuild`/`fasttrace`,
     salidas (`dist`/`numhits`/`inside`/`hitprimindex`; `hitnormal` no crea attr propio: pisa N;
     `barycoords` no agrega attr visible) y centinelas de miss. **Gating MEDIDO el mismo día**
-    (`build_pop_mathcombine.py`, 19/19; C20): `gt` sobre `RayNumHits` -> 0/1, `mix` lo/hi con
-    ese selector, `gt` estricto y `mix` lerp; `mathmixPOP` da el mismo resultado como control.
+    (`build_pop_mathcombine.py`, 20/20; C20): `gt` sobre `RayNumHits` -> 0/1, `mix` lo/hi con
+    ese selector, `gt` estricto y `mix` lerp; `mathmixPOP` da el mismo resultado como control;
+    el build verifica además que no quede ningún nodo solapado.
   - **Flocking con `neighborPOP`** (3 bandas + steering) y el error de alineación (delta vs normal
     objetivo): receta sin un solo número medido.
   - **`forceradialPOP` standalone** (`mathmix A*B` → escalar, `A+B` → sumar a `P`) y su gotcha

@@ -86,6 +86,18 @@ def main() -> int:
             print("\n*** FALLÓ %s — la batería continúa con el resto para informe completo "
                   "(el exit final será 1) ***" % script, flush=True)
 
+    # Regla del harness: después de construir, cada red /pop_* queda con sus nodos
+    # separados. El audit es parte del veredicto: si dos nodos se solapan, la
+    # batería no es verde aunque los 35 builds hayan pasado.
+    print("\n" + "=" * 72)
+    print("[layout] auditando /pop_* (sin solapamientos)")
+    print("=" * 72, flush=True)
+    t_layout = time.monotonic()
+    layout_proc = subprocess.run([sys.executable, os.path.join(HERE, "td_layout.py")],
+                                 cwd=HERE, env=env)
+    layout_dt = time.monotonic() - t_layout
+    print("--> td_layout.py: exit %d (%.1f s)" % (layout_proc.returncode, layout_dt), flush=True)
+
     total = time.monotonic() - t0
     print("\n" + "=" * 72)
     print("RESUMEN de la batería (%.1f s total)" % total)
@@ -97,7 +109,9 @@ def main() -> int:
             fallados += 1
         print("  %-4s %-34s %6.1f s" % (marca, script, dt))
     print("\n%d/%d builds verdes" % (len(resultados) - fallados, len(resultados)))
-    return 1 if fallados else 0
+    print("Layout /pop_*: %s (%.1f s)" %
+          ("PASS" if layout_proc.returncode == 0 else "FAIL", layout_dt))
+    return 1 if (fallados or layout_proc.returncode) else 0
 
 
 if __name__ == "__main__":

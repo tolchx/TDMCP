@@ -1163,12 +1163,12 @@ Si un shader o un `mathPOP` consume estos atributos, hay que filtrar el sentinel
 - Regla: un rojo de batería con ese mensaje se reintenta antes de declarar regresión; el
   mensaje es del rate limiter (C14), no del operador.
 
-## C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2105, 35/35)
+## C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2135, 35/35)
 
 Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, MCP en `127.0.0.1:13316`.
-Evidencia: `tools/gauntlet/results/reg-20261029-2105/` (ignorada por git; se regenera con
+Evidencia: `tools/gauntlet/results/reg-20261029-2135/` (ignorada por git; se regenera con
 `python tools/gauntlet/regression_pop.py`). Build: `tools/gauntlet/build_pop_mathcombine.py`
-(19/19, PNG 4.680 px). Escena: `gridPOP` 3x3 de tamaño 3 en `z=-1` (input 0 de `rayPOP`)
+(20/20, PNG 4.680 px). Escena: `gridPOP` 3x3 de tamaño 3 en `z=-1` (input 0 de `rayPOP`)
 contra `boxPOP` 1x1 centrado (input 1), con `numhits=True`.
 
 ### `mathcombine_raypop_gating` — `gt` produce el 0/1 y `mix` lo usa como selector [V]
@@ -1207,6 +1207,20 @@ contra `boxPOP` 1x1 centrado (input 1), con `numhits=True`.
 - Límite: el probe usó dos grillas con el mismo `Tex`, así que no distinguió si `Tex` resolvía
   al input 0 o al input 1. Queda medido el **nombre** (no hay `in1_Tex`), no la semántica de
   precedencia. El build no usa segunda entrada.
+
+### `mathcombine_layout_sin_solapamiento` — la red de prueba no deja nodos encimados [V]
+
+- El build llama a `td_layout.tidy` después de crear **todos** los hijos (incluido `mat`) y
+  agrega el check `red sin nodos solapados (layout por profundidad, base + geo)`.
+- El layout separa por profundidad de conexiones (fuentes a la izquierda), apila cada
+  profundidad en filas y cuenta también el `par.pop` de los `poptoCHOP` (enlace de
+  parámetro, no cable). Con eso no hay pares solapados en `base` ni en `geo`.
+- `td_layout.py` recorre las `/pop_*` y sus COMP anidados. Evidencia del pase:
+  **114 redes, 0 pares solapados**; `regression_pop.py` lo corre como último paso y sale 1
+  si queda un solapamiento. Antes del fix, los 10 hijos de `geo` estaban en `(0,0)` y el
+  `cam` tapaba al `geo` por 5 px.
+- Mover nodos no cambia parámetros, conexiones ni resultados numéricos: es sólo layout del
+  network. El check es de presentación, no de comportamiento del POP.
 
 ### `mathcombine_limites` — qué NO se midió [V]
 

@@ -291,22 +291,24 @@ python knowledge/test_protocol.py
 ### Pruebas POP en vivo (35 builds)
 
 La cobertura POP no se afirma de memoria: cada tipo se mide contra TD vivo con un build
-versionado y checks con número. La batería completa son **35 builds / 472 chequeos** y corre
+versionado y checks con número. La batería completa son **35 builds / 473 chequeos** y corre
 por el MCP oficial:
 
 ```bash
 # TD abierto + componente TDMCP Active en 127.0.0.1:13316
-GAUNTLET_RUN_ID=reg-20261029-2105 python tools/gauntlet/regression_pop.py
+GAUNTLET_RUN_ID=reg-20261029-2135 python tools/gauntlet/regression_pop.py
 
 # un solo tipo, p. ej. los tres del tramo 2026-10-29
 python tools/gauntlet/build_pop_ray.py          # 24 checks
 python tools/gauntlet/build_pop_copy.py         # 20 checks
-python tools/gauntlet/build_pop_mathcombine.py  # 19 checks
+python tools/gauntlet/build_pop_mathcombine.py  # 20 checks
 ```
 
 Exit 0 = todos verdes; exit 2 = entorno (TD/MCP caído), no rojo. Cada build deja
 `tools/gauntlet/results/<run_id>/` (ignorado por git) con el `.jsonl` de tool calls, el
-reporte numérico y un PNG del render.
+reporte numérico y un PNG del render. La batería cierra con un audit de layout:
+`td_layout.py` separa los nodos por profundidad de conexiones y falla si dos se solapan
+(hoy: **114 redes, 0 pares**).
 
 El tramo del **2026-10-29** cerró tres tipos del ítem 5d y la deuda #1 del ítem 10:
 
@@ -319,7 +321,7 @@ El tramo del **2026-10-29** cerró tres tipos del ítem 5d y la deuda #1 del ít
 - **`mathcombinePOP`** — gating 0/1 de `rayPOP`: `gt` es estricto (4 > 4 falla, 4 > 3 pasa),
   `mix` es un lerp (`C=0.5` → `0.55`), los bloques encadenan y `comb*result` auto-crea el
   atributo con la página `attr` default vacía; `mathmixPOP` da el mismo resultado y no tiene
-  página `attr`.
+  página `attr`. El build deja los nodos separados y verifica 0 solapamientos.
 
 Los contratos medidos están en **C19** y **C20** de
 [VERIFIED_CONTRACTS.md](knowledge/contracts/VERIFIED_CONTRACTS.md); C18 quedó corregido

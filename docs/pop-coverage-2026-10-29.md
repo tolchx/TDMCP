@@ -24,7 +24,10 @@ PYTHONIOENCODING=utf-8 python tools/gauntlet/build_pop_copy.py
 PYTHONIOENCODING=utf-8 python tools/gauntlet/build_pop_mathcombine.py
 
 # batería completa (35 builds), con un run_id para agrupar la evidencia
-GAUNTLET_RUN_ID=reg-20261029-2105 PYTHONIOENCODING=utf-8 python tools/gauntlet/regression_pop.py
+GAUNTLET_RUN_ID=reg-20261029-2135 PYTHONIOENCODING=utf-8 python tools/gauntlet/regression_pop.py
+
+# auditar/reacomodar todas las /pop_* (sale 1 si queda un par solapado)
+PYTHONIOENCODING=utf-8 python tools/gauntlet/td_layout.py
 ```
 
 La batería exige TD abierto y el componente **Active**; si el MCP no responde, sale 2
@@ -38,15 +41,15 @@ regenera con el comando de arriba.
 | `reg-20261029-2035` (primera) | **31/34** | `revolvePOP`, `tubePOP`, `topologyPOP` en rojo por **cascada del rate limiter** (`recovering from a slow operation`), no por regresión |
 | builds sueltos de los 3 en rojo | **12/12 · 15/15 · 13/13 PASS** | confirman que era el cooldown |
 | `reg-20261029-2040` (final) | **34/34 exit 0, 251.8 s** | con retry del cliente + 1 s entre builds |
-| `reg-20261029-2105` (final, + mathcombine) | **35/35 exit 0, 264.8 s** | sin rojos; el build nuevo tampoco disparó cooldown |
+| `reg-20261029-2135` (final, + mathcombine + layout) | **35/35 exit 0, 259.2 s** | layout PASS: 114 redes, 0 pares solapados |
 
-Los 35 builds acumulan **472 chequeos** con número. Los tres nuevos:
+Los 35 builds acumulan **473 chequeos** con número. Los tres nuevos:
 
 | build | checks | PNG | contrato |
 |---|---|---|---|
 | `build_pop_ray.py` (`/pop_ray`) | **24/24** | 2.104 px | C19 |
 | `build_pop_copy.py` (`/pop_copy`) | **20/20** | 9.833 px | C19 |
-| `build_pop_mathcombine.py` (`/pop_mathcombine`) | **19/19** | 4.680 px | C20 |
+| `build_pop_mathcombine.py` (`/pop_mathcombine`) | **20/20** | 4.680 px | C20 |
 
 ## rayPOP — lo medido
 
@@ -116,6 +119,20 @@ El patrón de gating queda cerrado: `gt` sobre `RayNumHits` produce el 0/1 y ese
 entra como `C` del `mix`. `mathcombinePOP` es el que aporta la página `attr` y el encadenado
 de 4 bloques; `mathmixPOP` sirve para el mismo cálculo con 3 bloques y sin página `attr`.
 
+## Layout de las redes
+
+El build deja todos los nodos separados. `td_layout.tidy` los ordena por **profundidad de
+conexiones** (fuentes a la izquierda, consumidores a la derecha), cuenta también el
+`par.pop` de los `poptoCHOP` y verifica que no quede ningún par solapado. La batería cierra
+con `td_layout.py`, que recorre las `/pop_*` y sus COMP anidados; si queda un par encimado,
+la batería sale 1.
+
+- `build_pop_mathcombine.py` agrega el check **“red sin nodos solapados”** (base + geo).
+- `reg-20261029-2135`: **114 redes, 0 pares solapados**.
+- Antes del fix, todos los hijos de `geo` estaban en `(0,0)` (10 nodos encimados) y el
+  `cam` tapaba al `geo` por 5 px; el layout se aplicó a las 114 redes existentes.
+- Mover nodos no cambia parámetros ni conexiones: es sólo presentación del network.
+
 ## Hallazgo de harness
 
 La primera batería dio 31/34: el rate limiter del componente responde
@@ -130,9 +147,9 @@ Fix, en dos piezas:
    C14/`td_slow_operation`.
 2. `tools/gauntlet/regression_pop.py` deja **1 s** entre builds.
 
-Con eso: **34/34, 251.8 s** en la corrida base de 34 builds y **35/35, 264.8 s** con
-`build_pop_mathcombine.py` sumado (`reg-20261029-2105`). Un rojo de batería con ese mensaje
-se reintenta antes de declarar regresión.
+Con eso: **34/34, 251.8 s** en la corrida base de 34 builds y **35/35, 259.2 s** con
+`build_pop_mathcombine.py` y el audit de layout sumados (`reg-20261029-2135`). Un rojo de
+batería con ese mensaje se reintenta antes de declarar regresión.
 
 ## Límites
 
@@ -150,12 +167,15 @@ se reintenta antes de declarar regresión.
   mismo `Tex`; no se usa en el build. Queda como gotcha de nombre, no como semántica
   verificada.
 - `mathmixPOP` se usa como control del gating, no como cobertura completa del operador.
+- `build_monitor_pop.py` tiene un check de calibración estocástico: en `reg-20261029-2125`
+  falló por `|0.1222 - 0.0908| = 0.0314` contra un umbral de `0.03`; solo pasa 7/7. No es
+  regresión de layout: reintentar antes de declarar rojo.
 
 ## Archivos
 
 - `tools/gauntlet/build_pop_ray.py`, `tools/gauntlet/build_pop_copy.py`,
-  `tools/gauntlet/build_pop_mathcombine.py` (nuevos).
-- `tools/gauntlet/regression_pop.py` (35 builds + pausa de 1 s).
+  `tools/gauntlet/build_pop_mathcombine.py`, `tools/gauntlet/td_layout.py` (nuevos).
+- `tools/gauntlet/regression_pop.py` (35 builds + pausa de 1 s + audit de layout).
 - `tools/gauntlet/gauntlet_client.py` (retry C14).
 - `knowledge/contracts/VERIFIED_CONTRACTS.md` (C19, C20 + corrección de C18).
 - `docs/BACKLOG.md` (filas en *Estado verificado* + 5d + ítem 10).

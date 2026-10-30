@@ -21,6 +21,8 @@ Medido en TD 2025.32460 (MCP oficial 1.1.55):
     `attr`; para crear atributos se usa mathcombinePOP.
   * Gotcha: la segunda entrada de mathcombine no expone `in1_<attr>` en esta
     configuracion; `input1attrs='*'` deja visible `Tex` sin prefijo. No se usa aca.
+  * layout: todos los nodos se separan por profundidad de conexiones y el build verifica
+    que no queden pares solapados (base + geo); el check es parte de los 20.
   * render: 10x10 puntos con pointspriteMAT; camara iso (4,4,4) con lookat al geo.
 """
 from __future__ import annotations
@@ -33,6 +35,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from gauntlet_client import Gauntlet  # noqa: E402
+from td_layout import tidy  # noqa: E402
 from td_probe import chain_source, png_stats, set_and_verify  # noqa: E402
 
 RUN = os.environ.get("GAUNTLET_RUN_ID") or time.strftime("%Y%m%d-%H%M%S")
@@ -249,6 +252,19 @@ bad, got = set_and_verify(g, ROOT + "/geo/mat",
                           {"pointsize": 6.0, "colorr": 0.2, "colorg": 0.9, "colorb": 1.0},
                           "material celeste", call=call_retry)
 chek("pars del material aplicados (C4)", not bad, got)
+
+# Regla del harness: cada nodo en su lugar, sin solapamientos. El layout se aplica
+# despues de crear TODOS los hijos (incluido mat) y se audita leyendo las posiciones.
+layout_ok, layout_data = tidy(g, roots=[ROOT])
+bad_layout = [(p.get("parent"), p.get("overlaps"))
+              for p in layout_data.get("parents", []) if p.get("overlaps")]
+chek("red sin nodos solapados (layout por profundidad, base + geo)",
+     layout_ok and layout_data.get("total") == 0,
+     {"total": layout_data.get("total"), "bad": bad_layout})
+report["layout"] = {"ok": layout_ok, "total": layout_data.get("total"),
+                    "parents": [{"parent": p.get("parent"), "n": p.get("n"),
+                                 "overlaps": p.get("overlaps")}
+                                for p in layout_data.get("parents", [])]}
 
 ok, d = g.exec_code(CHAIN + """
 import json
