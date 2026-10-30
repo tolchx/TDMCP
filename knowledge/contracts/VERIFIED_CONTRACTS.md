@@ -1358,3 +1358,27 @@ Escena: `gridPOP` 3x3 de tamaño 2 (r=1 en los cardinales, r=sqrt(2) en las esqu
   solo centro.
 - `map0combineop` `multiply` / `add` no medidos (sólo `set`).
 - No se midió el consumo dentro de `particlePOP` (simulación completa) en este pase.
+
+---
+
+## C22 — NetworkTidy Layout Contract: ordenamiento estructural y validación por defecto
+
+Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, NetworkTidy **1.0.0** (`/network_tidy`).
+
+### `tidy_layout_standard` — Flujo de datos izquierda-a-derecha [V]
+- **Regla de oro:** Toda red creada, instanciada o verificada por el agente debe quedar ordenada con NetworkTidy (`td_network_tidy`) por defecto.
+- Las cadenas de operadores conectados se alinean en columnas estrictamente de izquierda a derecha según el flujo de datos; las salidas terminan en la columna derecha.
+- Los operadores dentro de cada columna se reordenan verticalmente para minimizar cruces de cables (`Straighten=True`).
+- Múltiples cadenas o grupos separados se apilan de arriba a abajo manteniendo su orden original.
+- Los operadores sueltos (`loose ops`, sin cables de entrada ni salida) se ordenan automáticamente en una grilla compacta debajo de la red, organizados por tipo de familia (`Gridloose=True`).
+- Las cajas de anotación (`annotateCOMP`) envuelven y se re-dimensionan automáticamente a los operadores contenidos (`Annotations=True`).
+- Los operadores acoplados (`docked ops`, ej. callbacks DAT) se mueven junto a su host principal.
+
+### `tidy_validation_gate` — Integración en `td_verify_network` [V]
+- `td_verify_network` ejecuta `tidy=True` por defecto.
+- Al correr el Gauntlet de verificación en vivo, se evalúa y aplica el layout de NetworkTidy:
+  - Chequeo `"layout_tidy_ok"` registrado en `checks`.
+  - Muestra `tidy_layout: {"ok": true, "status": "...", "moved_count": N, "nodes_total": M}` en el reporte final.
+  - La red queda garantizada limpia y lista para producción sin cables desordenados ni superposiciones.
+- Reversibilidad garantizada: ante cualquier disconformidad estética, `td_network_tidy(action="undo")` restaura las coordenadas previas exactas desde `TidyExt.lastMoves`.
+

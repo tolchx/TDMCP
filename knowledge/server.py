@@ -1561,6 +1561,8 @@ INSTRUCTIONS = (
     "Antes de construir: resolve_operator / kb_search / ops_doc para elegir operadores, pop_matrix y validate_pop_pars "
     "(soporta todas las familias POP/TOP/CHOP/SOP/DAT/MAT/COMP + co-dependencias) para verificar nombres de parámetros reales, "
     "contracts y glsl_rules para las reglas verificadas en vivo. Antes de compilar GLSL: glsl_analyze o td_glsl_apply. "
+    "Regla de ordenamiento por defecto: toda red construida o verificada debe quedar ordenada con NetworkTidy (td_network_tidy); "
+    "td_verify_network ejecuta tidy=True por defecto para validar y alinear columnas por flujo de datos de izquierda a derecha. "
     "Las tools live (td_status, find_in_ops, auto_layout, smart_connect, tdn_export, tdn_diff, tdxn_export, tdxn_build, "
     "eval_render_frame, get_op_errors_deep, td_measure, td_glsl_apply, td_explore_project, td_compare_networks, "
     "td_spatial_context, td_build_pop_render, td_instantiate_template, td_verify_network, td_profile_network, "

@@ -177,6 +177,8 @@ print("\n### 18. td_verify_network (Pilar 2)")
 ver_res = live.t_verify_network({"container_path": SB, "render_top": pop_ren.get("out_top_path")})
 show("verify_network", ver_res, 1200)
 assert ver_res.get("ok") is True and ver_res.get("verdict") == "PASS", f"td_verify_network falló: {ver_res}"
+assert ver_res.get("checks", {}).get("layout_tidy_ok") is True, f"layout_tidy_ok falló: {ver_res}"
+assert ver_res.get("tidy_layout") is not None, f"tidy_layout ausente: {ver_res}"
 
 print("\n### 19. td_instantiate_template (Pilar 1)")
 tpl_res = live.t_instantiate_template({

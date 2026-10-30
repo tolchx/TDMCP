@@ -2387,8 +2387,13 @@ def t_instantiate_template(a: dict) -> dict:
     ok, res = exec_code(code, timeout=float(a.get("timeout") or TIMEOUT))
     if ok and isinstance(res, dict) and res.get("ok") and not has_positions and res.get("container_path"):
         try:
-            t_auto_layout({"parent_path": res["container_path"]})
-            res["auto_layout_applied"] = True
+            tidy_res = t_network_tidy({"network_path": res["container_path"], "action": "tidy", "animate": False})
+            if tidy_res and tidy_res.get("ok"):
+                res["tidy_applied"] = True
+                res["tidy_status"] = tidy_res.get("status")
+            else:
+                t_auto_layout({"parent_path": res["container_path"]})
+                res["auto_layout_applied"] = True
         except Exception:
             pass
     return res
@@ -2519,10 +2524,11 @@ else:
 
 
 def t_verify_network(a: dict) -> dict:
-    """Verificación física, temporal, de errores y visual de un contenedor en 1 sola llamada (settle 4 pasadas + ownership de geometryCOMPs + NaN/Inf check + get_op_errors_deep + eval_render_frame)."""
+    """Verificación física, temporal, de errores, visual y de layout de un contenedor en 1 sola llamada (settle 4 pasadas + ownership de geometryCOMPs + NaN/Inf check + get_op_errors_deep + eval_render_frame + NetworkTidy por defecto)."""
     container_path = str(a.get("container_path") or a.get("root_path") or "/project1").strip()
     render_top = str(a.get("render_top") or "").strip() or None
     check_temporal = a.get("check_temporal", True) is not False
+    tidy = False if str(a.get("tidy") or "").lower() in ("0", "false", "no") else True
 
     spec = {
         "container_path": container_path,
@@ -2557,12 +2563,36 @@ def t_verify_network(a: dict) -> dict:
         if ev.get("quality") == "FAIL":
             fixes.append(f"Fallo visual en {cand_top}: {ev.get('verdict')}")
 
+    # Ordenamiento y validación estructural con NetworkTidy por defecto
+    tidy_layout = None
+    tidy_ok = True
+    if tidy:
+        try:
+            tidy_res = t_network_tidy({
+                "network_path": container_path,
+                "action": "tidy",
+                "animate": False,
+                "frame_result": False,
+            })
+            if tidy_res and isinstance(tidy_res, dict):
+                tidy_ok = bool(tidy_res.get("ok", True))
+                tidy_layout = {
+                    "ok": tidy_ok,
+                    "status": tidy_res.get("status"),
+                    "moved_count": tidy_res.get("moved_count", 0),
+                    "nodes_total": tidy_res.get("nodes_total", 0),
+                }
+                if not tidy_ok:
+                    fixes.append(f"Fallo en layout NetworkTidy: {tidy_res.get('error')}")
+        except Exception as _te:
+            tidy_layout = {"ok": False, "error": str(_te)}
+
     geo_ok = all(g.get("ok", True) for g in (res.get("geo_checks") or []))
     nan_ok = len(res.get("nan_issues") or []) == 0
     err_ok = deep.get("error_count", 0) == 0
     vis_ok = (frame_eval is None) or (frame_eval.get("quality") == "PASS")
 
-    all_pass = geo_ok and nan_ok and err_ok and vis_ok
+    all_pass = geo_ok and nan_ok and err_ok and vis_ok and tidy_ok
     verdict = "PASS" if all_pass else "FAIL"
 
     return {
@@ -2575,7 +2605,9 @@ def t_verify_network(a: dict) -> dict:
             "nan_inf_free": nan_ok,
             "errors_and_shaders_clean": err_ok,
             "visual_render_ok": vis_ok,
+            "layout_tidy_ok": tidy_ok,
         },
+        "tidy_layout": tidy_layout,
         "geo_checks": res.get("geo_checks", []),
         "nan_issues": res.get("nan_issues", []),
         "errors_deep": {
@@ -6171,9 +6203,9 @@ LIVE_TOOLS = [
      {"template_name": "string (requerido: ej. 'particle_gpu_basic', 'feedback-loop-top', 'pop-curl-noise')",
       "parent_path": "string (default /project1)", "container_name": "string (opcional: crea un baseCOMP contenedor)",
       "clear_first": "bool (default false)"}, t_instantiate_template),
-    ("td_verify_network", "Verificación integral en 1 llamada (Gauntlet vivo): fuerza 4 pasadas de cook (settle), audita ownership de geometryCOMPs (torus1 borrado, display/render activos, numPoints/numPrims > 0), detecta NaN/Inf en POPs/CHOPs, corre get_op_errors_deep y eval_render_frame, y devuelve veredicto PASS/FAIL con actionable_fixes.",
+    ("td_verify_network", "Verificación integral en 1 llamada (Gauntlet vivo): fuerza 4 pasadas de cook (settle), audita ownership de geometryCOMPs (torus1 borrado, display/render activos, numPoints/numPrims > 0), detecta NaN/Inf en POPs/CHOPs, corre get_op_errors_deep y eval_render_frame, y valida/ordena los nodos por defecto con NetworkTidy (tidy=true), devolviendo veredicto PASS/FAIL con actionable_fixes.",
      {"container_path": "string (default /project1)", "render_top": "string (opcional: ruta del TOP a evaluar visualmente)",
-      "check_temporal": "bool (default true)"}, t_verify_network),
+      "check_temporal": "bool (default true)", "tidy": "bool (default true: ejecuta NetworkTidy para ordenar y validar la disposición de los nodos)"}, t_verify_network),
     ("td_profile_network", "Profiler de rendimiento y cuellos de botella en vivo: mide cookTime CPU, gpuCookTime y memoria por nodo, calcula el % del presupuesto de frame (ej. 16.67ms a 60fps) y detecta anti-patrones de rendimiento (copyPOP masivo sin instancing, SOPs en pipeline POP, TOPs >4K, readbacks GPU->CPU).",
      {"root_path": "string (default /project1)", "max_depth": "int (default 4)", "top_n": "int (default 15)",
       "fps_target": "float (default 60.0)", "force_cook": "bool (default false)"}, t_profile_network),
