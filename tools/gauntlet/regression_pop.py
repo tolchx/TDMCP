@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""regression_pop.py — batería de regresión de los 34 builds POP (runs verdes en TD vivo).
+"""regression_pop.py — batería de regresión de los 35 builds POP (runs verdes en TD vivo).
 
 Corre los builds en orden; cada uno DESTRUYE y reconstruye su red ROOT (verificación en
 frío), así que el orden sólo importa para no pisar la misma red dos veces: el monitor
@@ -56,6 +56,7 @@ BATERIA = [
     ("build_pop_blend.py", "cobertura: blendPOP + cacheblendPOP + morphing baricéntrico (/pop_blend)"),
     ("build_pop_ray.py", "cobertura 5d: rayPOP (impactos, centinelas, limit, HW, bounces) (/pop_ray)"),
     ("build_pop_copy.py", "cobertura 5d: copyPOP (ncy, template translate, CopyId, bypass) (/pop_copy)"),
+    ("build_pop_mathcombine.py", "cobertura 5d: mathcombinePOP (gating rayPOP gt/mix, mathmix) (/pop_mathcombine)"),
     ("build_monitor_pop.py", "monitor GPU: heatmap de P.y sobre la nube (/pop_sim_trails)"),
 ]
 

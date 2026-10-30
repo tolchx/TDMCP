@@ -1162,3 +1162,57 @@ Si un shader o un `mathPOP` consume estos atributos, hay que filtrar el sentinel
   builds. Segunda corrida completa: **34/34, 251.8 s** (`reg-20261029-2040`).
 - Regla: un rojo de batería con ese mensaje se reintenta antes de declarar regresión; el
   mensaje es del rate limiter (C14), no del operador.
+
+## C20 — mathcombinePOP: gating de rayPOP medido en vivo (2026-10-29, batería reg-20261029-2105, 35/35)
+
+Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, MCP en `127.0.0.1:13316`.
+Evidencia: `tools/gauntlet/results/reg-20261029-2105/` (ignorada por git; se regenera con
+`python tools/gauntlet/regression_pop.py`). Build: `tools/gauntlet/build_pop_mathcombine.py`
+(19/19, PNG 4.680 px). Escena: `gridPOP` 3x3 de tamaño 3 en `z=-1` (input 0 de `rayPOP`)
+contra `boxPOP` 1x1 centrado (input 1), con `numhits=True`.
+
+### `mathcombine_raypop_gating` — `gt` produce el 0/1 y `mix` lo usa como selector [V]
+
+- `RayNumHits = [0,0,0,0,4,0,0,0,0]`: sólo el rayo central impacta la caja 1x1.
+- `gt` con un vector constante (`thresh0=0`) como segundo operando -> `Hit = [0,0,0,0,1,0,0,0,0]`.
+- **`gt` es estricto**: con umbral 4 el centro (4 hits) da `HitAt4 = 0`; con umbral 3 da
+  `HitAt3 = 1`. No usar `>=` mentalmente.
+- `mix` con A=`lo` (0.2), B=`hi` (0.9), C=`Hit` -> `Gate = [0.2,0.2,0.2,0.2,0.9,0.2,0.2,0.2,0.2]`.
+- `mix` con C=0.5 constante -> `0.55` en los 9 puntos: es un **lerp** `A*(1-C)+B*C`, no un
+  clamp 0/1. Con C fuera de [0,1] no se midió; no asumir extrapolación.
+- El patrón de gating es exactamente: `gt` sobre `RayNumHits` -> atributo 0/1, y ese atributo
+  entra como `C` del `mix` que elige entre `lo` y `hi`.
+
+### `mathcombine_encadenado_y_atributos` — bloques encadenados y auto-atributos [V]
+
+- Un solo `mathcombinePOP` ejecutó **4 bloques** en orden: `gt` -> `Hit`, `mix` -> `Gate`,
+  `gt` umbral 4 -> `HitAt4`, `gt` umbral 3 -> `HitAt3`. Los bloques leen atributos del input
+  y resultados de bloques anteriores (`mix` leyó `Hit`).
+- La página `attr` trae **1 bloque default vacío** (`attr0customname=''`). No hace falta
+  declarar los resultados: `comb*result` **auto-crea** el atributo de punto con ese nombre
+  (`Hit`, `Gate`, `HitAt4`, `HitAt3` aparecen en `pointAttributes`). La página `attr` sirve
+  para predeclarar nombre/tipo/default, no es un requisito.
+- `mathmixPOP` es un control válido: con 3 bloques (`gt` -> `HitM`, `mix` -> `GateM`,
+  `add` -> `GateMPlusLo`) da `HitM = Hit`, `GateM = Gate` y `GateMPlusLo = GateM + 0.2`
+  (`0.4` en los miss, `1.1` en el centro). Soporta `comb1`/`comb2`, pero **no tiene página
+  `attr`**: para crear atributos por declaración se usa `mathcombinePOP`.
+
+### `mathcombine_segunda_entrada_sin_prefijo` — `in1_<attr>` no es el nombre [V]
+
+- Con una segunda entrada conectada, `comb*scopeb='in1_Tex'` falla con
+  `Error: Combine block 0: Input attribute 'in1_Tex' not found`.
+- `input1attrs='*'` + `input1renameto=''` hace compilar el bloque usando `Tex` (sin prefijo);
+  `input1renameto='in1_'` **tampoco** produce `in1_Tex`. No asumir el prefijo `in1_` de C18
+  para `mathcombinePOP`.
+- Límite: el probe usó dos grillas con el mismo `Tex`, así que no distinguió si `Tex` resolvía
+  al input 0 o al input 1. Queda medido el **nombre** (no hay `in1_Tex`), no la semántica de
+  precedencia. El build no usa segunda entrada.
+
+### `mathcombine_limites` — qué NO se midió [V]
+
+- `mathmixPOP` se usó como control del gating; no es cobertura completa de todas sus
+  operaciones ni de sus páginas.
+- `mix` con C fraccional se midió sólo con una constante (0.5) en `mathcombinePOP`; no se
+  midió con un atributo fraccional proveniente de otro bloque.
+- La escena depende del triangulado del `boxPOP`: si un build futuro cambia `RayNumHits=4`
+  en el centro, el test numérico debe fallar y volver a medir, no relajarse.

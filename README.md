@@ -288,26 +288,27 @@ python knowledge/server.py --selftest
 python knowledge/test_protocol.py
 ```
 
-### Pruebas POP en vivo (34 builds)
+### Pruebas POP en vivo (35 builds)
 
 La cobertura POP no se afirma de memoria: cada tipo se mide contra TD vivo con un build
-versionado y checks con número. La batería completa son **34 builds / 453 chequeos** y corre
+versionado y checks con número. La batería completa son **35 builds / 472 chequeos** y corre
 por el MCP oficial:
 
 ```bash
 # TD abierto + componente TDMCP Active en 127.0.0.1:13316
-GAUNTLET_RUN_ID=reg-20261029-2040 python tools/gauntlet/regression_pop.py
+GAUNTLET_RUN_ID=reg-20261029-2105 python tools/gauntlet/regression_pop.py
 
-# un solo tipo, p. ej. los dos del tramo 2026-10-29
-python tools/gauntlet/build_pop_ray.py     # 24 checks
-python tools/gauntlet/build_pop_copy.py    # 20 checks
+# un solo tipo, p. ej. los tres del tramo 2026-10-29
+python tools/gauntlet/build_pop_ray.py          # 24 checks
+python tools/gauntlet/build_pop_copy.py         # 20 checks
+python tools/gauntlet/build_pop_mathcombine.py  # 19 checks
 ```
 
 Exit 0 = todos verdes; exit 2 = entorno (TD/MCP caído), no rojo. Cada build deja
 `tools/gauntlet/results/<run_id>/` (ignorado por git) con el `.jsonl` de tool calls, el
 reporte numérico y un PNG del render.
 
-El tramo del **2026-10-29** cerró dos tipos del ítem 5d y la deuda #1 del ítem 10:
+El tramo del **2026-10-29** cerró tres tipos del ítem 5d y la deuda #1 del ítem 10:
 
 - **`rayPOP`** — el rayo reescribe `P`/`N` al impacto aun con los toggles apagados;
   `RayDistance`/`RayNumHits`/`RayPrimIndex`/`RayInside`, centinelas de miss
@@ -315,8 +316,12 @@ El tramo del **2026-10-29** cerró dos tipos del ítem 5d y la deuda #1 del íte
   `numbounces` que exige `N` en la colisión y HW tracing que sólo reporta el primer hit.
 - **`copyPOP`** — `puntos = fuente × template × ncy`, `dotemplatetranslate` OFF por default,
   `CopyId` por scope (y sólo con `ncy>1`), transform pars inertes para `P`.
+- **`mathcombinePOP`** — gating 0/1 de `rayPOP`: `gt` es estricto (4 > 4 falla, 4 > 3 pasa),
+  `mix` es un lerp (`C=0.5` → `0.55`), los bloques encadenan y `comb*result` auto-crea el
+  atributo con la página `attr` default vacía; `mathmixPOP` da el mismo resultado y no tiene
+  página `attr`.
 
-Los contratos medidos están en **C19** de
+Los contratos medidos están en **C19** y **C20** de
 [VERIFIED_CONTRACTS.md](knowledge/contracts/VERIFIED_CONTRACTS.md); C18 quedó corregido
 (`RayHitNormal` no existe en 2025.32460). El detalle del pase, las tablas de números y el
 hallazgo del rate limiter están en

@@ -1,7 +1,9 @@
-# Cobertura POP en vivo — rayPOP y copyPOP (2026-10-29)
+# Cobertura POP en vivo — rayPOP, copyPOP y mathcombinePOP (2026-10-29)
 
 Pase del **ítem 5d** (cobertura POP) ejecutado con el MCP oficial dentro de TouchDesigner.
-Cierra la deuda #1 del ítem 10 (`rayPOP`: 0 mediciones) y suma `copyPOP`.
+Cierra la deuda #1 del ítem 10 (`rayPOP`: 0 mediciones), suma `copyPOP` y mide el
+**gating de `rayPOP` con `mathcombinePOP`** (atributo 0/1 como selector del `mix`), que era
+el pendiente que quedaba de esa deuda.
 
 ## Entorno
 
@@ -16,12 +18,13 @@ Cierra la deuda #1 del ítem 10 (`rayPOP`: 0 mediciones) y suma `copyPOP`.
 ## Comandos
 
 ```bash
-# los dos builds nuevos, sueltos
+# los tres builds nuevos, sueltos
 PYTHONIOENCODING=utf-8 python tools/gauntlet/build_pop_ray.py
 PYTHONIOENCODING=utf-8 python tools/gauntlet/build_pop_copy.py
+PYTHONIOENCODING=utf-8 python tools/gauntlet/build_pop_mathcombine.py
 
-# batería completa (34 builds), con un run_id para agrupar la evidencia
-GAUNTLET_RUN_ID=reg-20261029-2040 PYTHONIOENCODING=utf-8 python tools/gauntlet/regression_pop.py
+# batería completa (35 builds), con un run_id para agrupar la evidencia
+GAUNTLET_RUN_ID=reg-20261029-2105 PYTHONIOENCODING=utf-8 python tools/gauntlet/regression_pop.py
 ```
 
 La batería exige TD abierto y el componente **Active**; si el MCP no responde, sale 2
@@ -35,13 +38,15 @@ regenera con el comando de arriba.
 | `reg-20261029-2035` (primera) | **31/34** | `revolvePOP`, `tubePOP`, `topologyPOP` en rojo por **cascada del rate limiter** (`recovering from a slow operation`), no por regresión |
 | builds sueltos de los 3 en rojo | **12/12 · 15/15 · 13/13 PASS** | confirman que era el cooldown |
 | `reg-20261029-2040` (final) | **34/34 exit 0, 251.8 s** | con retry del cliente + 1 s entre builds |
+| `reg-20261029-2105` (final, + mathcombine) | **35/35 exit 0, 264.8 s** | sin rojos; el build nuevo tampoco disparó cooldown |
 
-Los 34 builds acumulan **453 chequeos** con número. Los dos nuevos:
+Los 35 builds acumulan **472 chequeos** con número. Los tres nuevos:
 
 | build | checks | PNG | contrato |
 |---|---|---|---|
 | `build_pop_ray.py` (`/pop_ray`) | **24/24** | 2.104 px | C19 |
 | `build_pop_copy.py` (`/pop_copy`) | **20/20** | 9.833 px | C19 |
+| `build_pop_mathcombine.py` (`/pop_mathcombine`) | **19/19** | 4.680 px | C20 |
 
 ## rayPOP — lo medido
 
@@ -87,6 +92,30 @@ Input 0 = `boxPOP` 8 pts / 6 quads; input 1 = `gridPOP` 3x3 (9 pts).
 | `bypass` | fuente intacta (8/6) |
 | `tx=1`, `sx=2`, `scale=2` | **no cambian `P`** en la configuración probada: usar los puntos template para ubicar copias |
 
+## mathcombinePOP — lo medido
+
+Escena: `gridPOP` 3x3 de tamaño 3 en `z=-1` (input 0 de `rayPOP`) contra `boxPOP` 1x1
+(input 1), con `numhits=True`. La salida de `rayPOP` alimenta `mathcombinePOP`; una
+segunda rama usa `mathmixPOP` como control y otra un `mathcombine` aparte para el lerp.
+
+| caso | resultado |
+|---|---|
+| `RayNumHits` | `[0,0,0,0,4,0,0,0,0]`: sólo el rayo central impacta |
+| `gt` con `thresh0=0` | `Hit = [0,0,0,0,1,0,0,0,0]` |
+| `gt` ESTRICTO con umbral 4 | `HitAt4 = [0×9]`: `4 > 4` es falso |
+| `gt` ESTRICTO con umbral 3 | `HitAt3 = [0,0,0,0,1,0,0,0,0]`: `4 > 3` es verdadero |
+| `mix` A=0.2, B=0.9, C=`Hit` | `Gate = [0.2 ×4, 0.9, 0.2 ×4]` |
+| `mix` con C=0.5 constante | `0.55` en los 9 puntos: `A*(1-C)+B*C`, no un clamp 0/1 |
+| 4 bloques encadenados | `Hit` -> `Gate` -> `HitAt4` -> `HitAt3`; los bloques leen resultados previos |
+| página `attr` default | **1 bloque vacío** (`attr0customname=''`); `comb*result` auto-crea `Hit`/`Gate`/`HitAt4`/`HitAt3` |
+| `mathmixPOP` control (3 bloques) | `HitM` = `Hit`, `GateM` = `Gate`, `GateMPlusLo = GateM + 0.2` (`0.4` / `1.1`) |
+| `mathmixPOP` estructura | soporta `comb1`/`comb2` y **no tiene página `attr`** |
+| segunda entrada de `mathcombine` | `in1_Tex` da `Input attribute 'in1_Tex' not found`; con `input1attrs='*'` compila usando `Tex` sin prefijo (no se usó en el build; ver límites) |
+
+El patrón de gating queda cerrado: `gt` sobre `RayNumHits` produce el 0/1 y ese atributo
+entra como `C` del `mix`. `mathcombinePOP` es el que aporta la página `attr` y el encadenado
+de 4 bloques; `mathmixPOP` sirve para el mismo cálculo con 3 bloques y sin página `attr`.
+
 ## Hallazgo de harness
 
 La primera batería dio 31/34: el rate limiter del componente responde
@@ -101,8 +130,9 @@ Fix, en dos piezas:
    C14/`td_slow_operation`.
 2. `tools/gauntlet/regression_pop.py` deja **1 s** entre builds.
 
-Con eso: **34/34, 251.8 s**. Un rojo de batería con ese mensaje se reintenta antes de
-declarar regresión.
+Con eso: **34/34, 251.8 s** en la corrida base de 34 builds y **35/35, 264.8 s** con
+`build_pop_mathcombine.py` sumado (`reg-20261029-2105`). Un rojo de batería con ese mensaje
+se reintenta antes de declarar regresión.
 
 ## Límites
 
@@ -114,14 +144,19 @@ declarar regresión.
 - El MCP se levantó en una **instancia aparte** de TD (`local/TDMCP.1.toe`) porque la
   instancia abierta del usuario no tenía el servidor escuchando; los sandboxes `/pop_*` de
   las pruebas viven en esa instancia y no se guardaron.
-- El gating de `rayPOP` con `mathcombinePOP` (atributo 0/1 como selector del `mix`) sigue
-  sin medir: era el otro pendiente del ítem 10.
+- La segunda entrada de `mathcombinePOP` **no** expone `in1_<attr>` en esta configuración:
+  `input1attrs` debe seleccionar los atributos y el nombre visible es `Tex` (sin prefijo),
+  no `in1_Tex`. El probe no distinguió input0 de input1 porque ambas grillas tenían el
+  mismo `Tex`; no se usa en el build. Queda como gotcha de nombre, no como semántica
+  verificada.
+- `mathmixPOP` se usa como control del gating, no como cobertura completa del operador.
 
 ## Archivos
 
-- `tools/gauntlet/build_pop_ray.py`, `tools/gauntlet/build_pop_copy.py` (nuevos).
-- `tools/gauntlet/regression_pop.py` (34 builds + pausa de 1 s).
+- `tools/gauntlet/build_pop_ray.py`, `tools/gauntlet/build_pop_copy.py`,
+  `tools/gauntlet/build_pop_mathcombine.py` (nuevos).
+- `tools/gauntlet/regression_pop.py` (35 builds + pausa de 1 s).
 - `tools/gauntlet/gauntlet_client.py` (retry C14).
-- `knowledge/contracts/VERIFIED_CONTRACTS.md` (C19 + corrección de C18).
+- `knowledge/contracts/VERIFIED_CONTRACTS.md` (C19, C20 + corrección de C18).
 - `docs/BACKLOG.md` (filas en *Estado verificado* + 5d + ítem 10).
 - `README.md` (sección de pruebas POP).
