@@ -441,7 +441,17 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   Contrato `td_python_fstring_backslash` anotado. **El WIP NO se commitea** (lo publica su dueno); ver
   `docs/loop-run-2026-10-09.md` §6.
 
-- [ ] 14. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: loop-run-log.md. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `8757227ae92d9f86`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+- [x] 14. **Hallado por el loop (triage automático)** — 1 archivo(s) modificados sin commitear. Evidencia: loop-run-log.md. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `8757227ae92d9f86`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+
+  **RESUELTO POR OBSOLESCENCIA 2026-10-31** (ciclo diario; TD abajo ⇒ cierre **offline**, sin verificación en vivo).
+  El archivo señalado nunca quedó pendiente: `loop-run-log.md` se commiteó **16 veces** desde la promoción del
+  ítem (2026-10-10), la última en `c73f73a` (2026-10-30 02:31:38 -0300). No hay archivo que decidir porque el
+  árbol está limpio: `git status --porcelain=v1 --untracked-files=all` → **sin salida**; `HEAD 17ce8f0` ==
+  `origin/main` (`git rev-list --left-right --count HEAD...origin/main` → `0 0`). O sea: no hay trabajo en
+  curso que commitear ni residuo que revertir, y el juez externo recibe un árbol limpio.
+  **Señal de que dejó de reproducirse:** `python scripts/loop_triage.py --full` → `0 candidato(s), 0 nuevo(s)`
+  (las corridas 2026-10-16 → 2026-10-19 quedaban frenadas en «arbol-sucio ya promovido = item 14»).
+  Sin cambio de código y sin revert: sólo se cierra el ítem. Ver `docs/loop-run-2026-10-31.md`.
 
 - [ ] 15. **Cerrar las 3 colas del tramo bandas/steering (boids-lite, sesión del 2026-10-30 tarde):**
   (a) `poptochop_binding_anomalia` — el chequeador ligado por `par.pop` a `randomPOP`/`nullPOP`
