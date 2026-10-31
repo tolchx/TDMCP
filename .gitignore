@@ -3,6 +3,7 @@ site/
 .cache/
 local/
 .freebuff/
+.cloud-attachments/
 .tdmcp/
 **/.tdmcp/
 

@@ -13,7 +13,11 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OWNERS = {"td_chain.py", "td_probe.py"}
-RE_DEF = re.compile(r"\s*def (settle|px|render_is_ours)\s*\(")
+RE_DEF = re.compile(r"\s*def (settle|px|render_is_ours|json_after_mark)\s*\(")
+# El parseo del marcador tiene UN dueño: knowledge/wire.py. La regla existía
+# porque el parseo duplicado se rompió de dos maneras distintas a la vez
+# (ver el docstring de wire.py).
+RE_MARK_PARSE = re.compile(r"\.split\(\s*MARK\b|split\(\s*[\"']<<JSON>>")
 
 
 def violations() -> list:
@@ -24,6 +28,8 @@ def violations() -> list:
             continue
         with open(os.path.join(HERE, fn), encoding="utf-8") as f:
             for i, line in enumerate(f, 1):
+                if RE_MARK_PARSE.search(line):
+                    out.append((fn, i, "parseo del marcador (dueño: knowledge/wire.py): " + line.strip()))
                 if RE_DEF.match(line):
                     out.append((fn, i, line.strip()))
     return out

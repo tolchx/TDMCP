@@ -23,6 +23,19 @@ RESULTS = os.path.join(HERE, "results")
 MARK = "<<JSON>>"
 
 _KNOWLEDGE = None
+_WIRE = None
+
+
+def _wire():
+    """Carga knowledge/wire.py por ruta: el mismo hogar que usa live.py."""
+    global _WIRE
+    if _WIRE is None:
+        path = os.path.normpath(os.path.join(HERE, "..", "..", "knowledge", "wire.py"))
+        spec = importlib.util.spec_from_file_location("td_knowledge_wire", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _WIRE = mod
+    return _WIRE
 
 
 def _knowledge():
@@ -72,6 +85,14 @@ class Gauntlet:
         except urllib.error.HTTPError as e:
             return {"_http_error": e.code,
                     "_body": e.read().decode("utf-8", "replace")[:2000]}
+        except urllib.error.URLError as e:
+            # Antes URLError no la capturaba nadie: un puerto cerrado mataba la
+            # fase entera con traceback en vez de fallar como una llamada más.
+            return {"_transport_error": f"{type(e).__name__}: {e.reason}",
+                    "_retryable": _wire().is_refused(e)}
+        except (TimeoutError, OSError) as e:
+            # timeout de lectura: la llamada pudo ejecutarse, NO se reintenta
+            return {"_transport_error": f"{type(e).__name__}: {e}", "_retryable": False}
         s = body.lstrip()
         if s.startswith("event:") or s.startswith("data:"):
             for line in body.splitlines():
@@ -104,10 +125,26 @@ class Gauntlet:
             self._seq += 1
             r = self._post({"jsonrpc": "2.0", "id": self._seq, "method": "tools/call",
                             "params": {"name": tool, "arguments": args or {}}}, timeout)
-            if "recovering from a slow operation" not in self.text_of(r):
+            # transporte: solo se reintenta si la petición NO llegó (ECONNREFUSED).
+            # Un timeout de lectura pudo ejecutar la llamada: reintentarlo duplicaría
+            # un build a medio hacer. Ver knowledge/wire.py.
+            if r.get("_transport_error"):
+                if r.get("_retryable") and attempt < 2:
+                    time.sleep(0.5 * (attempt + 1))
+                    self.sid = None  # socket nuevo: re-handshake
+                    self.init()
+                    continue
+                break
+            if "_http_error" in r and _wire().is_session_error(r["_http_error"], r.get("_body", "")):
+                if attempt < 2:
+                    self.sid = None
+                    self.init()
+                    continue
+            wait = _wire().rate_wait(self.text_of(r))
+            if wait is None:
                 break
             if attempt < 2:
-                time.sleep(1.5)
+                time.sleep(min(wait + 0.1, 10.0))
         ms = round((time.time() - t0) * 1000, 1)
         self._log({"tool": tool, "args": args or {}, "ms": ms, "note": note,
                    "response": self.text_of(r)[:4000]})
@@ -147,7 +184,7 @@ class Gauntlet:
 
     @staticmethod
     def is_err(resp: dict) -> bool:
-        if "_http_error" in resp or "error" in resp:
+        if "_http_error" in resp or "error" in resp or "_transport_error" in resp:
             return True
         res = resp.get("result", {})
         txt = "".join(c.get("text", "") for c in res.get("content", [])
@@ -156,7 +193,7 @@ class Gauntlet:
 
     @staticmethod
     def text_of(resp: dict) -> str:
-        if "_http_error" in resp or "_raw" in resp:
+        if "_http_error" in resp or "_raw" in resp or "_transport_error" in resp:
             return json.dumps(resp)[:1500]
         if "error" in resp:
             return "RPC ERROR: " + json.dumps(resp["error"])[:1500]
@@ -206,14 +243,12 @@ class Gauntlet:
         if self.is_err(r):
             return False, self.json_of(r) or {"raw": self.text_of(r)[:500]}
         d = self.json_of(r)
-        out = str(d.get("output", "") or "")
-        if MARK in out:
-            try:
-                return True, json.loads(out.split(MARK, 1)[1].strip())
-            except Exception as e:
-                return False, {"error": f"payload ilegible: {e}", "output": out[:500]}
-        return False, {"error": "sin marcador", "output": out[:500],
-                       "variables": list((d.get("variables") or {}).keys())}
+        ok, payload = _wire().json_after_mark(str(d.get("output", "") or ""))
+        if ok:
+            return True, payload
+        if payload.get("error") == "sin marcador":
+            payload["variables"] = list((d.get("variables") or {}).keys())
+        return False, payload
 
     # ── graders / asserts ────────────────────────────────────────────────
     def check(self, name: str, ok: bool, detail: str = "") -> bool:

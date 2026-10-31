@@ -31,16 +31,28 @@ def check_kb():
         problems.append("KB ilegible: " + str(e)[:120])
 
 
-EXPECTED_TOOLS = 27  # 21 offline + 6 live
+EXPECTED_OFFLINE = 22  # tools sin TD (server.OFFLINE_NAMES)
+EXPECTED_LIVE = 41  # tools que hablan con el MCP oficial (live.LIVE_TOOLS)
+EXPECTED_TOOLS = EXPECTED_OFFLINE + EXPECTED_LIVE  # 63: pineadas por separado a propósito
 
 
 def check_tools():
-    """El server tiene que exponer las 27 tools (21 offline + 6 live)."""
+    """Las DOS mitades de la superficie, por separado: si live.py no carga, se ve.
+
+    Antes era `EXPECTED_TOOLS = 27` con guardia `n < EXPECTED_TOOLS`: el server
+    expone 63, así que 63 < 27 nunca se cumplía y la guardia no podía fallar.
+    Peor aún: las mitades se chequeaban juntas, así que perder las 41 live y
+    ganar 41 offline pasaba inadvertido.
+    """
     sys.path.insert(0, HERE)
     import server  # noqa: F401  (importarlo no arranca el loop stdio)
+    off = len(server.OFFLINE_NAMES)
     n = len(server.TOOLS)
-    if n < EXPECTED_TOOLS:
-        problems.append("server.py expone " + str(n) + " tools (esperado " + str(EXPECTED_TOOLS) + ")")
+    live_n = n - off
+    if off != EXPECTED_OFFLINE or live_n != EXPECTED_LIVE:
+        problems.append("server.py expone " + str(off) + " offline + " + str(live_n)
+                        + " live (esperado " + str(EXPECTED_OFFLINE) + " + " + str(EXPECTED_LIVE)
+                        + " = " + str(EXPECTED_TOOLS) + "; si live=0, revisá el import de live.py)")
 
 
 def check_contracts():

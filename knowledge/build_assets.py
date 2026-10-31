@@ -128,6 +128,7 @@ CURATED_CONCEPTS = [
     {"concept": "pre-roll particles", "canonical": "PreRoll", "aliases": ["pre-roll", "preroll", "pre roll", "initial simulation", "simulación inicial", "steady state"], "note": "Atención Contrato C10: initializepulse/preroll en particlePOP pueden enfermar el buffer en loops de feedback."},
     {"concept": "lookup texture", "canonical": "LookupTexture", "aliases": ["lookup texture", "lookup texture pop", "uv sampling", "muestreo uv", "texture lookup", "color from texture"], "note": "lookuptexturePOP muestrea color desde un TOP hacia atributos POP."},
     {"concept": "pop render pipeline", "canonical": "PopRenderPipeline", "aliases": ["render pop", "dibujar puntos", "renderizar particulas", "point cloud render", "pointsprite"], "note": "Contrato C2: convertPOP(convert='topointprims') -> nullPOP -> geometryCOMP (borrar torus1!) + cameraCOMP + renderTOP + pointspriteMAT."},
+    {"concept": "pathtracer 3 josef pelz", "canonical": "Pathtracer + PT_GEO + PT_MAT + PT_LIGHT (PT_FAM)", "aliases": ["pathtracer", "pathtracer 3", "pathtracer 3.0", "josef pelz", "pt_fam", "pt_geo", "pt_mat", "pt_light", "dlss ray reconstruction", "pachtracer"], "note": "Contrato C23: PathTracer 3.0.1 de Josef Pelz sobre POPs. Al clonar PT_GEO/PT_MAT/PT_LIGHT desde PT_FAM/PT_OPs fijar allowCooking=True. Usar td_setup_pathtracer3 para montar y parchear automáticamente en TD 2025.32460."},
 ]
 
 CURATED_PARAM_ALIASES = [
@@ -143,6 +144,8 @@ CURATED_PARAM_ALIASES = [
     {"requested": "translate", "canonical": "tx / ty / tz", "note": "Traslación 3D en transformPOP, geometryCOMP y cameraCOMP."},
     {"requested": "rotate", "canonical": "rx / ry / rz", "note": "Rotación 3D en grados."},
     {"requested": "scale", "canonical": "sx / sy / sz", "note": "Escala 3D por eje."},
+    {"requested": "rectangle", "canonical": "Rect", "note": "En PT_LIGHT.par.Type el menuName real para luz rectangular es 'Rect', no 'Rectangle' (Contrato C23)."},
+    {"requested": "dlss", "canonical": "Dlss", "note": "En Pathtracer.par.Method el menuName real es 'Dlss' (Contrato C23)."},
 ]
 
 CURATED_ATTR_ALIASES = [
@@ -150,7 +153,11 @@ CURATED_ATTR_ALIASES = [
     {"requested": "n", "canonical": "N", "note": "Normal 3D (vec3)."},
     {"requested": "cd", "canonical": "Color", "note": "En POPs de TD el atributo estándar de color es Color (vec4), no Cd (Contrato C11)."},
     {"requested": "color", "canonical": "Color", "note": "Color RGBA por punto (vec4): crear con attrNname='custom', attrNcustomname='Color', attrNnumcomps=4."},
-    {"requested": "scale", "canonical": "pointscale / PScale", "note": "Escala por punto."},
+    {"requested": "scale", "canonical": "pointscale / PScale", "note": "Escala por punto (en PathTracer 3.0 PointScale controla radio de esferas analíticas o mitad de ancho de tubos 3D)."},
+    {"requested": "roughness", "canonical": "Roughness", "note": "En PathTracer 3.0 (PT_GEO), el atributo float Roughness reemplaza el Roughness del PT_MAT por punto/vértice."},
+    {"requested": "metallic", "canonical": "Metallic", "note": "En PathTracer 3.0 (PT_GEO), el atributo float Metallic reemplaza el Metallic del PT_MAT por punto/vértice."},
+    {"requested": "transmission", "canonical": "Transmission", "note": "En PathTracer 3.0 (PT_GEO), el atributo float Transmission reemplaza el Transmission del PT_MAT por punto/vértice."},
+    {"requested": "emit", "canonical": "Emit", "note": "En PathTracer 3.0 (PT_GEO), el atributo float Emit reemplaza el Emitstrength del PT_MAT por punto/vértice."},
     {"requested": "vel", "canonical": "PartVel / v", "note": "Velocidad en particlePOP es PartVel (vec3)."},
     {"requested": "uv", "canonical": "Tex / uv", "note": "Coordenadas de textura en POPs suelen ser Tex (vec3/vec2)."},
     {"requested": "age", "canonical": "PartAge", "note": "Edad actual de la partícula en particlePOP."},

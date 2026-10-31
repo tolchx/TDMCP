@@ -165,7 +165,7 @@ This fork integrates the complete **offline knowledge layer + high-level composi
 
 Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verification ledger in [docs/BACKLOG.md](docs/BACKLOG.md).
 
-### Dual-Server Architecture (89 Tools Total)
+### Dual-Server Architecture (90 Tools Total)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -175,10 +175,10 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
                     │ stdio (JSON-RPC)               │ SSE / HTTP (:13316)
                     ▼                                ▼
 ┌──────────────────────────────────────┐  ┌──────────────────────────────┐
-│     td-knowledge (63 Tools)          │  │     TDMCP.tox (26 Tools)     │
+│     td-knowledge (64 Tools)          │  │     TDMCP.tox (26 Tools)     │
 │   • 22 Offline Tools (0% TD overhead)│  │   • 26 In-Process Live Tools │
-│   • 41 High-Level Live Tools         │  │   • Direct TD Python engine  │
-│   • 1,302 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
+│   • 42 High-Level Live Tools         │  │   • Direct TD Python engine  │
+│   • 1,305 FTS5 BM25 Indexed Docs     │  │   • Viewport grab & cook eval│
 │   • 79 GLSL Shaders + 15 Lessons     │  │   • Undo-per-call & stats    │
 │   • 625-Op Topology + 97-POP Matrix  │  │   • Compatible w/ 2025.32460 │
 └──────────────────────────────────────┘  └──────────────────────────────┘
@@ -186,15 +186,15 @@ Full inventory in [FORK-NOTES.md](FORK-NOTES.md); live state, runs and the verif
 
 ---
 
-### `td-knowledge` Tool Reference (63 Tools: 22 Offline + 41 Live)
+### `td-knowledge` Tool Reference (64 Tools: 22 Offline + 42 Live)
 
-The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **41 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
+The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs in pure Python stdlib (zero external dependencies). All **22 offline tools** work with TouchDesigner closed; the **42 live tools** orchestrate composite workflows against `http://127.0.0.1:13316/mcp`:
 
 | Category | Tool | Description |
 |---|---|---|
-| **Knowledge Base (Offline)** | `kb_info` | Provenance, document counts, extracted TS modules, and SQLite FTS5 index stats (1,302 docs, 41 MB). |
+| **Knowledge Base (Offline)** | `kb_info` | Provenance, document counts, extracted TS modules, and SQLite FTS5 index stats (1,305 docs, 41 MB). |
 | | `kb_taxonomy` | Counts by family (`TOP`, `CHOP`, `SOP`, `POP`, `MAT`, `DAT`, `COMP`), trust tier, and source type. |
-| | `kb_search` | Full-text BM25 search across 1,302 curated documents with family, trust-tier, and source filters. |
+| | `kb_search` | Full-text BM25 search across 1,305 curated documents with family, trust-tier, and source filters. |
 | | `kb_get` | Retrieve the full paginated content of any indexed document by name or slug. |
 | **Operators, Params & API (Offline)** | `ops_doc` | Curated operator docs enriched with **625-operator wiring topology** (`topology.json`) and creation defaults. |
 | | `ops_params` | Documented parameter list per operator (names, labels, types, defaults, pages). |
@@ -212,7 +212,7 @@ The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs
 | | `glsl_rules` | Live-verified syntax and safety rules for GLSL POP compute shaders and TOP pixel shaders. |
 | | `glsl_analyze` | Static analyzer for **POP** (`R1–R4`, `F1 void main`, `F4 TDNumElements(k)`, multi-input `TDIn_*`), **TOP** (`R1–R4`, `T4 uniform0name`, `T10 sTD2DInputs`), and **Python** (`R6 .numPoints()`, f-string backslashes, bare math). |
 | | `glsl_curriculum` | 15 structured GLSL POP/TOP lessons (`entry='<id>'`, `learning_path=true`) + 79 standalone `.glsl` shaders. |
-| | `contracts` | Live-verified operational contracts **C1–C20** (cook lag, render ownership, stopped clock, `pointspriteMAT`, `rayPOP`, `copyPOP`, `mathcombinePOP`). |
+| | `contracts` | Live-verified operational contracts **C1–C23** (cook lag, render ownership, stopped clock, `pointspriteMAT`, `rayPOP`, `copyPOP`, `mathcombinePOP`, **PathTracer 3.0.1 `PT_FAM` architecture & POP attributes**). |
 | | `discovery` | Empirical bitácora across 27 sources (`discovery-log`, `TD_PARAMETER_CHEATSHEET`, `POPs_KNOWLEDGE`, `POPs_CORRECTIONS`, `PERFORMANCE`, `docs_internal`). |
 | **Live Inspection & Layout (Require TD)** | `td_status` | Live health check returning project, build (`runningBuild` + `buildMismatch`), FPS, and **cooking clock diagnosis** (`power`, `timelinePlay`, `realTime`, `cookingVerdict`). |
 | | `find_in_ops` | Single-call deep search across DAT text/tables, parameter expressions, parameter names, comments, and operator names (with `max_nodes`/`max_sec` budget). |
@@ -242,6 +242,7 @@ The `td-knowledge` MCP server (`knowledge/server.py` + `knowledge/live.py`) runs
 | | `td_setup_pbr_stage` | **Pilar 22 — PBR Staging & Environment Lighting**: builds a 3D cinematic lighting studio with Key/Fill/Rim lights, environmentlightCOMP (HDRI/procedural), shadow catcher ground plane, subject PBR material, camera, and renderTOP. |
 | | `td_sync_external_tox` | **Pilar 23 — External TOX Hot-Reload & Sync**: inspects on-disk `.tox` dependencies, audits drifts, atomically exports components to disk, and executes hot-reloading preserving parameters and state. |
 | | `td_setup_ai_stream` | **Pilar 24 — GenAI & ComfyUI Streaming Bridge**: turnkey baseCOMP for real-time AI generation (webclientDAT/websocketDAT, prompt queue tableDAT, latency metrics CHOP, and output texture nullTOP). |
+| | `td_setup_pathtracer3` | **Pilar 26 — PathTracer 3.0.1 (`PT_FAM`, Josef Pelz) Studio Builder**: clones templates from `/project1/PT_FAM` (`pt_render`, `pt_geo`, `pt_light`, `pt_mat`, `pt_cam`, `pt_world`) with `allowCooking=True`, applies the TD `<=2025.32460` compatibility patch (`popto1` `downloadtype` guard + safe `gl_MaxComputeWorkGroupCount`), builds presets (`studio_caustics`, `points_and_tubes`, `volumetric_haze`, `native_td_hybrid`), configures multi-AOV outputs (`Shaded`, `Normal`, `Depth`, `Albedo`), and resets accumulation. |
 | | `tdn_export` / `tdn_diff` | Export a live network to **TDN v1.4 JSON** and diff two `.tdn` files offline. |
 | | `tdxn_export` / `tdxn_build` | Export or build a complete network from **TDXN v2.1 YAML** (`=expr`, `~bind`, DATs, flags) in a single call. |
 | **Live Verification, Camera & Profiling (Require TD)** | `td_verify_network` | **All-in-one Network & Layout Gauntlet**: runs 4 cook settle passes, audits `geometryCOMP` ownership (`torus1` deleted, display/render active), checks POP/CHOP NaNs, runs deep error scanning, evaluates rendered frames, and **validates/orders nodes with NetworkTidy by default** (`tidy=True`), returning a `PASS`/`FAIL` verdict with actionable fixes. |
@@ -380,6 +381,20 @@ hallazgo del rate limiter están en
 **Regresión verde ≠ operador verificado en todas las versiones.** Los números codifican el
 comportamiento de TD 2025.32460 + TDMCP 1.1.55; un build nuevo que los cambie es un hallazgo,
 no un test a relajar.
+
+### PathTracer 3.0.1 (Josef Pelz, `PT_FAM`) — Integración y Contrato C23
+
+El MCP incluye soporte nativo, conocimiento indexado (`pathtracer-3-josef-pelz`, `pathtracer-3-complete-guide`, `pathtracer-3-system`, `pathtracer3_studio`) y el builder en vivo **`td_setup_pathtracer3`** (**Pilar 26**) para **PathTracer 3.0.1** (`PT_FAM.tox`, GPU Monte Carlo BVH Path Tracer basado en POPs y GLSL compute shaders de Josef Pelz):
+
+- **6 familias de componentes (`PT_FAM`)**: `pt_render`, `pt_geo`, `pt_light`, `pt_mat`, `pt_cam`, `pt_world` — además de compatibilidad híbrida directa con operadores estándar de TouchDesigner (`geometryCOMP`, `cameraCOMP`, `lightCOMP`, `environmentlightCOMP`, `pbrMAT`, `phongMAT`).
+- **Reglas críticas verificadas en vivo ([Contrato C23](knowledge/contracts/VERIFIED_CONTRACTS.md))**:
+  1. **Instanciación (`allowCooking = True`)**: las plantillas dentro de `/project1/PT_FAM` tienen `allowCooking = False`. Todo clon creado con `parent.copy(PT_FAM.op('pt_*'))` **debe** activar `node.allowCooking = True`.
+  2. **Nombres exactos de menú en `pt_light`**: `Type = 'Rect' | 'Disc' | 'Sphere' | 'Spot'` (nunca `'Area'`).
+  3. **Primitivas POP en `pt_geo`**: triángulos (`Shape='Triangles'`), esferas analíticas (`Shape='Spheres'` con `pscale` / `Radius`) y tubos analíticos con grosor (`Shape='Tubes'` desde Line Strips de `trailPOP` / `linePOP`).
+  4. **Atributos POP por punto en `pt_mat`**: `Color` (`vec4`), `Metallic`, `Roughness`, `Emission`, `IOR`, `Transmission` vía `attributePOP` + `mathmixPOP` / `noisePOP`.
+  5. **Multi-AOV (`Outputs` seq)**: `sync(pt_render)` genera `out1..outN` (`Shaded`, `Albedo`, `Normal`, `Position`, `Depth`, `Alpha`, etc.); si un `outK` secundario no tiene un TOP downstream conectado, activar `outK.viewer = True` para forzar el pull de `views/accum`.
+  6. **Parche automático TD `<= 2025.32460`**: `td_setup_pathtracer3` aplica automáticamente el guard `hasattr(popto.par, 'downloadtype')` en `material_textures/script1_callbacks` y normaliza los `ivec3[]` estáticos en `pt_render/shader_includes` para compilación GLSL limpia sin pérdida de calidad.
+- **6 tests empíricos verificados (`PASS` / 0 errores)**: escena básica + object/material picking (`132` samples), escena híbrida TD nativo (`122` samples), galería de materiales + cáusticas de vidrio IOR 1.5 (`140` samples), esferas y tubos POP analíticos con atributos por punto (`152` samples), niebla volumétrica (`Haze`) + spotlight + mesh light con `Direct Sampling` (`150` samples), y descomposición Multi-AOV (`204` samples). Documentación completa en [docs/pathtracer-3-josef-pelz.md](docs/pathtracer-3-josef-pelz.md).
 
 ## Other clients and advanced setup
 

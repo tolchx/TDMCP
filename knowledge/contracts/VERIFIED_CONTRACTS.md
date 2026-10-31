@@ -1382,3 +1382,58 @@ Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, NetworkTidy **1
   - La red queda garantizada limpia y lista para producción sin cables desordenados ni superposiciones.
 - Reversibilidad garantizada: ante cualquier disconformidad estética, `td_network_tidy(action="undo")` restaura las coordenadas previas exactas desde `TidyExt.lastMoves`.
 
+---
+
+## C23 — PathTracer 3.0.1 (Josef Pelz, `PT_FAM`) Architecture, Instantiation, POP Attributes & TD 2025.32460 Compatibility [V]
+
+Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, PathTracer **3.0.1** (`PT_FAM.tox` por Josef Pelz, compilado en `2025.33230` y parcheado/verificado en `2025.32460`).
+
+### `pathtracer3_arquitectura_y_descubrimiento` — Los 4 operadores de `PT_FAM` y auto-descubrimiento [V]
+- `PT_FAM` expone 4 componentes maestros en `PT_FAM/PT_OPs/`:
+  1. **`Pathtracer`** (`baseCOMP`, `parentshortcut='PT'`, `allowCooking=True`): motor principal de path tracing sobre POPs (`glslPOP` + hardware ray queries o software BVH + DLSS Ray Reconstruction / Accumulate).
+  2. **`PT_GEO`** (`geometryCOMP`, `parentshortcut='PTGeo'`): adaptador de geometría POP (superficies `faces`, líneas/tubos `lines`, nubes de puntos/esferas `points`).
+  3. **`PT_MAT`** (`baseCOMP`, `parentshortcut='PTMat'`): material físico PBR + transmisión + absorción Beer-Lambert + dispersión + clearcoat + sheen + thin-film + emisión + radio de puntos/ancho de líneas + mapas TOP / `substanceTOP`.
+  4. **`PT_LIGHT`** (`geometryCOMP`, `parentshortcut='PTLight'`): luz física analítica (`Point`, `Spot`, `Rect`, `Disk`, `Sphere`, `Sun`) o geométrica (`Mesh`), apuntando hacia **`-Z`**.
+- **Auto-descubrimiento por hermanos (`siblings`):** Por defecto `Pathtracer.par.Geometry = '*'` y `Pathtracer.par.Lights = '*'`. Descubre automáticamente en el mismo `COMP` padre todos los `PT_GEO` y `PT_LIGHT` que tengan tanto su parámetro `Render` (`par.render == True`) como su **render flag** (`op.render == True`) activos (`shown(c)`).
+- **Modo de compatibilidad nativa TD (`td_geo` y `TDLight`):** Sin necesidad de `PT_GEO`, `PT_MAT` ni `PT_LIGHT`, `Pathtracer` también renderiza automáticamente cualquier `geometryCOMP`, `gltfinCOMP`, `fbxCOMP`, `pbrMAT`, `phongMAT`, `lightCOMP`, `environmentlightCOMP` y cualquier **`POP` suelto con `op.render = True`** que sea hermano del `Pathtracer`. Si un `POP` o `COMP` ya está conectado o referenciado por un `PT_GEO` o `PT_LIGHT`, `_claimed(pt)` evita dibujarlo dos veces.
+
+### `pathtracer3_instanciacion_allowcooking` — Gotcha crítico al clonar `PT_GEO`, `PT_MAT` y `PT_LIGHT` desde Python [V]
+- Dentro de `/project1/PT_FAM/PT_OPs/`, las plantillas maestras `PT_GEO`, `PT_MAT` y `PT_LIGHT` tienen **`allowCooking = False`** (para no consumir GPU mientras están guardadas en `PT_FAM`). Cuando el usuario las crea desde el menú Tab (`TDFam`), `OpManager._handle_attributes()` activa `allowCooking = True`.
+- **Regla obligatoria en MCP/Python:** Al instanciar cualquiera de ellos con `parent.copy(op('/project1/PT_FAM/PT_OPs/PT_GEO'), name=...)`, **SIEMPRE** se debe ejecutar inmediatamente:
+  ```python
+  new_op.allowCooking = True
+  new_op.bypass = False
+  new_op.render = True
+  ```
+  De lo contrario, el operador clonado queda congelado (`allowCooking=False`) y no genera geometría, material ni luz.
+
+### `pathtracer3_menus_reales` — Nombres internos (`menuNames`) vs etiquetas de UI [V]
+- **`PT_LIGHT.par.Type`:** Los `menuNames` reales son `['Point', 'Spot', 'Rect', 'Disk', 'Sphere', 'Sun', 'Mesh']`.
+  - **Gotcha:** La etiqueta en UI dice `"Rectangle"`, pero el valor interno es **`'Rect'`** (`light.par.Type = 'Rect'`). Pasar `'Rectangle'` lanza `tdError`.
+- **`Pathtracer.par.Method` (Denoise):** Los `menuNames` reales son `['Dlss', 'Accumulate']` (notar mayúscula inicial y resto minúsculas: **`'Dlss'`**).
+- **`Pathtracer.par.Quality` (DLSS):** Los `menuNames` reales son `['Dlaa', 'Quality', 'Balanced', 'Performance', 'Ultraperformance']`.
+- **`Pathtracer.par.OutputsNshow` (AOVs):** Los `menuNames` reales son `['Shaded', 'Albedo', 'Normal', 'Depth', 'Motion', 'Roughness', 'Material', 'Emission']`. Al modificar `pt.seq.Outputs.numBlocks` por código, llamar a `pt.op('views/outputs').module.sync(pt)` sincroniza inmediatamente los conectores `out1..out8`.
+
+### `pathtracer3_pop_primitivas_y_atributos` — Triángulos/Quads, Esferas analíticas (`pointPrims`), Tubos 3D (`lineStrips`/`lines`) y Atributos [V]
+- **Superficies (`triangles` / `quads`):** Se triangulan y trazan por hardware/BVH. Si no traen atributo `N`, `PT_GEO/nrm` calcula normales de vértice suaves automáticamente.
+- **Nubes de puntos (`pointPrims`, ej. `gridPOP(surftype='points')`, `particlePOP`, ` convertPOP(convert='topointprims')`):** Se trazan como **esferas analíticas exactas** (sin poligonizar). Su radio es el atributo de punto `PointScale` si existe (`>= 0`), o bien `PT_MAT.par.Pointradius` (default `0.05`).
+- **Líneas y Line Strips (`lines` / `lineStrips`, ej. `circlePOP`, `linePOP`, `trailPOP`):** `Pathtracer/scene/tubes` (`glsladvancedPOP`) las convierte en **tubos redondos 3D** con tapas en los extremos y juntas angulares. Su grosor (diámetro) es `2 * PointScale` si existe (`>= 0`), o bien `PT_MAT.par.Linewidth` (default `0.02`).
+- **Atributos POP leídos automáticamente por `PT_GEO` (en vértices, puntos o primitivas):**
+  - `N` (`vec3`): normal de sombreado.
+  - `Tex` (`vec2`/`vec3`): coordenadas UV para mapas del `PT_MAT`.
+  - `Color` (`vec3`/`vec4`): **multiplica** el `Basecolor` del `PT_MAT`.
+  - `Roughness`, `Metallic`, `Transmission`, `Emit` (`float`): **reemplazan** el parámetro correspondiente del `PT_MAT` cuando son `>= 0` (valor centinela interno `-1.0` = usar valor del material).
+  - `PointScale` (`float`): radio por punto (esferas) o mitad del ancho por vértice (tubos).
+
+### `pathtracer3_parche_compatibilidad_32460` — Dos diferencias entre TD `2025.33230` y TD `2025.32460` [V]
+`PT_FAM.tox` (v3.0.1) fue guardado en TouchDesigner `2025.33230`. Al cargarlo en TouchDesigner `2025.32460` ocurren dos incompatibilidades que deben parchearse en `PT_FAM` y en cualquier instancia de `Pathtracer`:
+1. **Nodo `tri` (`triangulatePOP`) cargado como `baseCOMP` vacío:** En `PT_GEO`, `PT_LIGHT/mesh` y `Pathtracer/scene/td_geo`, el nodo `tri` entre `has_faces` y `xf` cae a un `baseCOMP` sin conectores. Se debe reemplazar por un `triangulatePOP` llamado `'tri'` con **`tri.par.triangulatequads = True`** (por C16, `triangulatequads` viene `False` por defecto) conectado `has_faces -> tri -> xf`.
+2. **`POP.numPrims(max=True, primType=...)` y `POP.numVerts(max=True, lineStrips=True)` devuelven `-1` en lugar de `0` cuando no hay primitivas de ese tipo en `2025.32460`:**
+   - En `PT_GEO`, `PT_LIGHT/mesh` y `td_geo`, envolver cada llamada en `max(..., 0)` en las expresiones de `faces_only`, `faces_counts`, `has_faces`, `pl_only`, `pl_counts`, `pts_only`, `pts_counts`, `ln_only`, `ln_counts`, `has_lines`.
+   - En `Pathtracer/py/scene`, cambiar `any(src.numPrims(max=True, primType=t) for t in types)` por `any(src.numPrims(max=True, primType=t) > 0 for t in types)` (porque `bool(-1)` es `True` en Python).
+
+### `pathtracer3_ciclo_de_captura_live` — Separar Setup y Captura entre frames reales de TouchDesigner [V]
+- Un bloque `exec_code` corre sincrónicamente dentro de **un único frame** del hilo principal de TouchDesigner; llamar a `time.sleep()` dentro de `exec_code` congela el hilo principal sin avanzar `absTime.frame`.
+- Para que `Pathtracer` actualice `mergePOP`s, compile variantes (`trace/flex` con `pt.par.Optimizedfor = ''`) y acumule muestras DLSS/Accumulate antes de guardar un PNG (`out1.save(...)`), se debe ejecutar el setup en un `exec_code`, hacer `time.sleep(1.0)` **en el cliente Python externo** (dejando correr ~60 frames reales en TD) y luego capturar en un segundo `exec_code`.
+
+

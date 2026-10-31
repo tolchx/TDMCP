@@ -15,6 +15,8 @@ import re
 import urllib.error
 import urllib.request
 
+import wire as _wire
+
 URL = os.environ.get("TDMCP_URL", "http://127.0.0.1:13316/mcp")
 TIMEOUT = float(os.environ.get("TDMCP_TIMEOUT", "60"))
 _SID: str | None = None
@@ -52,26 +54,67 @@ def _init() -> None:
     _post({"jsonrpc": "2.0", "method": "notifications/initialized"})
 
 
+def _txt_of(r: dict) -> str:
+    """Texto de la respuesta MCP (para leer el aviso del rate limiter)."""
+    res = (r or {}).get("result") or {}
+    return "".join(c.get("text", "") for c in res.get("content", []) if c.get("type") == "text")
+
+
 def call(tool: str, args: dict | None = None, timeout: float | None = None) -> tuple[bool, dict]:
-    """Llama una tool del MCP oficial con reintento transparente ante micro-cortes o sesión expirada. -> (ok, data)."""
+    """Llama una tool del MCP oficial. -> (ok, data).
+
+    Reintenta SOLO lo seguro de reintentar (ver `wire.is_refused`): un
+    ECONNREFUSED no llegó al server, un timeout de lectura pudo ejecutar la
+    llamada y se reporta como tal. El rate limiter del componente pide
+    reintentar la MISMA llamada y dice cuánto esperar.
+    """
     global _ID, _SID
     import time
+    hint = "abrí TouchDesigner con el .tox TDMCP en el root y pulsá Active en su página MCP"
     last_err = None
-    for attempt in range(2):
+    r = None
+    for attempt in range(3):
         try:
             _init()
             _ID += 1
             r = _post({"jsonrpc": "2.0", "id": _ID, "method": "tools/call",
                        "params": {"name": tool, "arguments": args or {}}}, timeout)
             break
+        except urllib.error.HTTPError as e:  # sesión vencida / server reiniciado
+            last_err = e
+            _SID = None
+            body = ""
+            try:
+                body = e.read().decode("utf-8", "replace")[:400]
+            except Exception:
+                pass
+            if attempt < 2 and _wire.is_session_error(e.code, body):
+                time.sleep(0.25)
+                continue
+            return False, {"error": f"HTTP {e.code} del MCP oficial", "detail": body, "hint": hint}
         except Exception as e:
             last_err = e
             _SID = None
-            if attempt == 0:
-                time.sleep(0.25)
-    else:
-        return False, {"error": f"TouchDesigner no responde en {URL} tras reintento ({type(last_err).__name__}: {last_err})",
-                       "hint": "abrí TouchDesigner con el .tox TDMCP en el root y pulsá Active en su página MCP"}
+            if attempt < 2 and _wire.is_refused(e):
+                time.sleep(0.25 * (attempt + 1))
+                continue
+            return False, {"error": f"TouchDesigner no responde en {URL} ({type(last_err).__name__}: {last_err})",
+                           "pudo_ejecutarse": not _wire.is_refused(e), "hint": hint}
+    # rate limiter: la respuesta es "exitosa" pero trae un aviso; se repite la MISMA llamada
+    for _ in range(2):
+        wait = _wire.rate_wait(_txt_of(r))
+        if wait is None:
+            break
+        time.sleep(min(wait + 0.1, 10.0))
+        try:
+            _ID += 1
+            r = _post({"jsonrpc": "2.0", "id": _ID, "method": "tools/call",
+                       "params": {"name": tool, "arguments": args or {}}}, timeout)
+        except Exception as e:
+            return False, {"error": f"rate limiter y luego {type(e).__name__}: {e}", "pudo_ejecutarse": True}
+    if _wire.rate_wait(_txt_of(r)) is not None:
+        return False, {"error": "TD sigue en cooldown (recovering from a slow operation)",
+                       "detail": _txt_of(r)[:300]}
     if "error" in r:
         return False, {"error": "error MCP", "detail": r["error"]}
     res = r.get("result") or {}
@@ -85,7 +128,7 @@ def call(tool: str, args: dict | None = None, timeout: float | None = None) -> t
     return (not bad), data
 
 
-MARK = "<<JSON>>"
+MARK = _wire.MARK  # hogar único del literal y del parseo: knowledge/wire.py
 
 
 def exec_code(code: str, timeout: float | None = None) -> tuple[bool, dict]:
@@ -93,13 +136,10 @@ def exec_code(code: str, timeout: float | None = None) -> tuple[bool, dict]:
     ok, d = call("execute_code", {"code": code}, timeout)
     if not ok:
         return False, d
-    out = d.get("output", "") or ""
-    if MARK not in out:
-        return False, {"error": "el código no devolvió el marcador", "output": out[:500], "variables": list(d.get("variables", {}))}
-    try:
-        return True, json.loads(out.split(MARK, 1)[1].strip())
-    except Exception as e:
-        return False, {"error": f"payload ilegible: {e}", "output": out[:500]}
+    ok, payload = _wire.json_after_mark(d.get("output", "") or "")
+    if not ok and payload.get("error") == "sin marcador":
+        payload["variables"] = list(d.get("variables", {}))
+    return ok, payload
 
 
 # ── 1. status ────────────────────────────────────────────────────────────────
@@ -6150,6 +6190,172 @@ def t_network_tidy(a: dict) -> dict:
     return res
 
 
+# ── Pilar 26: PathTracer 3.0.1 (Josef Pelz PT_FAM) Builder ──────────────────
+
+_SETUP_PATHTRACER3 = r'''
+import json, os, re
+spec = __SPEC__
+root = op(spec['parent_path'])
+if not root:
+    print('<<JSON>>' + json.dumps({'ok': False, 'error': 'Contenedor no encontrado: ' + spec['parent_path']}))
+else:
+    fam = root.op('PT_FAM') or op('/project1/PT_FAM')
+    if fam is None:
+        tox_path = spec.get('tox_path') or 'C:/Users/Tolch/Documents/AI_Code/PachTracer_POPs/PT_FAM_32460_patched.tox'
+        if os.path.exists(tox_path):
+            fam = root.loadTox(tox_path)
+            fam.name = 'PT_FAM'
+    if fam is None:
+        print('<<JSON>>' + json.dumps({'ok': False, 'error': 'PT_FAM no encontrado en la red ni en tox_path'}))
+    else:
+        def _fix_geo(g):
+            if g is None:
+                return
+            was_ck = g.allowCooking
+            g.allowCooking = True
+            tri, hf, xf = g.op('tri'), g.op('has_faces'), g.op('xf')
+            if tri is not None and tri.OPType == 'baseCOMP':
+                pos = (tri.nodeX, tri.nodeY)
+                tri.destroy()
+                tri = g.create(triangulatePOP, 'tri')
+                tri.nodeX, tri.nodeY = pos
+            if tri is not None and tri.OPType == 'triangulatePOP':
+                tri.par.triangulatequads = True
+                if hf and (not tri.inputConnectors[0].connections or tri.inputConnectors[0].connections[0].owner != hf):
+                    hf.outputConnectors[0].connect(tri.inputConnectors[0])
+                if xf and (not xf.inputConnectors[0].connections or xf.inputConnectors[0].connections[0].owner != tri):
+                    tri.outputConnectors[0].connect(xf.inputConnectors[0])
+            for c in g.children:
+                for p in c.pars():
+                    if p.mode == ParMode.EXPRESSION and ('primType=' in p.expr or 'lineStrips=True' in p.expr) and 'max(op(' not in p.expr:
+                        e = re.sub(r"(op\('src'\)\.numPrims\(max=True,\s*primType='[^']+'\))", r"max(\1, 0)", p.expr)
+                        e = re.sub(r"(op\('src'\)\.numVerts\(max=True,\s*lineStrips=True\))", r"max(\1, 0)", e)
+                        p.expr = e
+            g.allowCooking = was_ck
+
+        def _fix_pt(pt_comp):
+            if pt_comp is None:
+                return
+            _fix_geo(pt_comp.op('scene/td_geo'))
+            sc = pt_comp.op('py/scene')
+            if sc is not None and "any(src.numPrims(max=True, primType=t) for t in types)" in sc.text:
+                sc.text = sc.text.replace(
+                    "any(src.numPrims(max=True, primType=t) for t in types)",
+                    "any(src.numPrims(max=True, primType=t) > 0 for t in types)"
+                )
+
+        _fix_geo(fam.op('PT_OPs/PT_GEO'))
+        _fix_geo(fam.op('PT_OPs/PT_LIGHT/mesh'))
+        _fix_pt(fam.op('PT_OPs/Pathtracer'))
+
+        m_pt = fam.op('PT_OPs/Pathtracer')
+        m_geo = fam.op('PT_OPs/PT_GEO')
+        m_mat = fam.op('PT_OPs/PT_MAT')
+        m_light = fam.op('PT_OPs/PT_LIGHT')
+
+        pt = root.op('Pathtracer1') or root.copy(m_pt, name='Pathtracer1')
+        pt.allowCooking = True
+        _fix_pt(pt)
+        pt.par.Optimizedfor = ''
+        pt.par.Panelresolution = False
+        pt.par.Resolutionw = spec['width']
+        pt.par.Resolutionh = spec['height']
+        pt.par.Method = spec['denoise_method']
+        pt.par.Quality = spec['dlss_quality']
+        pt.par.Samples = 2
+        pt.par.Bounces = 10
+        pt.par.Glassshadows = spec['glass_shadows']
+        pt.par.Hazedensity = spec['haze_density']
+
+        cam = root.op('cam1') or root.create(cameraCOMP, 'cam1')
+        cam.par.tx, cam.par.ty, cam.par.tz = 0.0, 1.5, 5.0
+        cam.par.rx, cam.par.ry, cam.par.rz = -12.0, 0.0, 0.0
+        pt.par.Camera = 'cam1'
+
+        null_out = root.op('null1') or root.create(nullTOP, 'null1')
+        if not null_out.inputConnectors[0].connections:
+            pt.outputConnectors[0].connect(null_out.inputConnectors[0])
+
+        # Piso base
+        flr = root.op('floor_pop') or root.create(gridPOP, 'floor_pop')
+        flr.par.sizex, flr.par.sizey = 6.0, 6.0
+        g_flr = root.op('pt_geo_floor') or root.copy(m_geo, name='pt_geo_floor')
+        g_flr.allowCooking = True
+        g_flr.render = True
+        g_flr.par.rx = -90.0
+        if not g_flr.inputConnectors[0].connections:
+            flr.outputConnectors[0].connect(g_flr.inputConnectors[0])
+        m_flr = root.op('pt_mat_floor') or root.copy(m_mat, name='pt_mat_floor')
+        m_flr.allowCooking = True
+        m_flr.par.Basecolorr, m_flr.par.Basecolorg, m_flr.par.Basecolorb = 0.75, 0.75, 0.78
+        m_flr.par.Roughness = 0.6
+        g_flr.par.Material = m_flr
+
+        # Esfera principal
+        sph = root.op('sph_pop') or root.create(spherePOP, 'sph_pop')
+        sph.par.radx = sph.par.rady = sph.par.radz = 0.5
+        g_sph = root.op('pt_geo_sphere') or root.copy(m_geo, name='pt_geo_sphere')
+        g_sph.allowCooking = True
+        g_sph.render = True
+        g_sph.par.ty = 0.5
+        if not g_sph.inputConnectors[0].connections:
+            sph.outputConnectors[0].connect(g_sph.inputConnectors[0])
+        m_sph = root.op('pt_mat_sphere') or root.copy(m_mat, name='pt_mat_sphere')
+        m_sph.allowCooking = True
+        m_sph.par.Basecolorr, m_sph.par.Basecolorg, m_sph.par.Basecolorb = 0.9, 0.25, 0.15
+        m_sph.par.Roughness = 0.18
+        m_sph.par.Clearcoat = 1.0
+        g_sph.par.Material = m_sph
+
+        # Luz Rect principal
+        lt = root.op('pt_light_rect') or root.copy(m_light, name='pt_light_rect')
+        lt.allowCooking = True
+        lt.render = True
+        lt.par.Type = 'Rect'
+        lt.par.tx, lt.par.ty, lt.par.tz = 0.0, 3.0, 0.0
+        lt.par.rx, lt.par.ry, lt.par.rz = -90.0, 0.0, 0.0
+        lt.par.Sizew, lt.par.Sizeh = 1.5, 1.5
+        lt.par.Strength = 80.0
+
+        pt.par.Reset.pulse()
+        print('<<JSON>>' + json.dumps({
+            'ok': True,
+            'pathtracer': pt.path,
+            'out_top': pt.op('out1').path,
+            'geos': [g.path for g in pt.op('py/scene').module.geos(pt)],
+            'lights': [l.path for l in pt.op('py/scene').module.lights(pt)],
+            'errors': pt.errors(recurse=True)
+        }))
+'''
+
+
+def t_setup_pathtracer3(a: dict) -> dict:
+    """Pilar 26 — Monta y verifica desde cero un sistema PathTracer 3.0.1 (Josef Pelz PT_FAM) sobre POPs: carga/parchea automáticamente PT_FAM para compatibilidad 2025.32460 (triangulatePOP + max(numPrims, 0)), instancia Pathtracer, PT_GEO, PT_MAT y PT_LIGHT con allowCooking=True, espera frames reales de render y evalúa la imagen."""
+    res_str = str(a.get("resolution") or "640x360").lower().split("x")
+    w = int(res_str[0]) if len(res_str) == 2 and res_str[0].isdigit() else 640
+    h = int(res_str[1]) if len(res_str) == 2 and res_str[1].isdigit() else 360
+    spec = {
+        "parent_path": str(a.get("parent_path") or "/project1").strip(),
+        "preset": str(a.get("preset") or "studio").strip().lower(),
+        "width": w,
+        "height": h,
+        "denoise_method": "Accumulate" if str(a.get("denoise_method") or "").lower().startswith("acc") else "Dlss",
+        "dlss_quality": str(a.get("dlss_quality") or "Dlaa").capitalize(),
+        "glass_shadows": False if str(a.get("glass_shadows") or "").lower() in ("0", "false", "no") else True,
+        "haze_density": float(a.get("haze_density") if a.get("haze_density") is not None else 0.0),
+        "tox_path": a.get("tox_path") or "C:/Users/Tolch/Documents/AI_Code/PachTracer_POPs/PT_FAM_32460_patched.tox",
+    }
+    code = _SETUP_PATHTRACER3.replace("__SPEC__", repr(spec))
+    ok, res = exec_code(code, timeout=float(a.get("timeout") or 60))
+    if not ok or not res.get("ok"):
+        return res
+    import time
+    time.sleep(0.8)
+    eval_res = t_eval_render_frame({"op_path": res["out_top"]})
+    res["render_evaluation"] = eval_res
+    return res
+
+
 # ── registro ─────────────────────────────────────────────────────────────────
 
 LIVE_TOOLS = [
@@ -6311,6 +6517,15 @@ LIVE_TOOLS = [
       "frame_result": "bool (default true)",
       "tidy_comp_path": "string (opcional: ruta a /network_tidy si se renombró)",
       "tox_path": "string (opcional: ruta a NetworkTidy.tox en disco si no está cargado)"}, t_network_tidy),
+    ("td_setup_pathtracer3", "Pilar 26 — Monta y verifica desde cero un sistema PathTracer 3.0.1 (Josef Pelz PT_FAM) sobre POPs: carga y parchea automáticamente PT_FAM para compatibilidad 2025.32460 (triangulatePOP + max(numPrims, 0)), instancia Pathtracer, PT_GEO, PT_MAT y PT_LIGHT con allowCooking=True, avanza frames reales y evalúa la salida visual.",
+     {"parent_path": "string (default /project1)",
+      "preset": "studio|minimal (default studio)",
+      "resolution": "string (default 640x360)",
+      "denoise_method": "Dlss|Accumulate (default Dlss)",
+      "dlss_quality": "Dlaa|Quality|Balanced|Performance|Ultraperformance (default Dlaa)",
+      "glass_shadows": "bool (default true)",
+      "haze_density": "float (default 0.0)",
+      "tox_path": "string (opcional: ruta a PT_FAM_32460_patched.tox)"}, t_setup_pathtracer3),
 ]
 
 
