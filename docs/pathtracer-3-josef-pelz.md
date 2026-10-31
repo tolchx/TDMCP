@@ -90,7 +90,24 @@ La herramienta MCP `td_setup_pathtracer3` construye y verifica en una sola llama
 ```
 
 Presets soportados:
-- **`studio_caustics`**: Suelo + esfera de vidrio con absorción Beer-Lambert (`Glassshadows=True`) + esfera de oro con `Thinfilm` + `PT_LIGHT` (`Rect` key + `Disk` rim).
-- **`points_and_tubes`**: Nube de puntos POP (`gridPOP(surftype='points')`) renderizada como esferas analíticas con atributos por punto (`Color`, `PointScale`, `Roughness`, `Metallic`, `Emit`) + anillo de tubos 3D (`circlePOP`).
-- **`volumetric_haze`**: Niebla volumétrica anisotrópica (`Hazedensity=0.05`, `Hazeanisotropy=0.6`) + `Spot` light con Gobo (`rampTOP` radial) + `Mesh` light (`torusPOP`).
-- **`native_td_hybrid`**: Escena híbrida combinando `geometryCOMP` + `pbrMAT` + `lightCOMP` nativos de TouchDesigner con `Pathtracer`.
+- **`studio`**: Suelo optimizado (`2×2` = `2` triángulos, `45×45` sin línea de horizonte) + esfera con `Clearcoat` + `PT_LIGHT` (`Rect`).
+- **`vortex_haze_60fps`**: Vórtice animado de `64` esferas analíticas traslúcidas (`8×8` en `glslPOP` con velocidad angular kepleriana estable) + humo volumétrico turbulento 3D (`Hazevariation=1.0`, `Hazescale=2.6`, `Hazemultiple=False`, `Hazedrift` ascendente) + `Spot` cenital con Gobo `noiseTOP` + LBVH síncrono (`Software=1`) calibrado para **60 FPS** (`Samples=1`, `Bounces=4`, `Hazesamples=4`, `Quality='Balanced'`).
+
+---
+
+## 6. Estabilidad Temporal en Animación, Humo Volumétrico (`Haze`) y Optimización a 60 FPS (Contrato C23)
+
+1. **LBVH Síncrono en GPU (`Pathtracer1/scene.par.Software = 1`) para POPs Animados:**
+   - En TouchDesigner `2025.32460`, el rebuild asíncrono de la estructura de aceleración Vulkan de hardware (`colpop` / `rayQueryEXT`) deja ~25% de los cuadros vacíos cuando un POP cambia de posición cada frame.
+   - Fijar `pt.op('scene').par.Software = 1` activa el **LBVH síncrono en GPU (`scene/bvh/tree` + `scene/bvh/items`)** de PathTracer (`0` frames caídos en secuencias de 12 y 24 cuadros).
+2. **Continuidad Orbital en Shaders `glslPOP`:**
+   - Usar siempre `float t = mod(uTime, 3600.0);` para preservar precisión float32 tras horas de ejecución.
+   - La velocidad angular $\omega_i$ debe depender únicamente del radio/anillo base fijo de la partícula (`id`), nunca de una coordenada dependiente del tiempo, y `PT_GEO.par.Velocity` se deja en `''` para que `PT_GEO/pts_cache` (`cachePOP`) calcule vectores de movimiento exactos para DLSS.
+3. **Humo Volumétrico Turbulento (`Haze`) e Iluminación Selectiva:**
+   - Apagar **`par.Haze = False`** en luces de área grandes (`Rect`) para que iluminen las esferas de vidrio sin lavar el contraste del humo.
+   - Encender **`par.Haze = True`** únicamente en luces puntuales/focalizadas (`Sphere` en el núcleo + `Spot` cenital con un `noiseTOP` animado en `Projectormap`).
+   - Configurar `Hazedensity = 0.14`, `Hazeanisotropy = 0.68`, `Hazevariation = 1.0`, `Hazescale = 2.6`, `Hazesamples = 4`, `Hazemultiple = False` y deriva `Hazedrift` en espiral ascendente.
+4. **Presupuesto de 60 FPS en Tiempo Real (`9 FPS / 130 ms` → `60 FPS / 15 ms`):**
+   - Medir siempre los FPS reales con `performCHOP['fps']` y `performCHOP['msec']` (ya que con `project.realTime = True`, `absTime.frame` salta cuadros).
+   - Reducir el piso `gridPOP` a `rows = 2, cols = 2` (**`2` triángulos**) y `sizex = 45.0, sizey = 45.0` (elimina la línea de corte del horizonte y baja `scene/faces` de `1,226` a `6` primitivas).
+   - Usar **`64` a `96` esferas analíticas (`pointPrims`)** con `PointScale` compensado (`0.075–0.145`), `Samples = 1`, `Bounces = 4`, `Hazesamples = 4` y `Quality = 'Balanced'`, reduciendo `trace/flex` de **`95.33 ms` a `9.70 ms`**.

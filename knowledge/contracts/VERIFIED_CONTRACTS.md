@@ -1436,4 +1436,47 @@ Entorno: TouchDesigner **2025.32460**, TDMCP oficial **1.1.55**, PathTracer **3.
 - Un bloque `exec_code` corre sincrónicamente dentro de **un único frame** del hilo principal de TouchDesigner; llamar a `time.sleep()` dentro de `exec_code` congela el hilo principal sin avanzar `absTime.frame`.
 - Para que `Pathtracer` actualice `mergePOP`s, compile variantes (`trace/flex` con `pt.par.Optimizedfor = ''`) y acumule muestras DLSS/Accumulate antes de guardar un PNG (`out1.save(...)`), se debe ejecutar el setup en un `exec_code`, hacer `time.sleep(1.0)` **en el cliente Python externo** (dejando correr ~60 frames reales en TD) y luego capturar en un segundo `exec_code`.
 
+### `pathtracer3_estabilidad_temporal_animacion` — LBVH síncrono (`Software = 1`), `allowCooking` recursivo y continuidad orbital en escenas animadas [V]
+Verificado empíricamente con hoja de contacto de 12 frames y loop de video de 24 frames (`0` frames caídos, rango de luminancia `1.91`–`2.92` vs `57.62` antes del fix):
+1. **`Pathtracer/scene.par.Software = 1` para geometría POP animada en TD `2025.32460`:**
+   - En TouchDesigner `2025.32460`, cuando un POP animado cuadro a cuadro alimenta la estructura de aceleración Vulkan de hardware (`colpop` / `rayQueryEXT`), el rebuild asíncrono del BLAS/TLAS deja ~25% de los frames vacíos (toda la geometría desaparece por un frame, cayendo la luminancia de `106` a `50`).
+   - Activando `pt.op('scene').par.Software = 1`, PathTracer utiliza su propio **LBVH en GPU (`scene/bvh/tree` y `scene/bvh/items`)** construido con `glslPOP` + `sortPOP`, que es **100% síncrono con el grafo POP** en cada frame y traza esferas analíticas (`sphereT`) directamente sin perder jamás un solo frame (`24/24` frames estables).
+2. **`allowCooking = True` recursivo en sub-COMPs de `Pathtracer`:**
+   - Al clonar `Pathtracer`, además de `pt.allowCooking = True`, asegurarse de activar `c.allowCooking = True` en todos sus hijos `COMP` (`py`, `glsl`, `pick`, `scene`, `state`, `trace`, `views`, `world`, `camera`, `lights`, `output`, `materials`).
+3. **Evitar saltos de fase ($\text{uTime} \cdot \omega(t)$) y teletransportación por `fract()` en shaders GLSL de partículas:**
+   - Nunca multiplicar `uTime` (`absTime.seconds`, que puede superar `5000+` segundos) por una velocidad angular $\omega$ que varíe con el tiempo ($\Delta\theta \approx \text{uTime} \cdot \Delta\omega \approx 12\text{ rad/frame}$ = salto caótico cada frame). Usar siempre `float t = mod(uTime, 3600.0);` y una velocidad angular $\omega_i$ dependiente únicamente del radio/anillo base fijo de la partícula (`id`), dejando que `PT_GEO/pts_cache` (`cachePOP`, con `PT_GEO.par.Velocity = ''`) calcule los vectores de movimiento exactos para DLSS.
+
+### `pathtracer3_humo_volumetrico_haze` — Iluminación volumétrica selectiva (`Haze` por luz), turbulencia 3D FBM y Spotlight Gobo (`Projectormap`) [V]
+Verificado en vivo en `/project1` (`vortex_haze_hero.png`, `vortex_haze_contact_sheet.png`, `12/12` frames estables, `mean_lum = 100.2–108.1`, `std = 49.0–53.5`):
+1. **Por qué las luces de área grandes (`Rect`) lavan el contraste del humo:**
+   - Si las luces de relleno/área grandes (`PT_LIGHT` con `Type = 'Rect'`) tienen `par.Haze = True` o si `Pathtracer.par.Hazemultiple = True`, dispersan luz de forma uniforme en todo el frustum de cámara (`mean_lum ~ 140`), aplanando las sombras volumétricas.
+   - **Regla de iluminación volumétrica selectiva:** Apagar **`par.Haze = False`** en las luces `Rect` de relleno (para que sigan iluminando y refractando en las esferas de vidrio sin lavar la atmósfera) y encender **`par.Haze = True`** únicamente en luces localizadas/direccionales (`Sphere` en el núcleo + `Spot` cenital con un `noiseTOP` animado conectado a `Projectormap` como Gobo).
+2. **Parámetros de humo turbulento 3D FBM en `Pathtracer` (página `Atmosphere`):**
+   - `Hazedensity = 0.13–0.15`, `Hazeanisotropy = 0.68` (dispersión frontal tipo Mie para haces volumétricos marcados).
+   - `Hazevariation = 1.0` y `Hazescale = 2.6` (100% de modulación FBM 3D para generar bocanadas de humo y huecos oscuros en lugar de niebla homogénea).
+   - `Hazesamples = 4` (`<= 2` sub-muestrea la mitad superior del cono del Spotlight; `4` a `6` preserva las vetas del Gobo).
+   - `Hazemultiple = False` (dispersión simple para máximo contraste de sombras volumétricas).
+   - **Deriva 3D continua (`Hazedrift`) con guardia de precisión:**
+     - `Hazedriftx.expr = "0.35 * math.sin((absTime.seconds % 3600.0) * 0.4)"`
+     - `Hazedrifty.expr = "-0.38 * (absTime.seconds % 3600.0)"` (humo ascendente por el embudo)
+     - `Hazedriftz.expr = "0.35 * math.cos((absTime.seconds % 3600.0) * 0.4)"`
+3. **Evitar oclusión central bajo el Spotlight cenital:**
+   - No colocar una esfera grande directamente en el eje `(0, y, 0)` bajo un `Spot` cenital `(0, 3.8, 0)` cuando `Glassshadows = True`, ya que eclipsa el cono volumétrico y proyecta una sombra dura sobre el centro del vórtice.
+
+### `pathtracer3_optimizacion_60fps_realtime` — Presupuesto de 60 FPS en tiempo real (`9 FPS / 130 ms` → `60 FPS / 15 ms`, 10x speedup en `trace/flex`) [V]
+Medido en vivo con `performCHOP` y `gpuCookTime` en TouchDesigner `2025.32460`:
+1. **Cómo medir FPS reales cuando `project.realTime = True`:**
+   - Con `project.realTime = True`, `absTime.frame` salta cuadros para seguir el reloj de pared (`Δframe / Δt ≈ 57–60` aunque el motor renderice a `9 FPS`).
+   - El framerate real se mide **únicamente** con un `performCHOP` (`perf['fps'].eval()`, `perf['msec'].eval()`) y `op('Pathtracer1/trace/flex').gpuCookTime`.
+2. **Eliminación de triángulos redundantes en el LBVH (`scene/faces`) y línea de horizonte:**
+   - Un `gridPOP` por defecto (`20×20` = `722` triángulos) + un `spherePOP` (`500` triángulos) inyectaban `1,226` primitivas en el LBVH de caras (`scene/faces`), penalizando cada rayo en `trace/flex`.
+   - Configurar siempre el piso `gridPOP` con **`rows = 2, cols = 2`** (**`2` triángulos**) y **`sizex = 45.0, sizey = 45.0`** (lo que además elimina la línea horizontal de corte del horizonte en `z = -5`), y representar todas las esferas como **primitivas analíticas de punto (`pointPrims`)** (`0` triángulos). Esto reduce `scene/faces` de `1,226` a `6` primitivas.
+3. **Presupuesto de partículas y parámetros de `Pathtracer` para 60 FPS a `1280×720`:**
+   - **Conteo de esferas analíticas refractivas (`Transmission > 0.9` + `Glassshadows` + `Haze`):** `64` a `96` esferas (`8×8` a `8×12`) con `PointScale` compensado (`0.075–0.145`) mantienen el volumen visual completo a `58–60 FPS`.
+   - **`Samples = 1`** (1 SPP por cuadro con reconstrucción temporal DLSS Ray Reconstruction; `Samples = 3` triplica el costo de GPU a `95.3 ms`).
+   - **`Bounces = 4`** (óptimo para transmisión doble en vidrio + reflejo especular + sombra cáustica; `Bounces = 8–10` sólo para renders fijos `Accumulate`).
+   - **`Hazesamples = 4`** y **`Quality = 'Balanced'`** (con `Method = 'Dlss'`), logrando reducir `trace/flex` de **`95.33 ms` a `9.70 ms`** y el frame total de **`130.04 ms` (`9.0 FPS`) a `15.01–17.33 ms` (`58–60 FPS`)**.
+
+
+
 

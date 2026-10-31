@@ -6233,15 +6233,25 @@ else:
                         p.expr = e
             g.allowCooking = was_ck
 
+        def _enable_cooking_recursive(comp_op):
+            if comp_op is None:
+                return
+            comp_op.allowCooking = True
+            for c in comp_op.findChildren(type=COMP):
+                c.allowCooking = True
+
         def _fix_pt(pt_comp):
             if pt_comp is None:
                 return
+            _enable_cooking_recursive(pt_comp)
             _fix_geo(pt_comp.op('scene/td_geo'))
+            if pt_comp.op('scene') is not None:
+                pt_comp.op('scene').par.Software = 1
             sc = pt_comp.op('py/scene')
             if sc is not None and "any(src.numPrims(max=True, primType=t) for t in types)" in sc.text:
                 sc.text = sc.text.replace(
                     "any(src.numPrims(max=True, primType=t) for t in types)",
-                    "any(src.numPrims(max=True, primType=t) > 0 for t in types)"
+                    "any((src.cook() or src).numPrims(max=True, primType=t) > 0 for t in types)"
                 )
 
         _fix_geo(fam.op('PT_OPs/PT_GEO'))
@@ -6262,23 +6272,24 @@ else:
         pt.par.Resolutionh = spec['height']
         pt.par.Method = spec['denoise_method']
         pt.par.Quality = spec['dlss_quality']
-        pt.par.Samples = 2
-        pt.par.Bounces = 10
+        pt.par.Samples = spec['samples']
+        pt.par.Bounces = spec['bounces']
         pt.par.Glassshadows = spec['glass_shadows']
         pt.par.Hazedensity = spec['haze_density']
 
         cam = root.op('cam1') or root.create(cameraCOMP, 'cam1')
-        cam.par.tx, cam.par.ty, cam.par.tz = 0.0, 1.5, 5.0
-        cam.par.rx, cam.par.ry, cam.par.rz = -12.0, 0.0, 0.0
+        cam.par.tx, cam.par.ty, cam.par.tz = 0.0, 1.45, 4.85
+        cam.par.rx, cam.par.ry, cam.par.rz = -7.0, 0.0, 0.0
         pt.par.Camera = 'cam1'
 
         null_out = root.op('null1') or root.create(nullTOP, 'null1')
         if not null_out.inputConnectors[0].connections:
             pt.outputConnectors[0].connect(null_out.inputConnectors[0])
 
-        # Piso base
+        # Piso base optimizado (2x2 = 2 triángulos, 45x45 sin línea de corte de horizonte — C23)
         flr = root.op('floor_pop') or root.create(gridPOP, 'floor_pop')
-        flr.par.sizex, flr.par.sizey = 6.0, 6.0
+        flr.par.rows, flr.par.cols = 2, 2
+        flr.par.sizex, flr.par.sizey = 45.0, 45.0
         g_flr = root.op('pt_geo_floor') or root.copy(m_geo, name='pt_geo_floor')
         g_flr.allowCooking = True
         g_flr.render = True
@@ -6291,35 +6302,157 @@ else:
         m_flr.par.Roughness = 0.6
         g_flr.par.Material = m_flr
 
-        # Esfera principal
-        sph = root.op('sph_pop') or root.create(spherePOP, 'sph_pop')
-        sph.par.radx = sph.par.rady = sph.par.radz = 0.5
-        g_sph = root.op('pt_geo_sphere') or root.copy(m_geo, name='pt_geo_sphere')
-        g_sph.allowCooking = True
-        g_sph.render = True
-        g_sph.par.ty = 0.5
-        if not g_sph.inputConnectors[0].connections:
-            sph.outputConnectors[0].connect(g_sph.inputConnectors[0])
-        m_sph = root.op('pt_mat_sphere') or root.copy(m_mat, name='pt_mat_sphere')
-        m_sph.allowCooking = True
-        m_sph.par.Basecolorr, m_sph.par.Basecolorg, m_sph.par.Basecolorb = 0.9, 0.25, 0.15
-        m_sph.par.Roughness = 0.18
-        m_sph.par.Clearcoat = 1.0
-        g_sph.par.Material = m_sph
+        created_comps = [g_flr, m_flr]
+        preset = spec.get('preset', 'studio')
 
-        # Luz Rect principal
-        lt = root.op('pt_light_rect') or root.copy(m_light, name='pt_light_rect')
-        lt.allowCooking = True
-        lt.render = True
-        lt.par.Type = 'Rect'
-        lt.par.tx, lt.par.ty, lt.par.tz = 0.0, 3.0, 0.0
-        lt.par.rx, lt.par.ry, lt.par.rz = -90.0, 0.0, 0.0
-        lt.par.Sizew, lt.par.Sizeh = 1.5, 1.5
-        lt.par.Strength = 80.0
+        if 'vortex' in preset:
+            import math
+            # Vórtice 60 FPS de 64 esferas analíticas traslúcidas + humo volumétrico turbulento (C23)
+            seed = root.op('pop_vortex_seed') or root.create(gridPOP, 'pop_vortex_seed')
+            seed.par.rows, seed.par.cols = 8, 8
+            seed.par.surftype = 'points'
 
+            s_dat = root.op('pop_vortex_solver_code') or root.create(textDAT, 'pop_vortex_solver_code')
+            s_dat.text = (
+                "uniform float uTime;\n"
+                "float hash11(uint n){n=(n<<13U)^n;n=n*(n*n*15731U+789221U)+1376312589U;return float(n&uint(0x7fffffffU))/float(0x7fffffff);}\n"
+                "vec3 glassPalette(float t){return clamp(vec3(0.58,0.76,0.94)+vec3(0.38,0.28,0.24)*cos(6.2831853*(t+vec3(0.05,0.22,0.52))),0.22,1.0);}\n"
+                "void main(){\n"
+                "  const uint id=TDIndex(); if(id>=TDNumElements())return;\n"
+                "  float t=mod(uTime,3600.0); uint numRings=8U, perRing=8U;\n"
+                "  uint ringIdx=id/perRing, slotIdx=id%perRing;\n"
+                "  float h1=hash11(id*3U+7U), h2=hash11(id*5U+11U), h3=hash11(id*9U+19U);\n"
+                "  float ringNorm=clamp((float(ringIdx)+0.35*(h1-0.5))/float(numRings-1U),0.0,1.0);\n"
+                "  float baseY=mix(0.26,2.15,ringNorm);\n"
+                "  float baseR=mix(0.48,2.02,pow(ringNorm,0.78))+0.07*(h2-0.5);\n"
+                "  float omega=0.65/pow(baseR,0.55);\n"
+                "  float theta=(float(slotIdx)/float(perRing))*6.2831853+float(ringIdx)*0.85+0.14*(h3-0.5)+t*omega;\n"
+                "  float sp=theta*2.0-ringNorm*5.0;\n"
+                "  float r=baseR+0.06*sin(sp), y=baseY+0.045*cos(sp+h1*3.14159);\n"
+                "  P[id]=vec3(r*cos(theta),y,r*sin(theta));\n"
+                "  PartVel[id]=vec3(-r*sin(theta)*omega,0.0,r*cos(theta)*omega);\n"
+                "  PointScale[id]=mix(0.075,0.138,ringNorm)*mix(0.82,1.24,h2);\n"
+                "  Color[id]=vec4(glassPalette(fract(ringNorm*0.75+float(slotIdx)/float(perRing)*0.5+0.1*h1)),1.0);\n"
+                "  Transmission[id]=mix(0.90,0.99,h1); Roughness[id]=mix(0.015,0.09,pow(h3,2.2)); Emit[id]=0.0;\n"
+                "}\n"
+            )
+            solver = root.op('pop_vortex_solver') or root.create(glslPOP, 'pop_vortex_solver')
+            solver.par.dat = s_dat.name
+            if not solver.inputConnectors[0].connections:
+                seed.outputConnectors[0].connect(solver.inputConnectors[0])
+            solver.par.vec0name = 'uTime'
+            solver.par.vec0valuex.expr = 'absTime.seconds'
+            solver.seq.attr.numBlocks = 6
+            for idx, (aname, comps) in enumerate([('PartVel', 3), ('PointScale', 1), ('Color', 4), ('Transmission', 1), ('Roughness', 1), ('Emit', 1)]):
+                setattr(solver.par, f'attr{idx}name', 'custom')
+                setattr(solver.par, f'attr{idx}customname', aname)
+                setattr(solver.par, f'attr{idx}type', 'float')
+                setattr(solver.par, f'attr{idx}numcomps', comps)
+            solver.par.outputattrs = 'P PartVel PointScale Color Transmission Roughness Emit'
+
+            g_vtx = root.op('pt_geo_vortex_spheres') or root.copy(m_geo, name='pt_geo_vortex_spheres')
+            g_vtx.allowCooking = True
+            g_vtx.render = True
+            g_vtx.par.Velocity = ''
+            if not g_vtx.inputConnectors[0].connections:
+                solver.outputConnectors[0].connect(g_vtx.inputConnectors[0])
+            m_vtx = root.op('pt_mat_translucent_spheres') or root.copy(m_mat, name='pt_mat_translucent_spheres')
+            m_vtx.allowCooking = True
+            m_vtx.par.Transmission = 0.96
+            m_vtx.par.Ior = 1.49
+            m_vtx.par.Roughness = 0.03
+            m_vtx.par.Dispersion = 0.12
+            m_vtx.par.Clearcoat = 0.85
+            g_vtx.par.Material = m_vtx
+
+            # Iluminación volumétrica selectiva (C23): Rect fill con Haze=False + Eye Sphere y Gobo Spot con Haze=True
+            lt_key = root.op('pt_light_key') or root.copy(m_light, name='pt_light_key')
+            lt_key.allowCooking = True
+            lt_key.render = True
+            lt_key.par.Type = 'Rect'
+            lt_key.par.tx, lt_key.par.ty, lt_key.par.tz = -2.2, 3.2, 1.5
+            lt_key.par.rx, lt_key.par.ry = -55.0, -32.0
+            lt_key.par.Sizew, lt_key.par.Sizeh = 1.8, 1.8
+            lt_key.par.Strength = 48.0
+            lt_key.par.Haze = False
+
+            lt_eye = root.op('pt_light_vortex_eye') or root.copy(m_light, name='pt_light_vortex_eye')
+            lt_eye.allowCooking = True
+            lt_eye.render = True
+            lt_eye.par.Type = 'Sphere'
+            lt_eye.par.tx, lt_eye.par.ty, lt_eye.par.tz = 0.0, 0.45, 0.0
+            lt_eye.par.Radius = 0.16
+            lt_eye.par.Colorr, lt_eye.par.Colorg, lt_eye.par.Colorb = 0.95, 0.35, 1.0
+            lt_eye.par.Strength = 55.0
+            lt_eye.par.Haze = True
+
+            gobo = root.op('top_smoke_gobo') or root.create(noiseTOP, 'top_smoke_gobo')
+            gobo.par.outputresolution = 'custom'
+            gobo.par.resolutionw, gobo.par.resolutionh = 256, 256
+            gobo.par.period = 2.2
+            gobo.par.amp = 0.55
+            gobo.par.offset = 0.5
+            gobo.par.tz.expr = '(absTime.seconds % 3600.0) * 0.35'
+
+            lt_spot = root.op('pt_light_smoke_spot') or root.copy(m_light, name='pt_light_smoke_spot')
+            lt_spot.allowCooking = True
+            lt_spot.render = True
+            lt_spot.par.Type = 'Spot'
+            lt_spot.par.tx, lt_spot.par.ty, lt_spot.par.tz = 0.0, 3.8, 0.0
+            lt_spot.par.rx = -90.0
+            lt_spot.par.Coneangle = 48.0
+            lt_spot.par.Conedelta = 18.0
+            lt_spot.par.Colorr, lt_spot.par.Colorg, lt_spot.par.Colorb = 0.30, 0.85, 1.0
+            lt_spot.par.Strength = 165.0
+            lt_spot.par.Projectormap = gobo.path
+            lt_spot.par.Haze = True
+
+            pt.par.Hazedensity = spec['haze_density'] if spec['haze_density'] > 0 else 0.14
+            pt.par.Hazecolorr, pt.par.Hazecolorg, pt.par.Hazecolorb = 0.82, 0.90, 1.0
+            pt.par.Hazeanisotropy = 0.68
+            pt.par.Hazesamples = 4
+            pt.par.Hazevariation = 1.0
+            pt.par.Hazescale = 2.6
+            pt.par.Hazemultiple = False
+            pt.par.Hazedriftx.expr = '0.35 * math.sin((absTime.seconds % 3600.0) * 0.4)'
+            pt.par.Hazedrifty.expr = '-0.38 * (absTime.seconds % 3600.0)'
+            pt.par.Hazedriftz.expr = '0.35 * math.cos((absTime.seconds % 3600.0) * 0.4)'
+
+            created_comps.extend([g_vtx, m_vtx, lt_key, lt_eye, lt_spot])
+        else:
+            # Esfera principal
+            sph = root.op('sph_pop') or root.create(spherePOP, 'sph_pop')
+            sph.par.radx = sph.par.rady = sph.par.radz = 0.5
+            g_sph = root.op('pt_geo_sphere') or root.copy(m_geo, name='pt_geo_sphere')
+            g_sph.allowCooking = True
+            g_sph.render = True
+            g_sph.par.ty = 0.5
+            if not g_sph.inputConnectors[0].connections:
+                sph.outputConnectors[0].connect(g_sph.inputConnectors[0])
+            m_sph = root.op('pt_mat_sphere') or root.copy(m_mat, name='pt_mat_sphere')
+            m_sph.allowCooking = True
+            m_sph.par.Basecolorr, m_sph.par.Basecolorg, m_sph.par.Basecolorb = 0.9, 0.25, 0.15
+            m_sph.par.Roughness = 0.18
+            m_sph.par.Clearcoat = 1.0
+            g_sph.par.Material = m_sph
+
+            # Luz Rect principal
+            lt = root.op('pt_light_rect') or root.copy(m_light, name='pt_light_rect')
+            lt.allowCooking = True
+            lt.render = True
+            lt.par.Type = 'Rect'
+            lt.par.tx, lt.par.ty, lt.par.tz = 0.0, 3.0, 0.0
+            lt.par.rx, lt.par.ry, lt.par.rz = -90.0, 0.0, 0.0
+            lt.par.Sizew, lt.par.Sizeh = 1.5, 1.5
+            lt.par.Strength = 80.0
+            created_comps.extend([g_sph, m_sph, lt])
+
+        for comp_node in created_comps:
+            _enable_cooking_recursive(comp_node)
         pt.par.Reset.pulse()
         print('<<JSON>>' + json.dumps({
             'ok': True,
+            'preset': preset,
             'pathtracer': pt.path,
             'out_top': pt.op('out1').path,
             'geos': [g.path for g in pt.op('py/scene').module.geos(pt)],
@@ -6330,19 +6463,24 @@ else:
 
 
 def t_setup_pathtracer3(a: dict) -> dict:
-    """Pilar 26 — Monta y verifica desde cero un sistema PathTracer 3.0.1 (Josef Pelz PT_FAM) sobre POPs: carga/parchea automáticamente PT_FAM para compatibilidad 2025.32460 (triangulatePOP + max(numPrims, 0)), instancia Pathtracer, PT_GEO, PT_MAT y PT_LIGHT con allowCooking=True, espera frames reales de render y evalúa la imagen."""
-    res_str = str(a.get("resolution") or "640x360").lower().split("x")
-    w = int(res_str[0]) if len(res_str) == 2 and res_str[0].isdigit() else 640
-    h = int(res_str[1]) if len(res_str) == 2 and res_str[1].isdigit() else 360
+    """Pilar 26 — Monta y verifica desde cero un sistema PathTracer 3.0.1 (Josef Pelz PT_FAM) sobre POPs: carga/parchea automáticamente PT_FAM para compatibilidad 2025.32460 (triangulatePOP + max(numPrims, 0) + LBVH síncrono Software=1), instancia Pathtracer, PT_GEO, PT_MAT y PT_LIGHT con allowCooking=True recursivo, soporta presets 'studio' y 'vortex_haze_60fps' (64 esferas traslúcidas en vórtice + humo volumétrico FBM 3D + Gobo Spot a 60 FPS), espera frames reales y evalúa la imagen."""
+    res_str = str(a.get("resolution") or "1280x720").lower().split("x")
+    w = int(res_str[0]) if len(res_str) == 2 and res_str[0].isdigit() else 1280
+    h = int(res_str[1]) if len(res_str) == 2 and res_str[1].isdigit() else 720
+    preset = str(a.get("preset") or "studio").strip().lower()
+    is_acc = str(a.get("denoise_method") or "").lower().startswith("acc")
+    default_q = "Dlaa" if is_acc else ("Balanced" if "vortex" in preset else "Quality")
     spec = {
         "parent_path": str(a.get("parent_path") or "/project1").strip(),
-        "preset": str(a.get("preset") or "studio").strip().lower(),
+        "preset": preset,
         "width": w,
         "height": h,
-        "denoise_method": "Accumulate" if str(a.get("denoise_method") or "").lower().startswith("acc") else "Dlss",
-        "dlss_quality": str(a.get("dlss_quality") or "Dlaa").capitalize(),
+        "denoise_method": "Accumulate" if is_acc else "Dlss",
+        "dlss_quality": str(a.get("dlss_quality") or default_q).capitalize(),
+        "samples": int(a.get("samples") if a.get("samples") is not None else (1 if not is_acc else 2)),
+        "bounces": int(a.get("bounces") if a.get("bounces") is not None else (4 if not is_acc else 8)),
         "glass_shadows": False if str(a.get("glass_shadows") or "").lower() in ("0", "false", "no") else True,
-        "haze_density": float(a.get("haze_density") if a.get("haze_density") is not None else 0.0),
+        "haze_density": float(a.get("haze_density") if a.get("haze_density") is not None else (0.14 if "vortex" in preset else 0.0)),
         "tox_path": a.get("tox_path") or "C:/Users/Tolch/Documents/AI_Code/PachTracer_POPs/PT_FAM_32460_patched.tox",
     }
     code = _SETUP_PATHTRACER3.replace("__SPEC__", repr(spec))
@@ -6517,14 +6655,16 @@ LIVE_TOOLS = [
       "frame_result": "bool (default true)",
       "tidy_comp_path": "string (opcional: ruta a /network_tidy si se renombró)",
       "tox_path": "string (opcional: ruta a NetworkTidy.tox en disco si no está cargado)"}, t_network_tidy),
-    ("td_setup_pathtracer3", "Pilar 26 — Monta y verifica desde cero un sistema PathTracer 3.0.1 (Josef Pelz PT_FAM) sobre POPs: carga y parchea automáticamente PT_FAM para compatibilidad 2025.32460 (triangulatePOP + max(numPrims, 0)), instancia Pathtracer, PT_GEO, PT_MAT y PT_LIGHT con allowCooking=True, avanza frames reales y evalúa la salida visual.",
+    ("td_setup_pathtracer3", "Pilar 26 — Monta y verifica desde cero un sistema PathTracer 3.0.1 (Josef Pelz PT_FAM) sobre POPs: carga y parchea automáticamente PT_FAM para compatibilidad 2025.32460 (triangulatePOP + max(numPrims, 0) + LBVH síncrono Software=1), instancia Pathtracer, PT_GEO, PT_MAT y PT_LIGHT con allowCooking=True recursivo, soporta presets 'studio' y 'vortex_haze_60fps' (64 esferas analíticas traslúcidas en vórtice + humo volumétrico FBM 3D + Gobo Spot a 60 FPS), avanza frames reales y evalúa la salida visual.",
      {"parent_path": "string (default /project1)",
-      "preset": "studio|minimal (default studio)",
-      "resolution": "string (default 640x360)",
+      "preset": "studio|vortex_haze_60fps|minimal (default studio)",
+      "resolution": "string (default 1280x720)",
       "denoise_method": "Dlss|Accumulate (default Dlss)",
-      "dlss_quality": "Dlaa|Quality|Balanced|Performance|Ultraperformance (default Dlaa)",
+      "dlss_quality": "Dlaa|Quality|Balanced|Performance|Ultraperformance (default Quality o Balanced en vortex)",
+      "samples": "int (default 1 en Dlss para 60fps, 2 en Accumulate)",
+      "bounces": "int (default 4 en Dlss para 60fps, 8 en Accumulate)",
       "glass_shadows": "bool (default true)",
-      "haze_density": "float (default 0.0)",
+      "haze_density": "float (default 0.0 en studio, 0.14 en vortex_haze_60fps)",
       "tox_path": "string (opcional: ruta a PT_FAM_32460_patched.tox)"}, t_setup_pathtracer3),
 ]
 

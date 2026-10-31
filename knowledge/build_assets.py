@@ -128,7 +128,7 @@ CURATED_CONCEPTS = [
     {"concept": "pre-roll particles", "canonical": "PreRoll", "aliases": ["pre-roll", "preroll", "pre roll", "initial simulation", "simulación inicial", "steady state"], "note": "Atención Contrato C10: initializepulse/preroll en particlePOP pueden enfermar el buffer en loops de feedback."},
     {"concept": "lookup texture", "canonical": "LookupTexture", "aliases": ["lookup texture", "lookup texture pop", "uv sampling", "muestreo uv", "texture lookup", "color from texture"], "note": "lookuptexturePOP muestrea color desde un TOP hacia atributos POP."},
     {"concept": "pop render pipeline", "canonical": "PopRenderPipeline", "aliases": ["render pop", "dibujar puntos", "renderizar particulas", "point cloud render", "pointsprite"], "note": "Contrato C2: convertPOP(convert='topointprims') -> nullPOP -> geometryCOMP (borrar torus1!) + cameraCOMP + renderTOP + pointspriteMAT."},
-    {"concept": "pathtracer 3 josef pelz", "canonical": "Pathtracer + PT_GEO + PT_MAT + PT_LIGHT (PT_FAM)", "aliases": ["pathtracer", "pathtracer 3", "pathtracer 3.0", "josef pelz", "pt_fam", "pt_geo", "pt_mat", "pt_light", "dlss ray reconstruction", "pachtracer"], "note": "Contrato C23: PathTracer 3.0.1 de Josef Pelz sobre POPs. Al clonar PT_GEO/PT_MAT/PT_LIGHT desde PT_FAM/PT_OPs fijar allowCooking=True. Usar td_setup_pathtracer3 para montar y parchear automáticamente en TD 2025.32460."},
+    {"concept": "pathtracer 3 josef pelz", "canonical": "Pathtracer + PT_GEO + PT_MAT + PT_LIGHT (PT_FAM)", "aliases": ["pathtracer", "pathtracer 3", "pathtracer 3.0", "josef pelz", "pt_fam", "pt_geo", "pt_mat", "pt_light", "dlss ray reconstruction", "pachtracer", "pach tracer", "patch tracy", "patch tracer", "pach tracy", "pathtracer haze", "humo volumetrico"], "note": "Contrato C23: PathTracer 3.0.1 de Josef Pelz sobre POPs. Reglas críticas: (1) allowCooking=True recursivo al clonar PT_GEO/PT_MAT/PT_LIGHT; (2) scene.par.Software=1 (LBVH síncrono GPU) en escenas POP animadas para evitar caída de ~25% de frames; (3) Humo volumétrico: apagar Haze=False en luces Rect de relleno y encender Haze=True en luces Sphere/Spot con Gobo noiseTOP, Hazevariation=1.0, Hazescale=2.6, Hazemultiple=False; (4) 60 FPS en tiempo real: piso gridPOP rows=2, cols=2, sizex=45, sizey=45 (2 triángulos sin línea de horizonte), 64-96 esferas analíticas (pointPrims), Samples=1, Bounces=4, Hazesamples=4, Quality='Balanced'. Usar td_setup_pathtracer3 (presets 'studio' o 'vortex_haze_60fps')."},
 ]
 
 CURATED_PARAM_ALIASES = [
@@ -146,6 +146,7 @@ CURATED_PARAM_ALIASES = [
     {"requested": "scale", "canonical": "sx / sy / sz", "note": "Escala 3D por eje."},
     {"requested": "rectangle", "canonical": "Rect", "note": "En PT_LIGHT.par.Type el menuName real para luz rectangular es 'Rect', no 'Rectangle' (Contrato C23)."},
     {"requested": "dlss", "canonical": "Dlss", "note": "En Pathtracer.par.Method el menuName real es 'Dlss' (Contrato C23)."},
+    {"requested": "haze", "canonical": "Hazedensity / Hazeanisotropy / Hazesamples / Hazevariation / Hazescale / Hazedrift", "note": "En Pathtracer 3.0 (página Atmosphere), controlar humo volumétrico con Hazedensity=0.14, Hazeanisotropy=0.68, Hazevariation=1.0, Hazescale=2.6, Hazesamples=4, Hazemultiple=False y PT_LIGHT.par.Haze selectivo (Contrato C23)."},
 ]
 
 CURATED_ATTR_ALIASES = [

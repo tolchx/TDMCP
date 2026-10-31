@@ -40,7 +40,7 @@ def test_healthcheck_pines():
     live_n = int(re.search(r"EXPECTED_LIVE = (\d+)", src).group(1))
     ok("healthcheck pinea las 22 offline reales", off == len(server.OFFLINE_NAMES),
        "%d vs %d" % (off, len(server.OFFLINE_NAMES)))
-    ok("healthcheck pinea las 41 live reales", live_n == len(live.LIVE_TOOLS),
+    ok("healthcheck pinea las 42 live reales", live_n == len(live.LIVE_TOOLS),
        "%d vs %d" % (live_n, len(live.LIVE_TOOLS)))
     ok("la guardia puede fallar (no es `if n < esperado`)",
        "if n < EXPECTED_TOOLS:" not in src

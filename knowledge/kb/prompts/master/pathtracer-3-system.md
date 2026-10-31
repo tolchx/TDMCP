@@ -28,6 +28,9 @@ Construir desde cero en `/project1` un sistema completo de **PathTracer 3.0.1 (J
    - `Pathtracer.par.Quality`: `'Dlaa'`, `'Quality'`, `'Balanced'`, `'Performance'`, `'Ultraperformance'`.
 4. **Orientación `-Z`:** `PT_LIGHT` y `cameraCOMP` apuntan hacia `-Z`. Una luz sobre la escena en `(0, 3, 0)` necesita `rx = -90` para apuntar hacia `-Y`.
 5. **Shader dinámico durante el armado:** Mantener `pt.par.Optimizedfor = ''` mientras se agregan o modifican materiales, luces o primitivas para que `trace/flex` renderice al instante sin recompilar.
+6. **Estabilidad temporal en animación POP (`Software = 1`):** En TouchDesigner `2025.32460`, activar siempre `pt.op('scene').par.Software = 1` para usar el **LBVH síncrono en GPU** de PathTracer y evitar que el rebuild asíncrono de hardware (`colpop`) descarte ~25% de los cuadros en POPs animados. En shaders `glslPOP`, usar `float t = mod(uTime, 3600.0);` y velocidades angulares $\omega_i$ fijas por anillo/radio base.
+7. **Humo volumétrico turbulento (`Haze`) selectivo:** Desactivar `par.Haze = False` en luces `Rect` de relleno para no lavar el contraste, y activar `par.Haze = True` únicamente en luces puntuales/focalizadas (`Sphere` + `Spot` cenital con `noiseTOP` conectado a `Projectormap` como Gobo), usando `Hazevariation = 1.0`, `Hazescale = 2.6`, `Hazemultiple = False` y deriva `Hazedrift` animada.
+8. **Presupuesto de 60 FPS en tiempo real (`1280x720`):** Configurar el piso `gridPOP` con `rows = 2, cols = 2, sizex = 45.0, sizey = 45.0` (**`2` triángulos**, sin línea de corte de horizonte), usar **esferas analíticas (`pointPrims`, `64–96` partículas)** en lugar de mallas `spherePOP`, y fijar en `Pathtracer`: `Samples = 1`, `Bounces = 4`, `Hazesamples = 4`, `Method = 'Dlss'`, `Quality = 'Balanced'`.
 
 ## Script de Referencia Verificado (`td_execute` / `live.exec_code`)
 

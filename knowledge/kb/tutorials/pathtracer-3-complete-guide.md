@@ -58,3 +58,7 @@ Todas las pruebas fueron ejecutadas y verificadas con `0` errores en TouchDesign
    - `Hazedensity=0.14, Hazeanisotropy=0.55, Hazevariation=0.35` + `Spot` con `rampTOP` radial como Gobo + `Mesh` light con `torusPOP`.
 6. **Test 6 — Multi-Canal AOVs (`Shaded`, `Normal`, `Depth`, `Albedo`) + DOF (`PASS`, `mean_lum=133.05`):**
    - `pt.seq.Outputs.numBlocks = 4` + `pt.op('views/outputs').module.sync(pt)` + `viewer = True` en `out1..out4`, generando los 4 pases simultáneamente.
+7. **Test 7 — Vórtice Animado de Esferas Analíticas Traslúcidas + Humo Volumétrico FBM 3D (`Haze`) a 60 FPS (`PASS`, `0` frames caídos, `58–60 FPS`, `15.0–17.3 ms/frame`):**
+   - Activado `Pathtracer1/scene.par.Software = 1` (LBVH síncrono en GPU) eliminando el ~25% de frames vacíos del BLAS asíncrono de hardware en POPs animados.
+   - Configurado humo turbulento 3D (`Hazedensity=0.14, Hazeanisotropy=0.68, Hazevariation=1.0, Hazescale=2.6, Hazesamples=4, Hazemultiple=False` + deriva espiral `Hazedrift`) con iluminación volumétrica selectiva (`Haze=False` en luces `Rect` de relleno, `Haze=True` en luz `Sphere` del núcleo + `Spot` cenital con `noiseTOP` Gobo en `Projectormap`).
+   - Optimizado de `9.0 FPS` (`130.0 ms`, `trace/flex=95.3 ms`) a **`58–60 FPS`** (`15.0–17.3 ms`, `trace/flex=9.7 ms`) reduciendo el piso a `2×2` (`2` triángulos, `sizex=45, sizey=45` sin línea de horizonte), usando `64` esferas analíticas (`8×8` en `glslPOP` con `mod(uTime, 3600.0)` y $\omega_i$ fijo por anillo) y fijando `Samples=1, Bounces=4, Quality='Balanced'`.

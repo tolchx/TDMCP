@@ -32,7 +32,7 @@ def check_kb():
 
 
 EXPECTED_OFFLINE = 22  # tools sin TD (server.OFFLINE_NAMES)
-EXPECTED_LIVE = 41  # tools que hablan con el MCP oficial (live.LIVE_TOOLS)
+EXPECTED_LIVE = 42  # tools que hablan con el MCP oficial (live.LIVE_TOOLS)
 EXPECTED_TOOLS = EXPECTED_OFFLINE + EXPECTED_LIVE  # 63: pineadas por separado a propósito
 
 
