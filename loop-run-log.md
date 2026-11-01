@@ -188,3 +188,5 @@
 - 2026-11-01T03:08:04+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 16 | loop-candidates.json
 - 2026-11-01T03:10:10+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=9 | gate.yaml
 - 2026-11-01T03:10:29+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=9 | gate.yaml
+- 2026-11-01T03:10:29+00:00 | gate | — | commit 31041a4 de 5 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-01T03:10:52+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=9 | gate.yaml
