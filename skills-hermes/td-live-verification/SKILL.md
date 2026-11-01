@@ -18,6 +18,30 @@ Esta skill existe por una razón concreta: **casi todas las conclusiones falsas*
 build salen de medir mal, no de que la red esté mal. Los cuatro contratos de abajo se verificaron
 con evidencia numérica (2026-09-29, TD 2025.32460 + TDMCP 1.1.55).
 
+## Regla -1 — antes de medir: ¿el MCP responde? (`mcp_alive_vs_process_alive`)
+
+**Que TouchDesigner exista y el puerto escuche NO significa que el MCP esté vivo.** Medido el
+2026-11-01 (TD 2025.32460, PID vivo): `tasklist` mostraba `TouchDesigner.exe` y `netstat` daba
+`0.0.0.0:13316 LISTENING` (más dos `CLOSE_WAIT` del lado de TD), pero **todo request HTTP al
+endpoint murió por timeout**: `curl -m 10 POST /mcp` → `HTTP=000`, el socket `connect()` daba OK y
+no llegaba un byte, `knowledge/healthcheck.py` → `TimeoutError`, y
+`tools/gauntlet/run_regression.py --quick` → `ENTORNO CAIDO`.
+
+Cuadro típico: TD quedó bloqueado a mitad de sesión (bucle/modal) o el servidor MCP se desactivó en
+la página `MCP` del `.tox`.
+
+**Regla:** el primer chequeo de cualquier sesión es el endpoint, no el proceso:
+
+```bash
+curl -s -m 10 -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:13316/mcp \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}'
+# 200/2xx = vivo · 000 = no atiende
+```
+
+Si da `000` con el proceso arriba: **no se reinicia TD, no se guarda el `.toe`, no se simula la
+medición** — se declara *pendiente por entorno* y se le pide a Tolch que reactive la página `MCP`.
+
 ## Regla 0 — asentar antes de leer (`cook_lag`)
 
 Los cambios de **shader DAT**, **uniforms `vec*`** y parámetros de datos se aplican con **un cook

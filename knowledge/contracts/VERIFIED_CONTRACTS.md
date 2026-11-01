@@ -31,6 +31,12 @@ de `td-knowledge` y de la que se nutren las skills `td-*`.
 >
 > **2026-09-29 (noche, proyecto color):** C11 abajo (glslPOP para colorear: main canónico,
 > inputs por TDIn_*, Color float4 por attr, gradables de color e historial del trail).
+>
+> **2026-11-01 (ciclo diario):** regla de **entorno** `mcp_alive_vs_process_alive` —
+> `TouchDesigner.exe` vivo + `13316` en `LISTENING` **no** implican MCP vivo (medido: `POST /mcp`
+> → `HTTP=000`, healthcheck y gauntlet `TimeoutError`). Chequear el endpoint antes de medir; con
+> `000` se declara *pendiente por entorno*, no se reinicia TD. Detalle en
+> `skills-hermes/td-live-verification` (Regla -1) y `docs/loop-run-2026-11-01.md` §0.
 
 ---
 

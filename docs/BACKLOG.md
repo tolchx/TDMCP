@@ -462,3 +462,11 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
   esquema 'snap' directo para cerrar la receta §2.1 de `td-pop-neighbors-and-rays`. Detalles y
   números en `docs/loop-run-2026-10-30.md` §11 y contratos `neighborpop_bandas` /
   `poptochop_binding_anomalia`.
+
+- [ ] 16. **Hallado por el loop (triage automático)** — 8 archivo(s) modificados sin commitear. Evidencia: tools/apply_galaxy_refinements.py; tools/fix_solid_white_spheres.py; tools/inspect_galaxy.py; tools/inspect_geo.py; tools/inspect_mat.py. Cómo lo detectó: `loop_triage.py` (id `arbol-sucio`, huella `622d72af20b6a3fd`). Qué hacer: Decidir por archivo: es trabajo en curso (commitear) o residuo (revertir). Un árbol sucio contamina al juez externo..
+  - **Detalle (2026-11-01):** los 8 son scripts de sesión de Tolch que manejan TD por
+    `tdmcp_client` (`apply_galaxy_refinements`, `upgrade_galaxy_v5/v8`, `fix_solid_white_spheres`,
+    `inspect_{galaxy,geo,mat}`, `td_cmd`), mtime **2026-10-31 22:46 → 23:41** (sesión galaxy /
+    pathtracer, la misma noche en que el MCP quedó sin responder). El loop **no los toca**: son WIP
+    ajeno a cualquier ítem. Decisión pendiente de Tolch: commitear como `tools/session-*` o borrar.
+    Ver `docs/loop-run-2026-11-01.md` §0 y §2.

@@ -185,3 +185,6 @@
 - 2026-10-31T03:20:19+00:00 | gate | — | commit ff404a5 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
 - 2026-10-31T03:20:39+00:00 | gate | — | commit sobre 1 archivo(s) | ALLOW | conc=0 | gate.yaml
 - 2026-10-31T03:20:39+00:00 | gate | — | commit 3971223 de 1 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-01T03:08:04+00:00 | promocion | L1 | arbol-sucio (peso 2) | item sin brief (decide Tolch) | item 16 | loop-candidates.json
+- 2026-11-01T03:10:10+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=9 | gate.yaml
+- 2026-11-01T03:10:29+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=9 | gate.yaml
