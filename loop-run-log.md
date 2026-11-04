@@ -201,3 +201,7 @@
 - 2026-11-03T03:02:10+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (arbol-sucio = item 16, decision humana, NO promovido); TD CERRADO (sin proceso, puerto 13316 refuse WinError 10061): sin verificacion en vivo, pendiente por entorno; pre-checks offline verdes: selftest 22/22, protocol 64 tools/143 params, td_probe 6/6, single_home 0 | sin item: entorno + docs | docs/loop-run-2026-11-03.md | knowledge/healthcheck.py
 - 2026-11-03T03:02:28+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
 - 2026-11-03T03:02:42+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
+- 2026-11-03T03:02:42+00:00 | gate | — | commit 1d6bf06 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-04T03:02:50+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (arbol-sucio = item 16, decision humana, NO promovido); TD CERRADO (sin proceso, puerto 13316 no escucha, curl 000): sin verificacion en vivo, pendiente por entorno; pre-checks offline verdes: selftest 22/22, protocol 64 tools/143 params/21 secciones/0 isError, td_probe 6/6, single_home 0 | sin item: entorno + docs | docs/loop-run-2026-11-04.md | knowledge/healthcheck.py
+- 2026-11-04T03:04:27+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
+- 2026-11-04T03:04:41+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
