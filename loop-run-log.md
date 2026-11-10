@@ -221,3 +221,7 @@
 - 2026-11-09T04:21:34+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (arbol-sucio = item 16, decision humana, NO promovido); TD CERRADO 6ta corrida (sin proceso, curl 000, healthcheck WinError 10061): sin verificacion en vivo, pendiente por entorno; pre-checks offline verdes: selftest 22/22, protocol 64 tools/143 params/21 secciones/0 isError, td_probe 6/6, single_home 0 | sin item: entorno + docs | docs/loop-run-2026-11-09.md
 - 2026-11-09T04:23:06+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
 - 2026-11-09T04:23:18+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
+- 2026-11-09T04:23:18+00:00 | gate | — | commit 71dbbf9 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-10T03:09:00+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (arbol-sucio = item 16, decision humana, NO promovido; corrida 264); TD CERRADO 7ma corrida (sin proceso, sin listener 13316, curl 000, healthcheck WinError 10061): sin verificacion en vivo, pendiente por entorno; pre-checks offline verdes: selftest 22/22, protocol 64 tools/143 params/21 secciones/0 isError, td_probe 6/6, single_home 0 | sin item: entorno + docs | docs/loop-run-2026-11-10.md
+- 2026-11-10T03:10:06+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
+- 2026-11-10T03:10:21+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
