@@ -72,8 +72,14 @@ def check_td():
     # Vivo NO alcanza: hay que decir EN QUE puerto. Si no es el default del repo, el resto
     # de la cadena (clientes, scripts, config de Hermes) apunta a un puerto muerto y el
     # sintoma es "TD cerrado" con TD abierto (medido 2026-11-11: MCP vivo en 13317).
+    #
+    # PERO esto NO es un fallo de salud: el watchdog es mudo cuando el MCP contesta (si no,
+    # el canario de 30 min manda 48 avisos/dia por un detalle de configuracion que ademas
+    # se resuelve solo). Se informa cuando alguien corre el healthcheck a mano (tty) o pide
+    # el aviso con TDMCP_WARN_DRIFT=1; el drift igual queda visible en `knowledge/endpoint.py`,
+    # en el encabezado del gauntlet y en el BACKLOG.
     ep = live.endpoint_info()
-    if ep.get("drift"):
+    if ep.get("drift") and (os.environ.get("TDMCP_WARN_DRIFT") == "1" or sys.stdout.isatty()):
         problems.append(ep["drift"] + " -> fijalo en <repo>/local/tdmcp-endpoint.txt "
                                       "o en TDMCP_URL")
 

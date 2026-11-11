@@ -60,9 +60,12 @@ python knowledge/endpoint.py     # endpoint <url> (fuente: env|file|probe|defaul
 Orden: `TDMCP_URL` → `<repo>/local/tdmcp-endpoint.txt` (gitignored: la forma natural es anotar
 `13317` o `127.0.0.1:13317`) → sonda `13316..13320` → default. `live.py`, `gauntlet_client.py` y
 `run_regression.py` ya lo usan: si el puerto asumido rechaza la conexión, re-resuelven una sola vez
-por proceso y siguen. Cuando el puerto real no es el default se reporta **drift** — el healthcheck
-lo imprime, así el canario deja de mentir. Fijate el puerto en `local/tdmcp-endpoint.txt` y el
-aviso desaparece (ese archivo no se versiona: es de la máquina).
+por proceso y siguen. Cuando el puerto real no es el default se reporta **drift**: el healthcheck lo
+muestra al correrlo a mano (tty) o con `TDMCP_WARN_DRIFT=1`, y el gauntlet lo imprime en su
+encabezado. Bajo el canario de 30 min queda **mudo a propósito** (watchdog: si el MCP contesta, no
+hay aviso — si no, serían 48 avisos/día por un detalle de configuración que se resuelve solo).
+Fijate el puerto en `local/tdmcp-endpoint.txt` y el aviso desaparece (ese archivo no se versiona:
+es de la máquina, y manda sobre la sonda).
 
 ## Regla 0 — asentar antes de leer (`cook_lag`)
 

@@ -233,3 +233,5 @@
 - 2026-11-11T03:20:43+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=191 | gate.yaml
 - 2026-11-11T03:20:43+00:00 | gate | — | git add falló antes del commit | BLOCK | gate.yaml
 - 2026-11-11T03:21:16+00:00 | gate | — | commit sobre 4 archivo(s) | ALLOW | conc=191 | gate.yaml
+- 2026-11-11T03:21:16+00:00 | gate | — | commit a28b4af de 4 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-11T03:24:06+00:00 | gate | — | commit sobre 4 archivo(s) | ALLOW | conc=191 | gate.yaml
