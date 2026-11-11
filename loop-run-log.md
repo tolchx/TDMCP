@@ -225,3 +225,11 @@
 - 2026-11-10T03:09:00+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (arbol-sucio = item 16, decision humana, NO promovido; corrida 264); TD CERRADO 7ma corrida (sin proceso, sin listener 13316, curl 000, healthcheck WinError 10061): sin verificacion en vivo, pendiente por entorno; pre-checks offline verdes: selftest 22/22, protocol 64 tools/143 params/21 secciones/0 isError, td_probe 6/6, single_home 0 | sin item: entorno + docs | docs/loop-run-2026-11-10.md
 - 2026-11-10T03:10:06+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
 - 2026-11-10T03:10:21+00:00 | gate | — | commit sobre 2 archivo(s) | ALLOW | conc=187 | gate.yaml
+- 2026-11-10T03:10:21+00:00 | gate | — | commit b7e2100 de 2 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-11T03:19:08+00:00 | ciclo-diario | L2 | triage 1 candidato/0 nuevos (arbol-sucio = item 16, decision humana, NO promovido); ENTORNO ESTABA ARRIBA: TD vivo con MCP 1.1.55 en 13317 (13316 sin listener) => 7 corridas previas dijeron "TD cerrado" por puerto asumido; ITEM 17 ejecutado (knowledge/endpoint.py: env > local/tdmcp-endpoint.txt > sonda initialize 13316..13320 > default; cableado en live.py/healthcheck.py/gauntlet_client.py/run_regression.py + drift en canario); autoprueba 24/24 (cazo bug de drift incondicional); gauntlet COMPLETO en vivo PASS 8 fases + F4 INFO url=13317 sin env (results/20261111-001647); pre-checks: selftest 22/22, protocol 64 tools/143 params/21 secciones/0 isError, td_probe 6/6, juez_scope PASS, triage_evidence 21/21, guards 0 | item 17 + docs | docs/loop-run-2026-11-11.md
+- 2026-11-11T03:19:51+00:00 | gate | — | commit sobre 8 archivo(s) | ALLOW | conc=195 | gate.yaml
+- 2026-11-11T03:20:14+00:00 | gate | — | commit sobre 8 archivo(s) | ALLOW | conc=195 | gate.yaml
+- 2026-11-11T03:20:14+00:00 | gate | — | commit 31ef146 de 8 archivo(s) (pathspec, --do-commit) | gate.yaml
+- 2026-11-11T03:20:43+00:00 | gate | — | commit sobre 5 archivo(s) | ALLOW | conc=191 | gate.yaml
+- 2026-11-11T03:20:43+00:00 | gate | — | git add falló antes del commit | BLOCK | gate.yaml
+- 2026-11-11T03:21:16+00:00 | gate | — | commit sobre 4 archivo(s) | ALLOW | conc=191 | gate.yaml

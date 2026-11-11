@@ -16,6 +16,14 @@ TD: exit 2 = entorno caído → se saltea, no es rojo) · `tools/gauntlet/check_
 `tools/gauntlet/td_probe.py`. Con `requireGreenTests: true`, cualquiera que se ponga rojo deja el
 commit en **BLOCK**.
 
+**Endpoint del MCP (2026-11-11, ítem 17):** ninguna suite asume ya el puerto. `knowledge/endpoint.py`
+resuelve el endpoint real (`TDMCP_URL` → `<repo>/local/tdmcp-endpoint.txt` → sonda `initialize` en
+`13316..13320` → default) y `live.py`, `healthcheck.py`, `gauntlet_client.py` y `run_regression.py`
+lo consumen; el gauntlet fija `TDMCP_URL` para sus hijos. Medido con TD vivo en **`13317`**:
+`run_regression.py` completo → `PASS` (8 fases `PASS` + F4 `INFO`), reporte
+`results/20261111-001647/regression-report.json` con `"url": "http://127.0.0.1:13317/mcp"`.
+Autoprueba offline: `scripts/test_endpoint_resolver.py` **24/24**.
+
 Probado el 2026-09-29 sobre el árbol de la sesión:
 
 | qué | corrida / salida real |
@@ -470,3 +478,18 @@ Dos redes nuevas construidas y verificadas contra TD vivo, con el camino de medi
     pathtracer, la misma noche en que el MCP quedó sin responder). El loop **no los toca**: son WIP
     ajeno a cualquier ítem. Decisión pendiente de Tolch: commitear como `tools/session-*` o borrar.
     Ver `docs/loop-run-2026-11-01.md` §0 y §2.
+
+- [x] 17. **Hallado por el loop (ciclo diario 2026-11-11)** — el repo asumía que el MCP oficial vive
+  en `13316`; el puerto real es el que tenga puesto la página `MCP` del `.tox`. Medido: TD vivo con
+  el MCP **1.1.55 respondiendo en `13317`** (`initialize` → `serverInfo`), `13316` sin listener →
+  siete corridas seguidas del ciclo diario reportaron «TD cerrado — pendiente por entorno» con el
+  entorno arriba. Fix: `knowledge/endpoint.py` (`TDMCP_URL` → `local/tdmcp-endpoint.txt` → sonda
+  `initialize` en `13316..13320` → default) cableado en `live.py` (re-resuelve una vez por proceso
+  tras un `ECONNREFUSED`), `healthcheck.py` (avisa **drift**), `gauntlet_client.py` y
+  `run_regression.py` (fija `TDMCP_URL` para los hijos). Autoprueba offline
+  `scripts/test_endpoint_resolver.py` **24/24** (incluye «puerto abierto ≠ MCP vivo»; el chequeo 6
+  cazó un bug real de la rama de sonda: `drift` incondicional). Verificación en vivo: gauntlet
+  completo `PASS` contra `13317` sin variable de entorno (`results/20261111-001647`). Contrato
+  `mcp_port_is_not_fixed`. Detalle en `docs/loop-run-2026-11-11.md`.
+  - **Pendiente de Tolch (1 min):** anotar el puerto en `local/tdmcp-endpoint.txt` (una línea,
+    gitignored) para apagar el aviso de drift del canario.

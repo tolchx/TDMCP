@@ -42,6 +42,28 @@ curl -s -m 10 -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:13316/mc
 Si da `000` con el proceso arriba: **no se reinicia TD, no se guarda el `.toe`, no se simula la
 medición** — se declara *pendiente por entorno* y se le pide a Tolch que reactive la página `MCP`.
 
+### El puerto NO es 13316: es el que tenga puesto el `.tox` (`mcp_port_is_not_fixed`)
+
+`13316` es el **default de fábrica**, no una constante del entorno. El puerto vive en la página
+`MCP` del `.tox`, o sea **dentro del TOE abierto**. Medido el **2026-11-11**: `TouchDesigner.exe`
+vivo, `netstat` con `0.0.0.0:13317 LISTENING` y **`13316` sin listener**; el MCP 1.1.55 respondía
+perfecto en `13317`. Siete corridas seguidas del ciclo diario reportaron «TD cerrado
+(WinError 10061) — pendiente por entorno» sobre un TD que estaba arriba y sano.
+
+**Regla:** nunca escribas el puerto a mano ni concluyas «TD caído» de un `13316` que no contesta.
+Usá el resolver, que prueba el `initialize` real (no sólo TCP abierto):
+
+```bash
+python knowledge/endpoint.py     # endpoint <url> (fuente: env|file|probe|default) — vivo/drift
+```
+
+Orden: `TDMCP_URL` → `<repo>/local/tdmcp-endpoint.txt` (gitignored: la forma natural es anotar
+`13317` o `127.0.0.1:13317`) → sonda `13316..13320` → default. `live.py`, `gauntlet_client.py` y
+`run_regression.py` ya lo usan: si el puerto asumido rechaza la conexión, re-resuelven una sola vez
+por proceso y siguen. Cuando el puerto real no es el default se reporta **drift** — el healthcheck
+lo imprime, así el canario deja de mentir. Fijate el puerto en `local/tdmcp-endpoint.txt` y el
+aviso desaparece (ese archivo no se versiona: es de la máquina).
+
 ## Regla 0 — asentar antes de leer (`cook_lag`)
 
 Los cambios de **shader DAT**, **uniforms `vec*`** y parámetros de datos se aplican con **un cook
