@@ -37,6 +37,15 @@ de `td-knowledge` y de la que se nutren las skills `td-*`.
 > → `HTTP=000`, healthcheck y gauntlet `TimeoutError`). Chequear el endpoint antes de medir; con
 > `000` se declara *pendiente por entorno*, no se reinicia TD. Detalle en
 > `skills-hermes/td-live-verification` (Regla -1) y `docs/loop-run-2026-11-01.md` §0.
+>
+> **2026-11-11 (ciclo diario):** regla de entorno `mcp_port_is_not_fixed` — `13316` es el default
+> de fábrica, no una constante: el puerto del MCP vive en la página `MCP` del `.tox`. Medido ese
+> día: TD vivo con el MCP 1.1.55 respondiendo en **`13317`** y `13316` sin listener → siete
+> corridas del ciclo diario dijeron «TD cerrado / pendiente por entorno» sobre un entorno sano.
+> Fix: `knowledge/endpoint.py` (env → `local/tdmcp-endpoint.txt` → sonda `initialize` en
+> `13316..13320` → default) cableado en `live.py`, `gauntlet_client.py` y `run_regression.py`, con
+> aviso de **drift** en el healthcheck. Autoprueba offline: `scripts/test_endpoint_resolver.py`
+> (24/24, incluye «puerto abierto ≠ MCP vivo»). Detalle en `docs/loop-run-2026-11-11.md`.
 
 ---
 

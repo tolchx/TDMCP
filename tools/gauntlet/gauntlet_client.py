@@ -16,11 +16,23 @@ import time
 import urllib.error
 import urllib.request
 
-URL = os.environ.get("TDMCP_URL", "http://127.0.0.1:13316/mcp")
 TIMEOUT = float(os.environ.get("TDMCP_TIMEOUT", "120"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.join(HERE, "results")
 MARK = "<<JSON>>"
+
+
+def _endpoint():
+    """Carga knowledge/endpoint.py por ruta: el mismo hogar que usa live.py."""
+    path = os.path.normpath(os.path.join(HERE, "..", "..", "knowledge", "endpoint.py"))
+    spec = importlib.util.spec_from_file_location("td_knowledge_endpoint", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+EP = _endpoint().resolve()  # puerto REAL del MCP (env > local/tdmcp-endpoint.txt > sonda)
+URL = EP["url"]
 
 _KNOWLEDGE = None
 _WIRE = None

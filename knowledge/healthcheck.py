@@ -68,6 +68,14 @@ def check_td():
     st = live.t_status({})
     if not st.get("td_up"):
         problems.append("TD/TDMCP no responde: " + str(st.get("error"))[:140])
+        return
+    # Vivo NO alcanza: hay que decir EN QUE puerto. Si no es el default del repo, el resto
+    # de la cadena (clientes, scripts, config de Hermes) apunta a un puerto muerto y el
+    # sintoma es "TD cerrado" con TD abierto (medido 2026-11-11: MCP vivo en 13317).
+    ep = live.endpoint_info()
+    if ep.get("drift"):
+        problems.append(ep["drift"] + " -> fijalo en <repo>/local/tdmcp-endpoint.txt "
+                                      "o en TDMCP_URL")
 
 
 for fn in (check_kb, check_tools, check_contracts, check_td):

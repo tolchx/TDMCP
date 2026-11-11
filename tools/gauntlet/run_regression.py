@@ -26,6 +26,7 @@ Exit codes: 0 = PASS global · 1 = FAIL global · 2 = entorno caído.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import subprocess
@@ -35,7 +36,19 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.join(HERE, "results")
-URL = os.environ.get("TDMCP_URL", "http://127.0.0.1:13316/mcp")
+
+
+def _endpoint():
+    """Carga knowledge/endpoint.py por ruta (sin depender del sys.path del caller)."""
+    path = os.path.normpath(os.path.join(HERE, "..", "..", "knowledge", "endpoint.py"))
+    spec = importlib.util.spec_from_file_location("td_knowledge_endpoint", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+EP = _endpoint().resolve()  # puerto REAL del MCP (env > local/tdmcp-endpoint.txt > sonda)
+URL = EP["url"]
 
 # (etiqueta, script, summaries, requerida)  — summaries = nombres de fase que
 # el script le pasa a Gauntlet() (así se llama su *-summary.json)
@@ -146,7 +159,12 @@ def main() -> int:
         print(f"ENTORNO CAIDO — no hay server MCP en {URL} ({info})")
         print("Abri TouchDesigner con el .tox TDMCP y pulsa Active en su pagina MCP.")
         return 2
-    print(f"Server: {info} @ {URL}")
+    # el endpoint resuelto se fija para los hijos: todas las fases hablan con el MISMO puerto
+    # (si no, cada script vuelve a sondear y un drift se paga una vez por fase)
+    os.environ["TDMCP_URL"] = URL
+    print(f"Server: {info} @ {URL}" + (f"  [{EP['source']}]" if EP.get("source") else ""))
+    if EP.get("drift"):
+        print(f"AVISO  {EP['drift']}")
 
     run_id = time.strftime("%Y%m%d-%H%M%S") + (f"-{args.tag}" if args.tag else "")
     out_dir = os.path.join(RESULTS, run_id)

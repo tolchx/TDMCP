@@ -6,6 +6,8 @@ No hay bridge: se habla MCP contra el server OFICIAL de Derivative
 tools devuelven un error claro y las offline siguen funcionando.
 
 Env: TDMCP_URL (default http://127.0.0.1:13316/mcp), TDMCP_TIMEOUT (default 60).
+El default NO se asume: si el puerto configurado no contesta, `endpoint.py` busca el real
+(el `.tox` puede estar escuchando en otro puerto) y avisa en `endpoint_info()["drift"]`.
 """
 from __future__ import annotations
 
@@ -15,12 +17,40 @@ import re
 import urllib.error
 import urllib.request
 
+import endpoint as _endpoint
 import wire as _wire
 
-URL = os.environ.get("TDMCP_URL", "http://127.0.0.1:13316/mcp")
+_ENDPOINT = _endpoint.resolve(do_probe=False)  # rápido: env > archivo > default
+URL = _ENDPOINT["url"]
 TIMEOUT = float(os.environ.get("TDMCP_TIMEOUT", "60"))
 _SID: str | None = None
 _ID = 500
+_PROBED = False
+
+
+def endpoint_info(refresh: bool = False) -> dict:
+    """Endpoint vigente. `refresh=True` lo vuelve a resolver CON sonda de puertos."""
+    global _ENDPOINT, URL
+    if refresh:
+        _ENDPOINT = _endpoint.resolve()
+        URL = _ENDPOINT["url"]
+    return _ENDPOINT
+
+
+def _reresolve() -> bool:
+    """Tras un ECONNREFUSED: ¿el MCP está en otro puerto? True si cambió la URL.
+
+    Se hace una sola vez por proceso: si TD está realmente cerrado, no se paga la
+    sonda en cada llamada.
+    """
+    global _PROBED, _SID
+    if _PROBED:
+        return False
+    _PROBED = True
+    before = URL
+    ep = endpoint_info(refresh=True)
+    _SID = None
+    return ep["url"] != before
 
 
 def _post(payload: dict, timeout: float | None = None) -> dict:
@@ -96,6 +126,8 @@ def call(tool: str, args: dict | None = None, timeout: float | None = None) -> t
             last_err = e
             _SID = None
             if attempt < 2 and _wire.is_refused(e):
+                if attempt == 0 and _reresolve():
+                    continue  # el `.tox` escuchaba en otro puerto: reintento ya
                 time.sleep(0.25 * (attempt + 1))
                 continue
             return False, {"error": f"TouchDesigner no responde en {URL} ({type(last_err).__name__}: {last_err})",

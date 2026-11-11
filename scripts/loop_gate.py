@@ -414,6 +414,9 @@ def run_tests() -> tuple[bool, dict]:
         # señal de evidencia en rojo del triage (ítem 6): antes globeaba sin recursión
         # y buscaba `all_ok`, así que jamás veía un rojo de fase. Autoprueba sin red.
         ("triage_evidence_selftest", ["python", "scripts/test_triage_evidence.py"], ROOT),
+        # resolución del endpoint del MCP (ítem 17): que el puerto se resuelva y no se
+        # asuma 13316. Autoprueba sin TD (servidores falsos en puertos efímeros).
+        ("endpoint_selftest", ["python", "scripts/test_endpoint_resolver.py"], ROOT),
     ]
     for nombre, cmd, cwd in pasos:
         try:
