@@ -71,7 +71,7 @@ Load `td-general` first on any TD task, then load by intent. Respect phase — d
 - `td-python-extension` — Python extension classes, lifecycle, state · anytime
 - `td-geometry-instancing` — instance geometry from CHOP/DAT/TOP/POP · anytime
 - `td-lister-ui` — Lister / TreeLister UI, data browsers · anytime
-- `td-aavj-modern-ui` — Modern DAW-grade dark-mode UI/UX design, centralized color tokens, Bahnschrift typography, responsive flex layouts, dynamic parameter inspectors, and VRAM collapsing engines · anytime
+- `td-modern-pro-ui` — ProSlate DAW-grade dark-mode UI/UX design system, centralized color tokens, Bahnschrift typography, responsive flex layouts, dynamic parameter inspectors, and VRAM collapsing engines · anytime
 - `td-colab` — collaborative mode: thinking partner, reset the build-frame · anytime
 - `td-working-mode` — route to your strengths: code-on-disk + verify, minimize blind node-building · anytime
 - `td-review-network` — verify, error-check a finished build · post-build
