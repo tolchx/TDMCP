@@ -72,6 +72,9 @@ Load `td-general` first on any TD task, then load by intent. Respect phase — d
 - `td-geometry-instancing` — instance geometry from CHOP/DAT/TOP/POP · anytime
 - `td-lister-ui` — Lister / TreeLister UI, data browsers · anytime
 - `td-modern-pro-ui` — ProSlate DAW-grade dark-mode UI/UX design system, centralized color tokens, Bahnschrift typography, responsive flex layouts, dynamic parameter inspectors, and VRAM collapsing engines · anytime
+- `td-glsl-jpshaders-expert` — GLSL Shader system for TouchDesigner integrated with JPShaders parameterized WebGL library · anytime
+- `td-pops-tops-scene-builder` — 3D GPU Particle simulations and 2D Texture post-processing pipelines · anytime
+- `td-timeline-scene-orchestrator` — Multi-layer audiovisual show scheduling and TouchDesigner Multi-Layer Timeline (TD-MTL) · anytime
 - `td-colab` — collaborative mode: thinking partner, reset the build-frame · anytime
 - `td-working-mode` — route to your strengths: code-on-disk + verify, minimize blind node-building · anytime
 - `td-review-network` — verify, error-check a finished build · post-build

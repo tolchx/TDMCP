@@ -144,6 +144,8 @@ Cursor and OpenCode v1 have no skills mechanism we have been able to establish, 
 
 **The component owns the `td-` namespace.** Each install removes any `td-*` skill *it previously installed* that the current source no longer ships, so renames do not leave orphans. A `td-*` folder it did not install is left alone, as is anything without the prefix.
 
+> **Hermes & Universal Agent Skills (45 Skills):** Este repositorio incluye en `skills-hermes/` una suite integral de 45 skills portables adaptadas para agentes LLM (Hermes, Claude Code, Antigravity, OpenCode, Codex), incluyendo el nuevo framework de diseño UI profesional **`td-modern-pro-ui`** (ProSlate UI estándar DAW-grade), shaders de JPShaders (**`td-glsl-jpshaders-expert`**), generadores de escenas POP/TOP (**`td-pops-tops-scene-builder`**) y orquestación de timeline (**`td-timeline-scene-orchestrator`**). Ver [Hermes & Universal Agent Skills Ecosystem](#hermes--universal-agent-skills-ecosystem-45-skills).
+
 ## Security
 
 The server exposes `execute_code`. Treat reaching it as equivalent to a shell on your machine.
@@ -395,6 +397,72 @@ El MCP incluye soporte nativo, conocimiento indexado (`pathtracer-3-josef-pelz`,
   5. **Multi-AOV (`Outputs` seq)**: `sync(pt_render)` genera `out1..outN` (`Shaded`, `Albedo`, `Normal`, `Position`, `Depth`, `Alpha`, etc.); si un `outK` secundario no tiene un TOP downstream conectado, activar `outK.viewer = True` para forzar el pull de `views/accum`.
   6. **Parche automático TD `<= 2025.32460`**: `td_setup_pathtracer3` aplica automáticamente el guard `hasattr(popto.par, 'downloadtype')` en `material_textures/script1_callbacks` y normaliza los `ivec3[]` estáticos en `pt_render/shader_includes` para compilación GLSL limpia sin pérdida de calidad.
 - **6 tests empíricos verificados (`PASS` / 0 errores)**: escena básica + object/material picking (`132` samples), escena híbrida TD nativo (`122` samples), galería de materiales + cáusticas de vidrio IOR 1.5 (`140` samples), esferas y tubos POP analíticos con atributos por punto (`152` samples), niebla volumétrica (`Haze`) + spotlight + mesh light con `Direct Sampling` (`150` samples), y descomposición Multi-AOV (`204` samples). Documentación completa en [docs/pathtracer-3-josef-pelz.md](docs/pathtracer-3-josef-pelz.md).
+
+---
+
+### Hermes & Universal Agent Skills Ecosystem (45 Skills)
+
+Además del servidor oficial y `td-knowledge`, este repositorio provee la suite integral **`skills-hermes/`** (45 skills modulares con frontmatter estandarizado, mapeo automático a tools MCP y directivas de disciplina constructiva):
+
+```
+skills-hermes/
+├── UI & UX Design System
+│   ├── td-modern-pro-ui            # ProSlate DAW-Grade Dark-Mode UI/UX, tokens, flex, GLSL shaders
+│   └── td-lister-ui                # Lister / TreeLister, data browsers & table navigation
+├── Generative & Scene Pipelines
+│   ├── td-glsl-jpshaders-expert    # Sistema GLSL + JPShaders (770+ shaders con créditos y web button)
+│   ├── td-pops-tops-scene-builder  # Blueprints de simulación GPU POP 3D y post-procesamiento TOP 2D
+│   └── td-timeline-scene-orchestrator # Multi-Layer Timeline (TD-MTL), show control y scheduling
+├── Operator Family Guides (7 families)
+│   ├── td-top-family               # Texturas, composición, render, feedback loops
+│   ├── td-chop-family              # Audio, LFOs, señales de control, math, lag
+│   ├── td-pop-family               # Partículas GPU, point clouds, campos de fuerza
+│   ├── td-sop-family               # Geometría procedural CPU, conversiones
+│   ├── td-dat-family               # Tablas, scripts Python, execute callbacks
+│   ├── td-mat-family               # Materiales PBR, Phong, Constant, Point Sprite
+│   └── td-comp-architecture        # Contenedores, extensiones Python, custom parameters
+├── POP Advanced Simulation Suites (14 skills)
+│   ├── td-pop-particle-systems     # Decision matrix: feedbackPOP vs particlePOP vs compute
+│   ├── td-pop-neighbors-and-rays   # Flocking, proximidad, rayPOP y gating de colisiones
+│   ├── td-pop-forceradial-spiral   # Integración de vórtices y espirales
+│   ├── td-pop-trails-fields        # Estelas, líneas métricas y advección por campos
+│   ├── td-pop-audio-reactive       # Reactividad espectral aplicada a partículas
+│   └── td-pop-render-pipeline      # Pipeline POP→Render (geometryCOMP + renderTOP + pointspriteMAT)
+└── Workflow & Live Verification
+    ├── td-general                  # Mapa maestro de skills, convenciones de nombrado y rutas
+    ├── td-build-planning           # Planificación rigurosa antes de instanciar operadores
+    ├── td-working-mode             # Enfoque código-en-disco + verificación visual
+    ├── td-live-verification        # Asentamiento de cooks, lectura de píxeles y validación sin falsos positivos
+    ├── td-review-network           # Auditoría profunda de errores y topología de cableado
+    ├── td-performance-check        # Optimización de VRAM/CPU y perfilado de frame budget (16.6ms)
+    └── td-network-cleanup          # Alineación por flujo de datos y ordenamiento NetworkTidy
+```
+
+#### Modern Pro UI Architecture (`td-modern-pro-ui`)
+
+El nuevo skill **`td-modern-pro-ui`** encapsula la arquitectura UI/UX moderna **ProSlate**, diseñada específicamente para construir interfaces de control audiovisual de grado profesional (estilo Ableton Live, Bitwig Studio o Resolume) con rendimiento garantizado de 60 FPS bajo el pipeline Vulkan de TouchDesigner 2025+:
+
+1. **Identidad Visual & Micro-Contraste:**
+   - **Canvas Slate Profundo:** Fondos calibrados (`#060708` a `#0b0c0e`) que previenen fatiga visual en sesiones prolongadas.
+   - **Bordes Geométricos de 1px:** Delimitación sutil entre paneles (`#1f2126` / `alpha=0.6`) sin recargar la interfaz.
+   - **Acentos Muted:** Estados activos en Cyan/Teal desaturado (`#537885`) y hovers dinámicos; colores brillantes reservados exclusivamente para alertas (`#d92e2e`).
+   - **Tipografía `Bahnschrift Condensed`:** Fuente nativa variable de alta densidad horizontal que evita el truncado de nombres de parámetros complejos.
+   - **Iconos Vectoriales sin Texturas:** Empleo de glifos vectoriales Unicode (`Material Design Icons` / `Segoe UI Symbol`) dentro de `textCOMP`s para eliminar la carga innecesaria de texturas PNG en VRAM.
+
+2. **Motor de Tokens Centralizado (`/ui/colors`):**
+   - Repositorio único de tokens semánticos (`panel_bg`, `panel_base`, `text_static`, `text_active`, `outline_static`, `button_off`, `button_on`, `accent_teal`, `warning_red`) enlazados mediante Python bindings (`op('/ui/colors').ext.Colors.Get('panel_base')`).
+
+3. **Layouts Flexibles y Responsivos:**
+   - Auto-dimensionamiento algorítmico mediante alineación nativa de contenedores (`verttb`, `horizlr`, `stretch`), reemplazando coordenadas absolutas hardcodeadas (`nodeX`/`nodeY`) por jerarquías adaptables a cualquier resolución de pantalla.
+
+4. **Shaders UI Acelerados por GPU (GLSL):**
+   - Controles interactivos (sliders, faders, medidores) implementados con shaders GLSL que ejecutan anti-aliasing subpíxel y bordes redondeados directamente en GPU sin crear TOPs intermedios pesados.
+
+5. **Inspector Universal Dinámico:**
+   - Generación automática de paneles inspectores que leen y exponen páginas de parámetros personalizadas (`customPars`) de cualquier operador o contenedor con enlace bidireccional instantáneo.
+
+6. **Conservación de VRAM & Contratos Vulkan a 60 FPS:**
+   - Desactivación sistemática de viewers en COMPs secundarios (`viewer = False`) para colapsar búferes de visualización y evitar fugas de VRAM, cumpliendo con el presupuesto de cuadro de 16.67 ms.
 
 ## Other clients and advanced setup
 
